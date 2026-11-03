@@ -1,0 +1,8 @@
+out
+dist
+node_modules
+package-lock.json
+docs
+src/shared/domain/types.ts
+src/main/db/migrations
+LICENSE

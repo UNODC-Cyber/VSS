@@ -1,0 +1,16 @@
+{
+  "_doc": "Spelling variants canonicalised before classification (folded forms). A canonical form that is listed as a particle is treated as a particle. Every group is marked VERIFY: a wrong group merges two different names into one core token.",
+  "groups": [
+    {
+      "canonical": "muhammad",
+      "variants": ["mohd", "mohamad", "mohammad", "mohammed", "mohamed", "muhamad", "muhammed", "md", "mhd"],
+      "verify": true
+    },
+    { "canonical": "abdul", "variants": ["abd"], "verify": true },
+    { "canonical": "nur", "variants": ["nor", "noor"], "verify": true },
+    { "canonical": "ahmad", "variants": ["ahmed"], "verify": true },
+    { "canonical": "haji", "variants": ["hj", "hji"], "verify": true },
+    { "canonical": "hajjah", "variants": ["hjh", "hajah"], "verify": true },
+    { "canonical": "binti", "variants": ["bt", "bte", "binte"], "verify": true }
+  ]
+}

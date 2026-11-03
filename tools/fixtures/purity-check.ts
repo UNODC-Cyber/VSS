@@ -1,0 +1,102 @@
+/**
+ * Purity gate for committed workbooks: this repository is public, so every fixture must be synthetic.
+ *
+ *   node tools/fixtures/purity-check.ts
+ *
+ * Rules, for every .xlsx below fixtures/:
+ *  - every string (shared string table entries and every string cell) is either in fixtures/purity-allowlist.json
+ *    (structural text of the generated blank workbook) or was produced by the generator for that very file;
+ *  - no customXml, docMetadata, printerSettings, docProps/custom.xml, drawings or media parts;
+ *  - workbook.xml has no x15ac:absPath, and creator / lastModifiedBy are exactly "VSS".
+ */
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
+import { loadSharedStrings, loadSheet, openWorkbook, partText } from '../../src/main/formats/ooxml/workbook.ts';
+import { FIXTURES_DIR, generateFixtures } from './generate.ts';
+
+export interface PurityViolation {
+  file: string;
+  kind: 'string' | 'part' | 'metadata';
+  detail: string;
+}
+
+const FORBIDDEN_PART =
+  /^(customXml\/|docMetadata\/|docProps\/custom\.xml$|xl\/printerSettings\/|xl\/drawings\/|xl\/media\/|xl\/embeddings\/|xl\/comments|xl\/externalLinks\/)/;
+
+function listXlsx(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const p = resolve(dir, name);
+    if (statSync(p).isDirectory()) out.push(...listXlsx(p));
+    else if (name.toLowerCase().endsWith('.xlsx')) out.push(p);
+  }
+  return out.sort();
+}
+
+const show = (s: string): string => (s.length > 60 ? `${s.slice(0, 57)}...` : s).replace(/[\r\n\t]/g, ' ');
+
+export function checkWorkbook(
+  rel: string,
+  bytes: Uint8Array,
+  allowlist: ReadonlySet<string>,
+  generated: ReadonlySet<string>,
+): PurityViolation[] {
+  const v: PurityViolation[] = [];
+  const opened = openWorkbook(bytes);
+  if (!opened.ok) return [{ file: rel, kind: 'part', detail: `not a workbook: ${opened.reason}` }];
+  const { pkg, info } = opened;
+  for (const name of pkg.order) {
+    if (FORBIDDEN_PART.test(name)) v.push({ file: rel, kind: 'part', detail: `forbidden part ${name}` });
+  }
+  const wb = partText(pkg, 'xl/workbook.xml') ?? '';
+  if (/absPath/.test(wb)) v.push({ file: rel, kind: 'metadata', detail: 'workbook.xml carries an absPath' });
+  const core = partText(pkg, 'docProps/core.xml') ?? '';
+  for (const tag of ['dc:creator', 'cp:lastModifiedBy']) {
+    const m = new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(core);
+    if (m && m[1] !== 'VSS') v.push({ file: rel, kind: 'metadata', detail: `${tag} is not "VSS"` });
+  }
+  const app = partText(pkg, 'docProps/app.xml') ?? '';
+  if (/<(Company|Manager)>[^<]+</.test(app))
+    v.push({ file: rel, kind: 'metadata', detail: 'app.xml names a company or manager' });
+  const ok = (s: string): boolean => s === '' || allowlist.has(s) || generated.has(s);
+  const sst = loadSharedStrings(pkg, info);
+  for (const s of sst.toArray())
+    if (!ok(s)) v.push({ file: rel, kind: 'string', detail: `unlisted string: ${show(s)}` });
+  for (const ref of info.sheets) {
+    const sheet = loadSheet(pkg, ref, sst);
+    if (!sheet) continue;
+    for (const r of sheet.rowNumbers()) {
+      for (const c of sheet.rowCells(r)) {
+        if (c.kind === 'string' && !ok(c.text))
+          v.push({ file: rel, kind: 'string', detail: `unlisted string in ${ref.name}!${c.ref}: ${show(c.text)}` });
+      }
+    }
+  }
+  return v;
+}
+
+export function checkPurity(fixturesDir: string = FIXTURES_DIR): PurityViolation[] {
+  const allow = new Set<string>(
+    (JSON.parse(readFileSync(resolve(fixturesDir, 'purity-allowlist.json'), 'utf8')) as { strings: string[] }).strings,
+  );
+  const { xlsxStrings } = generateFixtures();
+  const violations: PurityViolation[] = [];
+  for (const abs of listXlsx(fixturesDir)) {
+    const rel = relative(fixturesDir, abs).replace(/\\/g, '/');
+    violations.push(...checkWorkbook(rel, new Uint8Array(readFileSync(abs)), allow, xlsxStrings.get(rel) ?? new Set()));
+  }
+  return violations;
+}
+
+function main(): void {
+  const violations = checkPurity();
+  for (const x of violations) console.error(`${x.file}: [${x.kind}] ${x.detail}`);
+  if (violations.length > 0) {
+    console.error(`${violations.length} purity violation(s)`);
+    process.exit(1);
+  }
+  console.log('fixture purity check passed');
+}
+
+import { pathToFileURL } from 'node:url';
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();

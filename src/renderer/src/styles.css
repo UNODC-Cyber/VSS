@@ -1,0 +1,17 @@
+/* Accessibility overrides on top of Mantine defaults (WCAG AA contrast). */
+:root[data-mantine-color-scheme='light'] {
+  --mantine-color-dimmed: #495057;
+  --mantine-color-placeholder: #6c727a;
+  --mantine-color-orange-light-color: #9c4300;
+  --mantine-color-orange-outline: #9c4300;
+  --mantine-color-yellow-light-color: #6b5000;
+  --mantine-color-yellow-outline: #6b5000;
+  --mantine-color-red-light-color: #b02020;
+  --mantine-color-red-outline: #b02020;
+  --mantine-color-green-light-color: #1f6f31;
+  --mantine-color-green-outline: #1f6f31;
+  --mantine-color-blue-light-color: #1864ab;
+  --mantine-color-blue-outline: #1864ab;
+  --mantine-color-gray-light-color: #343a40;
+  --mantine-color-gray-outline: #343a40;
+}

@@ -1,0 +1,19 @@
+node_modules/
+out/
+dist/
+/release/
+# Update-signing seed files must live offline, never in a repo (docs/RELEASE-RUNBOOK.md)
+vss-update-*.json
+*.log
+.env
+.env.*
+coverage/
+test-results/
+playwright-report/
+*.vss
+vss.db
+vault.json
+*.pem
+*.key
+.DS_Store
+Thumbs.db

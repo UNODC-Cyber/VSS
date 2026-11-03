@@ -1,0 +1,307 @@
+{
+  "assistanceLine": "Example Workshop - Example City - 11/20/2026",
+  "batchId": "SYNTH-0000000001",
+  "blocked": false,
+  "description": "Every unit and individual of req-001 approved; names in Surname, Given form.",
+  "id": "resp-001-all-approved",
+  "issues": [],
+  "post": "Example City",
+  "resultsAsOf": "2026-10-22",
+  "rows": [
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1996-12-11",
+        "value": "12/11/1996"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "empty",
+        "parsed": null,
+        "value": ""
+      },
+      "given": [
+        "Bachop"
+      ],
+      "nameRaw": "Siarorikpon, Bachop",
+      "pob": {
+        "city": "NOJAMMAT",
+        "country": "THAILAND",
+        "state": "BIMAK"
+      },
+      "rowRef": "Final_Results!9",
+      "script": "Latn",
+      "section": "approved-unit",
+      "surname": "Siarorikpon",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "empty",
+        "parsed": null,
+        "value": ""
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "empty",
+        "parsed": null,
+        "value": ""
+      },
+      "given": [],
+      "nameRaw": "UNKNOWN,    ",
+      "pob": {
+        "city": null,
+        "country": null,
+        "state": null
+      },
+      "rowRef": "Final_Results!10",
+      "script": "Latn",
+      "section": "approved-unit",
+      "surname": "UNKNOWN",
+      "unitName": "Example Highway Patrol Division 2",
+      "unitType": "Military",
+      "unknownCommander": true
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1996-12-11",
+        "value": "12/11/1996"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "Bachop"
+      ],
+      "nameRaw": "Siarorikpon, Bachop",
+      "pob": {
+        "city": "NOJAMMAT",
+        "country": "THAILAND",
+        "state": "BIMAK"
+      },
+      "rowRef": "Final_Results!14",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "Siarorikpon",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1989-08-03",
+        "value": "8/3/1989"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "Moeta"
+      ],
+      "nameRaw": "Buthasak, Moeta",
+      "pob": {
+        "city": "CHOETAI",
+        "country": "THAILAND",
+        "state": "WIAJAONG"
+      },
+      "rowRef": "Final_Results!15",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "Buthasak",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1977-07-28",
+        "value": "7/28/1977"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "SILEEM"
+      ],
+      "nameRaw": "THAIKHAMUM, SILEEM",
+      "pob": {
+        "city": "JAOLAIWOEP",
+        "country": "THAILAND",
+        "state": "PAOTTANJANG"
+      },
+      "rowRef": "Final_Results!16",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "THAIKHAMUM",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2004-05-22",
+        "value": "5/22/2004"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "Nyengia"
+      ],
+      "nameRaw": "Douanaon, Nyengia",
+      "pob": {
+        "city": "POUANPIVE",
+        "country": "LAOS",
+        "state": "MAINGKOUNG"
+      },
+      "rowRef": "Final_Results!17",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "Douanaon",
+      "unitName": "Example Highway Patrol Division 2",
+      "unitType": "Military",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1972-06-21",
+        "value": "6/21/1972"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "Voksaong"
+      ],
+      "nameRaw": "Hokhom, Voksaong",
+      "pob": {
+        "city": "DAITHI",
+        "country": "LAOS",
+        "state": "THAONGDAYPNYOUN"
+      },
+      "rowRef": "Final_Results!18",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "Hokhom",
+      "unitName": "Example Highway Patrol Division 2",
+      "unitType": "Military",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1975-04-07",
+        "value": "4/7/1975"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": [
+        "VAYSOUANG"
+      ],
+      "nameRaw": "KHOUNKHIP, VAYSOUANG",
+      "pob": {
+        "city": "LUPPAYK",
+        "country": "LAOS",
+        "state": "LAIVUKI"
+      },
+      "rowRef": "Final_Results!19",
+      "script": "Latn",
+      "section": "approved-individual",
+      "surname": "KHOUNKHIP",
+      "unitName": "Example Highway Patrol Division 2",
+      "unitType": "Military",
+      "unknownCommander": false
+    }
+  ],
+  "unknownSections": []
+}

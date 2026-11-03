@@ -1,0 +1,54 @@
+appId: org.unodc.cyber.vss
+productName: Vetting Support System
+copyright: Copyright 2026 UNODC-Cyber contributors
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+# better-sqlite3-multiple-ciphers ships N-API prebuilds; the .node file must live outside the asar.
+asarUnpack:
+  - node_modules/better-sqlite3-multiple-ciphers/prebuilds/**
+  - node_modules/better-sqlite3-multiple-ciphers/lib/**
+compression: maximum
+# Fuses are flipped by electron-builder in the build step (verified by tools/verify-fuses.mjs).
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  enableCookieEncryption: true
+  grantFileProtocolExtraPrivileges: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  # Unsigned pilot builds. Updates are verified by VSS's own signed manifest, not Authenticode.
+  signAndEditExecutable: true
+  artifactName: vss-${version}-${arch}-${target}.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  # %LOCALAPPDATA%\Programs\VSS
+  unicode: true
+  artifactName: vss-${version}-${arch}-setup.exe
+portable:
+  artifactName: vss-${version}-${arch}-portable.exe
+publish:
+  provider: github
+  owner: UNODC-Cyber
+  repo: VSS
+  releaseType: release

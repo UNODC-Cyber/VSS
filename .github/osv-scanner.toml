@@ -1,0 +1,13 @@
+# osv-scanner allowlist (security review F-11). The dependency scan in CI is BLOCKING: any advisory not listed here
+# fails the build. Every entry needs a reason, the dependency path it applies to and an ignoreUntil date no more than
+# three months ahead; re-triage on expiry (remove the entry once a fixed version is in package-lock.json).
+#
+# Triage 2026-11-03 (npm audit: 25 packages, all through one advisory, moderate):
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-01T00:00:00Z
+reason = """minimatch ReDoS-style denial of service via glob-part amplification. Reached only through build / lint \
+tooling (eslint, typescript-eslint, electron-builder, rimraf, jake, glob); never bundled into the app and never \
+given untrusted patterns (patterns come from the repository's own configs). Remove when the toolchain ships a fixed \
+minimatch."""

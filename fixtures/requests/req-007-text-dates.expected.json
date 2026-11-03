@@ -1,0 +1,234 @@
+{
+  "description": "DOBs stored as text in DD/MM and MM/DD form, one ambiguous, one ISO, one serial.",
+  "id": "req-007-text-dates",
+  "instructionsVersion": "2.6.0",
+  "now": "2026-11-03",
+  "parseIssues": [],
+  "people": [
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1985-03-25",
+        "value": "25/03/1985"
+      },
+      "fatherName": "Supian",
+      "isHeadOfUnit": true,
+      "motherName": "",
+      "name1": "Kuaweek",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "ZN000001",
+      "nationality": "THAILAND",
+      "passport": "",
+      "pobCity": "Loetchangyu",
+      "pobCountry": "THAILAND",
+      "pobState": "Yaowaonwuam",
+      "rowRef": "Data!9",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Poemtaokoe",
+      "titleRank": "",
+      "unitName": "Example Digital Evidence Unit 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": true,
+        "kind": "text",
+        "parsed": "1985-03-04",
+        "value": "03/04/1985"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": false,
+      "motherName": "",
+      "name1": "Phamkait",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "ZZ000001",
+      "pobCity": "Waijammthu",
+      "pobCountry": "THAILAND",
+      "pobState": "Tatyaocho",
+      "rowRef": "Data!10",
+      "searchCountry": "THAILAND",
+      "sex": "F",
+      "surname": "Raiyikhaap",
+      "titleRank": "",
+      "unitName": "Example Digital Evidence Unit 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1985-07-19",
+        "value": "1985-07-19"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": false,
+      "motherName": "",
+      "name1": "Saabeen",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "",
+      "pobCity": "Jaingyoe",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!11",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Jaichaingcheek",
+      "titleRank": "",
+      "unitName": "Example Digital Evidence Unit 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1985-07-19",
+        "value": "07/19/1985"
+      },
+      "fatherName": "Sajok",
+      "isHeadOfUnit": false,
+      "motherName": "",
+      "name1": "Beekhua",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "",
+      "pobCity": "Witung",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!12",
+      "searchCountry": "THAILAND",
+      "sex": "F",
+      "surname": "Chakhoeleengruak",
+      "titleRank": "",
+      "unitName": "Example Digital Evidence Unit 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "serial",
+        "parsed": "1987-02-14",
+        "value": "31822"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": false,
+      "motherName": "",
+      "name1": "Kaowum",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "",
+      "pobCity": "Rotraam",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!13",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Suanlaipam",
+      "titleRank": "Analyst",
+      "unitName": "Example Digital Evidence Unit 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1990-12-12",
+        "value": "12/12/1990"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": false,
+      "motherName": "",
+      "name1": "Waira",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "ZZ000002",
+      "pobCity": "Biatutbee",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!14",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Keelamroebaip",
+      "titleRank": "Sergeant",
+      "unitName": "Example Digital Evidence Unit 1"
+    }
+  ],
+  "templateVersion": "1.11.0",
+  "units": [
+    {
+      "alias": "",
+      "branchDescription": "",
+      "branchName": "",
+      "country": "THAILAND",
+      "description": "",
+      "englishDescription": "",
+      "location": "",
+      "name": "Example Digital Evidence Unit 1",
+      "orgLevel": "",
+      "parentOrg": "",
+      "rowRef": "Data!4",
+      "subordinateOrg": "",
+      "type": "Police",
+      "unitIdNo": "EX-0001"
+    }
+  ],
+  "validationIssues": [
+    {
+      "code": "DOB_TEXT",
+      "field": "dob",
+      "rowRef": "Data!9",
+      "rule": "R-08",
+      "severity": "info"
+    },
+    {
+      "code": "DOB_TEXT",
+      "field": "dob",
+      "rowRef": "Data!10",
+      "rule": "R-08",
+      "severity": "info"
+    },
+    {
+      "code": "DOB_AMBIGUOUS_DM",
+      "field": "dob",
+      "rowRef": "Data!10",
+      "rule": "R-08",
+      "severity": "warning"
+    },
+    {
+      "code": "DOB_TEXT",
+      "field": "dob",
+      "rowRef": "Data!11",
+      "rule": "R-08",
+      "severity": "info"
+    },
+    {
+      "code": "DOB_TEXT",
+      "field": "dob",
+      "rowRef": "Data!12",
+      "rule": "R-08",
+      "severity": "info"
+    },
+    {
+      "code": "DOB_TEXT",
+      "field": "dob",
+      "rowRef": "Data!14",
+      "rule": "R-08",
+      "severity": "info"
+    }
+  ]
+}

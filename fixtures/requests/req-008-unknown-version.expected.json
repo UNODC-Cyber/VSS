@@ -1,0 +1,118 @@
+{
+  "description": "Version cells say 9.0.0 / 9.9.9: R-02 warns and the file is read as the current template.",
+  "id": "req-008-unknown-version",
+  "instructionsVersion": "9.0.0",
+  "now": "2026-11-03",
+  "parseIssues": [
+    {
+      "code": "TEMPLATE_VERSION_UNKNOWN",
+      "field": "Template Instructions!C2",
+      "rowRef": null,
+      "rule": "R-02",
+      "severity": "warning"
+    }
+  ],
+  "people": [
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "serial",
+        "parsed": "1984-10-25",
+        "value": "30980"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": true,
+      "motherName": "",
+      "name1": "Jaaphua",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "ZZ000001",
+      "pobCity": "Puakhuan",
+      "pobCountry": "THAILAND",
+      "pobState": "Yuawua",
+      "rowRef": "Data!9",
+      "searchCountry": "THAILAND",
+      "sex": "F",
+      "surname": "Baikaasamjeet",
+      "titleRank": "",
+      "unitName": "Example Cyber Crime Bureau 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "serial",
+        "parsed": "1981-04-17",
+        "value": "29693"
+      },
+      "fatherName": "Yuktamng",
+      "isHeadOfUnit": false,
+      "motherName": "Liachak",
+      "name1": "Neerua",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "",
+      "passport": "",
+      "pobCity": "Waoramain",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!10",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Chowisaotham",
+      "titleRank": "",
+      "unitName": "Example Cyber Crime Bureau 1"
+    },
+    {
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "serial",
+        "parsed": "1988-05-08",
+        "value": "32271"
+      },
+      "fatherName": "",
+      "isHeadOfUnit": false,
+      "motherName": "Phamseet",
+      "name1": "Lothoe",
+      "name2": "",
+      "name3": "",
+      "name4": "",
+      "nationalId": "",
+      "nationality": "THAILAND",
+      "passport": "",
+      "pobCity": "Phaikit",
+      "pobCountry": "THAILAND",
+      "pobState": "",
+      "rowRef": "Data!11",
+      "searchCountry": "THAILAND",
+      "sex": "M",
+      "surname": "Waayoekhapkhap",
+      "titleRank": "Officer",
+      "unitName": "Example Cyber Crime Bureau 1"
+    }
+  ],
+  "templateVersion": "9.9.9",
+  "units": [
+    {
+      "alias": "",
+      "branchDescription": "",
+      "branchName": "",
+      "country": "THAILAND",
+      "description": "",
+      "englishDescription": "",
+      "location": "Example Province 3",
+      "name": "Example Cyber Crime Bureau 1",
+      "orgLevel": "",
+      "parentOrg": "",
+      "rowRef": "Data!4",
+      "subordinateOrg": "",
+      "type": "Police",
+      "unitIdNo": ""
+    }
+  ],
+  "validationIssues": []
+}

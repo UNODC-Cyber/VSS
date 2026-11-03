@@ -1,0 +1,41 @@
+{
+  "_doc": "Folded particle forms. Particles are removed from core tokens but kept in full tokens; a DC that adds, drops or moves a particle therefore changes only the particle multiset. 'equivalents' are particle pairs a writer may substitute for each other (counted as ONE particle difference, never as equal). Entries in 'verify' need confirmation by a domain reviewer.",
+  "particles": [
+    "bin",
+    "binti",
+    "ibni",
+    "a/l",
+    "a/p",
+    "s/o",
+    "d/o",
+    "w/o",
+    "haji",
+    "hajjah",
+    "al",
+    "el",
+    "van",
+    "von",
+    "der",
+    "den",
+    "ter",
+    "de",
+    "del",
+    "della",
+    "da",
+    "di",
+    "do",
+    "dos",
+    "das",
+    "du",
+    "des",
+    "la",
+    "le",
+    "mac"
+  ],
+  "equivalents": [
+    ["a/l", "s/o"],
+    ["a/p", "d/o"],
+    ["bin", "ibni"]
+  ],
+  "verify": ["w/o", "der", "den", "ter", "della", "du", "des", "a/l~s/o", "a/p~d/o", "bin~ibni"]
+}
