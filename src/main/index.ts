@@ -13,6 +13,8 @@ import { installSecurity, registerAppScheme } from './bootstrap/security';
 import { createMainWindow } from './bootstrap/window';
 import { registerIpc } from './ipc/registry';
 import { createRealUpdateService } from './services/updates-wiring';
+import { vaultExists } from './crypto/vault';
+import { isDemoSeedAllowed, seedDemo } from '../../tools/demo/seed';
 
 // F-10: a packaged build never runs with a remote-debugging / inspector channel (CDP would expose the unlocked
 // renderer and window.vss to any same-user process). Checked first, before anything is opened.
@@ -131,6 +133,27 @@ if (!gotLock) {
       resetWindowState: () => windowState.reset(),
     });
     registerIpc(composed.handlers);
+    // Demo seeder (lane H, tools/demo/seed.ts): dev / alpha builds only, never over an existing vault.
+    const seedPassword = isDemoSeedAllowed({
+      env: process.env,
+      isPackaged: app.isPackaged,
+      vaultExists: vaultExists(paths.dataDir),
+    });
+    if (seedPassword) {
+      try {
+        await seedDemo({
+          handlers: composed.handlers,
+          grants: composed.grants,
+          password: seedPassword,
+          fixturesDir: join(app.getAppPath(), 'fixtures', 'demo'),
+          tempDir: join(app.getPath('temp'), 'vss-demo-seed'),
+          log: (m) => log.info('demo.seed', { step: m }),
+        });
+      } catch (e) {
+        log.error('demo.seed.failed', { message: e instanceof Error ? e.message : 'unknown' });
+        await composed.shutdown({ backup: false }).catch(() => undefined);
+      }
+    }
     // OS shutdown / logoff: lock synchronously, nothing else can be relied on.
     powerMonitor.on('shutdown', () => composed?.vault.forceLock());
     const route = await composed.initialRoute();

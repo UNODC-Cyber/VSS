@@ -30,7 +30,8 @@
     "fixtures:demo": "node tools/fixtures/demo-dataset.ts",
     "fixtures:demo:check": "node tools/fixtures/demo-dataset.ts --check",
     "dist": "node tools/install-electron.mjs && npm run build && electron-builder --config electron-builder.yml --win nsis portable --publish never",
-    "verify:fuses": "node tools/verify-fuses.mjs"
+    "verify:fuses": "node tools/verify-fuses.mjs",
+    "ui-audit": "npm run build && vitest run --config vitest.ui.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

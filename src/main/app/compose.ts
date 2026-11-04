@@ -144,6 +144,8 @@ export interface ComposedApp {
   backup: BackupService;
   settings: SettingsService;
   sources: HostSources;
+  /** Dialog-issued path tokens (the demo seeder issues its own, lane H). */
+  grants: PathGrants;
   /** Opens the existing vault (locked) if one is present and returns the route the window should start on. */
   initialRoute(): Promise<'create' | 'unlock'>;
   /** Lock first, then release timers. `backup:false` skips the on-lock backup. */
@@ -716,6 +718,7 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
     backup,
     settings,
     sources,
+    grants,
     async initialRoute() {
       if (!vaultExists(paths.dataDir)) return 'create';
       const r = await vault.open({ path: paths.dataDir });
