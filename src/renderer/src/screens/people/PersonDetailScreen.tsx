@@ -331,9 +331,21 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         empty={t('common.none')}
         rowId={(r) => r.id}
         columns={[
-          col<RequestSummary>('e', t('requests.event'), (r) => <a href={`#/requests/${r.id}`}>{r.eventName}</a>),
-          col<RequestSummary>('r', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10))),
-          col<RequestSummary>('s', t('requests.status'), (r) => t(`reqstatus.${r.status}`)),
+          col<RequestSummary>('e', t('requests.event'), (r) => <a href={`#/requests/${r.id}`}>{r.eventName}</a>, {
+            sticky: 'first',
+            minWidth: 220,
+            grow: true,
+            truncate: true,
+            tooltip: (r) => r.eventName,
+          }),
+          col<RequestSummary>('r', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
+            width: 120,
+            nowrap: true,
+          }),
+          col<RequestSummary>('s', t('requests.status'), (r) => t(`reqstatus.${r.status}`), {
+            minWidth: 150,
+            nowrap: true,
+          }),
         ]}
       />
 
@@ -356,16 +368,25 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
           data={d.mergeHistory}
           rowId={(m) => m.id}
           columns={[
-            col<MergeLogEntry>('at', t('audit.time'), (m) => fmtDateTime(m.at)),
-            col<MergeLogEntry>('reason', t('common.reason'), (m) => m.reason),
-            col<MergeLogEntry>('split', '', (m) =>
-              m.survivorId === p.id ? (
-                <Button size="compact-xs" color="red" variant="light" onClick={() => setSplitting(m)}>
-                  {t('person.split')}
-                </Button>
-              ) : (
-                <Text size="xs">{t('person.mergedInto')}</Text>
-              ),
+            col<MergeLogEntry>('at', t('audit.time'), (m) => fmtDateTime(m.at), { width: 170, nowrap: true }),
+            col<MergeLogEntry>('reason', t('common.reason'), (m) => m.reason, {
+              minWidth: 220,
+              grow: true,
+              truncate: true,
+              tooltip: (m) => m.reason,
+            }),
+            col<MergeLogEntry>(
+              'split',
+              '',
+              (m) =>
+                m.survivorId === p.id ? (
+                  <Button size="compact-xs" color="red" variant="light" onClick={() => setSplitting(m)}>
+                    {t('person.split')}
+                  </Button>
+                ) : (
+                  <Text size="xs">{t('person.mergedInto')}</Text>
+                ),
+              { width: 140, nowrap: true },
             ),
           ]}
         />

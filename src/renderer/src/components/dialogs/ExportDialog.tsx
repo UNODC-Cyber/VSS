@@ -111,13 +111,33 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
               data={preview.items}
               rowId={(i) => i.itemId}
               columns={[
-                col<ExportPreview['items'][number]>('n', t('import.name'), (i) => <Sensitive value={i.displayName} />),
-                col<ExportPreview['items'][number]>('u', t('import.unit'), (i) => i.unitName),
-                col<ExportPreview['items'][number]>('s', t('items.status'), (i) => <StatusBadge status={i.status} />),
-                col<ExportPreview['items'][number]>('inc', t('export.decision'), (i) =>
-                  i.included ? t('export.in') : t('export.out'),
+                col<ExportPreview['items'][number]>('n', t('import.name'), (i) => <Sensitive value={i.displayName} />, {
+                  sticky: 'first',
+                  minWidth: 180,
+                  grow: true,
+                  truncate: true,
+                  tooltip: (i) => i.displayName,
+                }),
+                col<ExportPreview['items'][number]>('u', t('import.unit'), (i) => i.unitName, {
+                  maxWidth: 180,
+                  truncate: true,
+                  tooltip: (i) => i.unitName,
+                }),
+                col<ExportPreview['items'][number]>('s', t('items.status'), (i) => <StatusBadge status={i.status} />, {
+                  minWidth: 150,
+                  nowrap: true,
+                }),
+                col<ExportPreview['items'][number]>(
+                  'inc',
+                  t('export.decision'),
+                  (i) => (i.included ? t('export.in') : t('export.out')),
+                  { width: 110, nowrap: true },
                 ),
-                col<ExportPreview['items'][number]>('r', t('common.reason'), (i) => i.reason),
+                col<ExportPreview['items'][number]>('r', t('common.reason'), (i) => i.reason, {
+                  minWidth: 160,
+                  truncate: true,
+                  tooltip: (i) => i.reason,
+                }),
               ]}
             />
           </>

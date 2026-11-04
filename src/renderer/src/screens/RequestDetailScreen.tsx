@@ -23,9 +23,10 @@ import {
   StatusBadge,
 } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
-import { useCopy } from '../lib/clipboard';
-import { fmtDate, fmtDateTime } from '../lib/format';
+import { CopyIconButton } from '../components/ui/CopyIconButton';
+import { fmtDate, fmtDateTime, mask } from '../lib/format';
 import { navigate } from '../lib/router';
+import { useUi } from '../store';
 
 type Dlg = 'export' | 'sent' | 'clearance' | 'email' | 'edit' | 'delete' | null;
 
@@ -38,10 +39,23 @@ function rowFields(i: RequestItem): string[] {
   return [itemName(i), o.dob.parsed ?? o.dob.value, o.passport, o.nationalId, o.unitName];
 }
 
+/** A value with its copy icon; the value is cut with an ellipsis (full text on hover) so the icon stays visible. */
+function CopyField({ value, label }: { value: string; label: string }) {
+  const redact = useUi((s) => s.settings.redactionMode);
+  const shown = redact ? mask(value) : value;
+  return (
+    <Group gap={4} wrap="nowrap">
+      <Text span truncate="end" title={shown} style={{ flex: '1 1 auto', minWidth: 0 }}>
+        <Sensitive value={value} />
+      </Text>
+      <CopyButton text={value} label={label} />
+    </Group>
+  );
+}
+
 function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void }) {
   const { t } = useTranslation();
   const act = useAction();
-  const copy = useCopy();
   const [dlg, setDlg] = useState<Dlg>(null);
   const [linkItem, setLinkItem] = useState<string | null>(null);
   const awaiting = req.status === 'sent-to-dc' || req.status === 'exported';
@@ -112,89 +126,103 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
 
       <Group justify="space-between">
         <Title order={3}>{t('request.itemsTitle', { count: req.items.length })}</Title>
-        <Button
-          size="compact-sm"
-          variant="default"
-          onClick={() => void copy(req.items.map((i) => rowFields(i).join('\t')).join('\n'), t('items.tableCopied'))}
-        >
-          {t('items.copyAllTsv')}
-        </Button>
+        <CopyIconButton
+          text={req.items.map((i) => rowFields(i).join('\t')).join('\n')}
+          label={t('ui.copyField.allTsv')}
+        />
       </Group>
       <DataTable<RequestItem>
         caption={t('items.caption')}
         data={req.items}
         rowId={(i) => i.id}
+        tableId="request-items"
         columns={[
-          col<RequestItem>('row', t('import.row'), (i) => i.observed.rowRef),
-          col<RequestItem>('name', t('import.name'), (i) => (
-            <Group gap={4} wrap="nowrap">
-              <Sensitive value={itemName(i)} />
-              <CopyButton text={itemName(i)} label={t('items.fieldName')} />
-            </Group>
-          )),
-          col<RequestItem>('dob', t('import.dob'), (i) => (
-            <Group gap={4} wrap="nowrap">
-              <Sensitive value={i.observed.dob.parsed ?? i.observed.dob.value} />
-              <CopyButton text={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />
-            </Group>
-          )),
-          col<RequestItem>('ids', t('items.ids'), (i) => (
-            <Stack gap={0}>
-              {i.observed.passport && (
-                <Group gap={4} wrap="nowrap">
-                  <Sensitive value={i.observed.passport} />
-                  <CopyButton text={i.observed.passport} label={t('items.fieldPassport')} />
-                </Group>
-              )}
-              {i.observed.nationalId && (
-                <Group gap={4} wrap="nowrap">
-                  <Sensitive value={i.observed.nationalId} />
-                  <CopyButton text={i.observed.nationalId} label={t('items.fieldNationalId')} />
-                </Group>
-              )}
-              {!i.observed.passport && !i.observed.nationalId && '-'}
-            </Stack>
-          )),
-          col<RequestItem>('unit', t('import.unit'), (i) => i.observed.unitName),
-          col<RequestItem>('status', t('items.status'), (i) => <StatusBadge status={i.prior?.status ?? 'unknown'} />),
-          col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt)),
-          col<RequestItem>('person', t('items.person'), (i) =>
-            i.personId ? <a href={`#/people/${i.personId}`}>{t('items.openPerson')}</a> : '-',
+          col<RequestItem>(
+            'name',
+            t('import.name'),
+            (i) => <CopyField value={itemName(i)} label={t('items.fieldName')} />,
+            {
+              sticky: 'first',
+              minWidth: 240,
+              grow: true,
+            },
           ),
-          col<RequestItem>('link', t('import.link'), (i) => (
-            <Group gap={4} wrap="nowrap">
-              <LinkBadge state={i.linkState} />
-              {(i.linkState === 'pending-review' || i.linkState === 'unlinked') && (
-                <Button
-                  size="compact-xs"
-                  onClick={() => setLinkItem(i.id)}
-                  aria-label={t('items.resolveRow', { row: i.observed.rowRef })}
-                >
-                  {t('items.resolve')}
-                </Button>
-              )}
-            </Group>
-          )),
-          col<RequestItem>('copy', t('items.copy'), (i) => (
-            <Group gap={4} wrap="nowrap">
-              <Button
-                size="compact-xs"
-                variant="light"
-                onClick={() => void copy(rowFields(i).join(' | '), t('items.rowCopied'))}
-                aria-label={t('items.copyRowText', { row: i.observed.rowRef })}
-              >
-                {t('items.copyText')}
-              </Button>
-              <Button
-                size="compact-xs"
-                variant="light"
-                onClick={() => void copy(rowFields(i).join('\t'), t('items.rowCopied'))}
-                aria-label={t('items.copyRowTsv', { row: i.observed.rowRef })}
-              >
-                {t('items.copyTsv')}
-              </Button>
-            </Group>
-          )),
+          col<RequestItem>('row', t('import.row'), (i) => i.observed.rowRef, { width: 72, nowrap: true }),
+          col<RequestItem>(
+            'dob',
+            t('import.dob'),
+            (i) => <CopyField value={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />,
+            { width: 150, nowrap: true },
+          ),
+          col<RequestItem>(
+            'ids',
+            t('items.ids'),
+            (i) => (
+              <Stack gap={0}>
+                {i.observed.passport && <CopyField value={i.observed.passport} label={t('items.fieldPassport')} />}
+                {i.observed.nationalId && (
+                  <CopyField value={i.observed.nationalId} label={t('items.fieldNationalId')} />
+                )}
+                {!i.observed.passport && !i.observed.nationalId && '-'}
+              </Stack>
+            ),
+            { minWidth: 190 },
+          ),
+          col<RequestItem>('unit', t('import.unit'), (i) => i.observed.unitName, {
+            maxWidth: 200,
+            truncate: true,
+            tooltip: (i) => i.observed.unitName,
+          }),
+          col<RequestItem>('status', t('items.status'), (i) => <StatusBadge status={i.prior?.status ?? 'unknown'} />, {
+            minWidth: 150,
+            nowrap: true,
+          }),
+          col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt), {
+            width: 120,
+            nowrap: true,
+          }),
+          col<RequestItem>(
+            'person',
+            t('items.person'),
+            (i) => (i.personId ? <a href={`#/people/${i.personId}`}>{t('items.openPerson')}</a> : '-'),
+            { width: 110, nowrap: true, hideable: true },
+          ),
+          col<RequestItem>(
+            'link',
+            t('import.link'),
+            (i) => (
+              <Group gap={4} wrap="nowrap">
+                <LinkBadge state={i.linkState} />
+                {(i.linkState === 'pending-review' || i.linkState === 'unlinked') && (
+                  <Button
+                    size="compact-xs"
+                    onClick={() => setLinkItem(i.id)}
+                    aria-label={t('items.resolveRow', { row: i.observed.rowRef })}
+                  >
+                    {t('items.resolve')}
+                  </Button>
+                )}
+              </Group>
+            ),
+            { minWidth: 210, nowrap: true },
+          ),
+          col<RequestItem>(
+            'copy',
+            t('items.copy'),
+            (i) => (
+              <Group gap={2} wrap="nowrap">
+                <CopyIconButton
+                  text={rowFields(i).join(' | ')}
+                  label={t('ui.copyField.rowText', { row: i.observed.rowRef })}
+                />
+                <CopyIconButton
+                  text={rowFields(i).join('\t')}
+                  label={t('ui.copyField.rowTsv', { row: i.observed.rowRef })}
+                />
+              </Group>
+            ),
+            { width: 96, nowrap: true },
+          ),
         ]}
       />
 
@@ -203,7 +231,15 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
       {dlg === 'clearance' && <EmailClearanceDialog opened onClose={close} request={req} onChanged={reload} />}
       {dlg === 'email' && <EmailRequestorDialog opened onClose={close} request={req} />}
       {dlg === 'edit' && <EditRequestDialog opened onClose={close} request={req} onChanged={reload} />}
-      {linkItem && <LinkItemDialog opened onClose={() => setLinkItem(null)} itemId={linkItem} onChanged={reload} />}
+      {linkItem && (
+        <LinkItemDialog
+          opened
+          onClose={() => setLinkItem(null)}
+          itemId={linkItem}
+          onChanged={reload}
+          itemName={((it) => (it ? itemName(it) : ''))(req.items.find((x) => x.id === linkItem))}
+        />
+      )}
       <Modal opened={dlg === 'delete'} onClose={close} title={t('request.deleteTitle')} trapFocus returnFocus>
         <Text>{t('request.deleteBody')}</Text>
         <Group mt="md" justify="flex-end">

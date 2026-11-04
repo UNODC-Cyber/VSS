@@ -56,42 +56,62 @@ export function ReviewScreen() {
               data={q.data.items}
               empty={t('review.empty')}
               rowId={(r) => r.id}
+              tableId="review"
               columns={[
-                col<ReviewItemSummary>('s', t('reviewList.subject'), (r) => (
-                  <a
-                    href={`#/review/${r.id}`}
-                    aria-label={t('reviewList.open', { name: redact ? mask(nameOf(r)) : nameOf(r) })}
-                    style={{ whiteSpace: 'nowrap' }}
-                  >
-                    <Sensitive value={nameOf(r)} />
-                  </a>
-                )),
-                col<ReviewItemSummary>('d', t('reviewList.dob'), (r) => (
-                  <span style={{ whiteSpace: 'nowrap' }}>
-                    <Sensitive value={r.subjectDob} />
-                  </span>
-                )),
-                col<ReviewItemSummary>('u', t('reviewList.unit'), (r) => (
-                  <Text size="sm" truncate maw={220}>
-                    {r.unitName ?? '-'}
-                  </Text>
-                )),
-                col<ReviewItemSummary>('x', t('reviewList.context'), (r) =>
-                  !r.context ? (
-                    '-'
-                  ) : 'requestId' in r.context ? (
-                    <a href={`#/requests/${r.context.requestId}`}>
-                      {t('reviewList.contextRequest', { name: r.context.eventName })}
+                col<ReviewItemSummary>(
+                  's',
+                  t('reviewList.subject'),
+                  (r) => (
+                    <a
+                      href={`#/review/${r.id}`}
+                      aria-label={t('reviewList.open', { name: redact ? mask(nameOf(r)) : nameOf(r) })}
+                    >
+                      <Sensitive value={nameOf(r)} />
                     </a>
-                  ) : (
-                    <a href="#/responses">{t('reviewList.contextResponse', { batch: r.context.batchId })}</a>
                   ),
+                  { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => nameOf(r) },
                 ),
-                col<ReviewItemSummary>('k', t('review.kind'), (r) => t(`reviewkind.${r.kind}`)),
-                col<ReviewItemSummary>('t', t('review.bestTier'), (r) =>
-                  r.bestTier ? <TierBadge tier={r.bestTier} /> : '-',
+                col<ReviewItemSummary>('d', t('reviewList.dob'), (r) => <Sensitive value={r.subjectDob} />, {
+                  width: 112,
+                  nowrap: true,
+                }),
+                col<ReviewItemSummary>('u', t('reviewList.unit'), (r) => r.unitName ?? '-', {
+                  maxWidth: 200,
+                  truncate: true,
+                  tooltip: (r) => r.unitName,
+                }),
+                col<ReviewItemSummary>(
+                  'x',
+                  t('reviewList.context'),
+                  (r) =>
+                    !r.context ? (
+                      '-'
+                    ) : 'requestId' in r.context ? (
+                      <a href={`#/requests/${r.context.requestId}`}>
+                        {t('reviewList.contextRequest', { name: r.context.eventName })}
+                      </a>
+                    ) : (
+                      <a href="#/responses">{t('reviewList.contextResponse', { batch: r.context.batchId })}</a>
+                    ),
+                  { minWidth: 200, truncate: true },
                 ),
-                col<ReviewItemSummary>('c', t('review.created'), (r) => fmtDateTime(r.createdAt)),
+                col<ReviewItemSummary>('k', t('review.kind'), (r) => t(`reviewkind.${r.kind}`), {
+                  minWidth: 160,
+                  truncate: true,
+                }),
+                col<ReviewItemSummary>(
+                  't',
+                  t('review.bestTier'),
+                  (r) => (r.bestTier ? <TierBadge tier={r.bestTier} /> : '-'),
+                  {
+                    width: 100,
+                    nowrap: true,
+                  },
+                ),
+                col<ReviewItemSummary>('c', t('review.created'), (r) => fmtDateTime(r.createdAt), {
+                  width: 160,
+                  nowrap: true,
+                }),
               ]}
             />
             <SimplePager total={q.data.total} offset={offset} limit={PAGE} onChange={setOffset} />

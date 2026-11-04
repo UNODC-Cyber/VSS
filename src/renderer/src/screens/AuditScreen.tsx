@@ -76,14 +76,20 @@ export function AuditScreen() {
               data={q.data.items}
               empty={t('audit.empty')}
               rowId={(e) => String(e.seq)}
+              tableId="audit"
               columns={[
-                col<AuditEvent>('seq', '#', (e) => e.seq),
-                col<AuditEvent>('at', t('audit.time'), (e) => fmtDateTime(e.at)),
-                col<AuditEvent>('type', t('audit.type'), (e) => e.type),
+                col<AuditEvent>('seq', '#', (e) => e.seq, { width: 72, nowrap: true }),
+                col<AuditEvent>('at', t('audit.time'), (e) => fmtDateTime(e.at), { width: 170, nowrap: true }),
+                col<AuditEvent>('type', t('audit.type'), (e) => e.type, {
+                  minWidth: 200,
+                  truncate: true,
+                  tooltip: (e) => e.type,
+                }),
                 col<AuditEvent>(
                   'subj',
                   t('audit.subject'),
                   (e) => `${e.subjectType}${e.subjectId ? ` ${e.subjectId.slice(-6)}` : ''}`,
+                  { width: 170, truncate: true },
                 ),
                 col<AuditEvent>(
                   'det',
@@ -92,8 +98,20 @@ export function AuditScreen() {
                     Object.entries(e.details)
                       .map(([k, v]) => `${k}=${String(v)}`)
                       .join(', ') || '-',
+                  {
+                    minWidth: 240,
+                    grow: true,
+                    truncate: true,
+                    tooltip: (e) =>
+                      Object.entries(e.details)
+                        .map(([k, v]) => `${k}=${String(v)}`)
+                        .join(', '),
+                  },
                 ),
-                col<AuditEvent>('hash', t('audit.hash'), (e) => <code>{e.hash.slice(0, 10)}</code>),
+                col<AuditEvent>('hash', t('audit.hash'), (e) => <code>{e.hash.slice(0, 10)}</code>, {
+                  width: 130,
+                  nowrap: true,
+                }),
               ]}
             />
             <SimplePager total={q.data.total} offset={offset} limit={PAGE} onChange={setOffset} />

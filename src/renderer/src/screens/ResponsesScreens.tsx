@@ -15,7 +15,7 @@ import { DiffGrid } from '../components/Diff';
 import type { DiffField } from '../components/Diff';
 import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
-import { PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../components/common';
+import { DispBadge, PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
 import { fmtDate, fmtDateTime } from '../lib/format';
 import { navigate } from '../lib/router';
@@ -40,19 +40,48 @@ export function ResponsesScreen() {
               data={q.data.items}
               empty={t('responses.empty')}
               rowId={(r) => r.id}
+              tableId="responses"
               columns={[
-                col<ResponseSummary>('batch', t('responses.batch'), (r) => r.batchId),
-                col<ResponseSummary>('post', t('responses.post'), (r) => r.post),
-                col<ResponseSummary>('asof', t('responses.asOf'), (r) => fmtDate(r.resultsAsOf)),
-                col<ResponseSummary>('imported', t('responses.imported'), (r) => fmtDateTime(r.importedAt)),
-                col<ResponseSummary>('rows', t('responses.rows'), (r) => r.rowCount),
-                col<ResponseSummary>('approved', t('responses.approved'), (r) => r.approvedCount),
-                col<ResponseSummary>('non', t('responses.nonApproved'), (r) => r.nonApprovedCount),
-                col<ResponseSummary>('unres', t('responses.unresolved'), (r) =>
-                  r.unresolvedCount ? <Badge color="orange">{r.unresolvedCount}</Badge> : '-',
+                col<ResponseSummary>('batch', t('responses.batch'), (r) => r.batchId, {
+                  sticky: 'first',
+                  minWidth: 160,
+                  grow: true,
+                  truncate: true,
+                  tooltip: (r) => r.batchId,
+                }),
+                col<ResponseSummary>('post', t('responses.post'), (r) => r.post, {
+                  maxWidth: 160,
+                  truncate: true,
+                  tooltip: (r) => r.post,
+                }),
+                col<ResponseSummary>('asof', t('responses.asOf'), (r) => fmtDate(r.resultsAsOf), {
+                  width: 120,
+                  nowrap: true,
+                }),
+                col<ResponseSummary>('imported', t('responses.imported'), (r) => fmtDateTime(r.importedAt), {
+                  width: 160,
+                  nowrap: true,
+                }),
+                col<ResponseSummary>('rows', t('responses.rows'), (r) => r.rowCount, { width: 80, nowrap: true }),
+                col<ResponseSummary>('approved', t('responses.approved'), (r) => r.approvedCount, {
+                  width: 100,
+                  nowrap: true,
+                }),
+                col<ResponseSummary>('non', t('responses.nonApproved'), (r) => r.nonApprovedCount, {
+                  width: 120,
+                  nowrap: true,
+                }),
+                col<ResponseSummary>(
+                  'unres',
+                  t('responses.unresolved'),
+                  (r) => (r.unresolvedCount ? <Badge color="orange">{r.unresolvedCount}</Badge> : '-'),
+                  { width: 110, nowrap: true },
                 ),
-                col<ResponseSummary>('req', t('responses.request'), (r) =>
-                  r.requestId ? <a href={`#/requests/${r.requestId}`}>{t('responses.openRequest')}</a> : '-',
+                col<ResponseSummary>(
+                  'req',
+                  t('responses.request'),
+                  (r) => (r.requestId ? <a href={`#/requests/${r.requestId}`}>{t('responses.openRequest')}</a> : '-'),
+                  { width: 130, nowrap: true },
                 ),
               ]}
             />
@@ -137,6 +166,10 @@ function RowDiffDialog({
   ];
   return (
     <Modal opened onClose={onClose} title={t('diff.title')} size="xl" trapFocus returnFocus>
+      <Group gap="xs" mb="xs">
+        <Text size="sm">{t('ui.dispClass.label')}:</Text>
+        <DispBadge value={row.dispClass} />
+      </Group>
       <DiffGrid caption={t('diff.caption')} headers={cols.map((c) => c.header)} fields={fields} />
       <Text size="sm" c="dimmed" mt="xs">
         {t('diff.evidence', { list: row.candidates.flatMap((c) => c.evidence).join(', ') || '-' })}
@@ -421,74 +454,105 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
           <Stack>
             <DataTable<ResponsePreviewRow>
               caption={t('responseImport.rowsCaption')}
+              tableId="response-rows"
               data={preview.rows}
               rowId={(r) => r.rowId}
               columns={[
-                col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef),
+                col<ResponsePreviewRow>('name', t('import.name'), (r) => <Sensitive value={r.nameRaw} />, {
+                  sticky: 'first',
+                  minWidth: 180,
+                  grow: true,
+                  truncate: true,
+                  tooltip: (r) => r.nameRaw,
+                }),
+                col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef, { width: 72, nowrap: true }),
+                col<ResponsePreviewRow>('disp', t('ui.dispClass.label'), (r) => <DispBadge value={r.dispClass} />, {
+                  minWidth: 140,
+                  nowrap: true,
+                }),
                 col<ResponsePreviewRow>(
                   'section',
                   t('responseImport.section'),
                   (r) => `${t(`section.${r.section}`)} (${r.disp})`,
+                  {
+                    maxWidth: 200,
+                    truncate: true,
+                    hideable: true,
+                    tooltip: (r) => `${t(`section.${r.section}`)} (${r.disp})`,
+                  },
                 ),
-                col<ResponsePreviewRow>('name', t('import.name'), (r) => <Sensitive value={r.nameRaw} />),
-                col<ResponsePreviewRow>('dob', t('import.dob'), (r) => <Sensitive value={r.dobRaw} />),
+                col<ResponsePreviewRow>('dob', t('import.dob'), (r) => <Sensitive value={r.dobRaw} />, {
+                  width: 120,
+                  nowrap: true,
+                }),
                 col<ResponsePreviewRow>(
                   'cert',
                   t('responseImport.cert'),
                   (r) => `${fmtDate(r.certDate)} / ${fmtDate(r.expires)}`,
+                  { width: 220, nowrap: true },
                 ),
-                col<ResponsePreviewRow>('tier', t('responseImport.tier'), (r) => {
-                  const tier = bestTier(r.candidates);
-                  return tier ? (
-                    <Group gap={4}>
-                      <TierBadge tier={tier} />
-                      {tier === 'T1' && r.decision === 'auto' && (
-                        <Text size="xs">{t('responseImport.preConfirmed')}</Text>
-                      )}
-                    </Group>
-                  ) : (
-                    <Text size="sm">{t('responseImport.noCandidate')}</Text>
-                  );
-                }),
-                col<ResponsePreviewRow>('choice', t('responseImport.decision'), (r) => {
-                  if (r.decision === 'auto') return <Text size="sm">{t('responseImport.autoConfirmed')}</Text>;
-                  if (r.candidates.length === 0) return <Text size="sm">{t('responseImport.stayUnmatched')}</Text>;
-                  const individual = r.section === 'approved-individual' || r.section === 'nonapproved-individual';
-                  return (
-                    <Group gap={4} wrap="nowrap">
-                      <Select
-                        aria-label={t('responseImport.chooseFor', { row: r.rowRef })}
-                        placeholder={t('responseImport.choose')}
-                        size="xs"
-                        value={choiceValue(choices[r.rowId])}
-                        allowDeselect={false}
-                        data={[
-                          ...r.candidates.map((cand) => ({
-                            value: cand.targetId,
-                            label: `${cand.tier}: ${request && cand.targetKind === 'request-item' ? itemLabel(request, cand.targetId) : cand.targetId.slice(-6)}`,
-                          })),
-                          { value: 'review', label: t('responseImport.leaveForReview') },
-                          ...(individual ? [{ value: 'new', label: t('responseImport.newPerson') }] : []),
-                          { value: 'skip', label: t('responseImport.notMatch') },
-                        ]}
-                        onChange={(v) => {
-                          if (!v) return;
-                          const c: Choice =
-                            v === 'review' || v === 'new' || v === 'skip' ? { kind: v } : { kind: 'item', itemId: v };
-                          setChoices({ ...choices, [r.rowId]: c });
-                        }}
-                      />
-                      <Button
-                        size="compact-xs"
-                        variant="light"
-                        onClick={() => setDiffRow(r)}
-                        aria-label={t('responseImport.compareRow', { row: r.rowRef })}
-                      >
-                        {t('responseImport.compare')}
-                      </Button>
-                    </Group>
-                  );
-                }),
+                col<ResponsePreviewRow>(
+                  'tier',
+                  t('responseImport.tier'),
+                  (r) => {
+                    const tier = bestTier(r.candidates);
+                    return tier ? (
+                      <Group gap={4}>
+                        <TierBadge tier={tier} />
+                        {tier === 'T1' && r.decision === 'auto' && (
+                          <Text size="xs">{t('responseImport.preConfirmed')}</Text>
+                        )}
+                      </Group>
+                    ) : (
+                      <Text size="sm">{t('responseImport.noCandidate')}</Text>
+                    );
+                  },
+                  { minWidth: 150, nowrap: true },
+                ),
+                col<ResponsePreviewRow>(
+                  'choice',
+                  t('responseImport.decision'),
+                  (r) => {
+                    if (r.decision === 'auto') return <Text size="sm">{t('responseImport.autoConfirmed')}</Text>;
+                    if (r.candidates.length === 0) return <Text size="sm">{t('responseImport.stayUnmatched')}</Text>;
+                    const individual = r.section === 'approved-individual' || r.section === 'nonapproved-individual';
+                    return (
+                      <Group gap={4} wrap="nowrap">
+                        <Select
+                          aria-label={t('responseImport.chooseFor', { row: r.rowRef })}
+                          placeholder={t('responseImport.choose')}
+                          size="xs"
+                          value={choiceValue(choices[r.rowId])}
+                          allowDeselect={false}
+                          data={[
+                            ...r.candidates.map((cand) => ({
+                              value: cand.targetId,
+                              label: `${cand.tier}: ${request && cand.targetKind === 'request-item' ? itemLabel(request, cand.targetId) : cand.targetId.slice(-6)}`,
+                            })),
+                            { value: 'review', label: t('responseImport.leaveForReview') },
+                            ...(individual ? [{ value: 'new', label: t('responseImport.newPerson') }] : []),
+                            { value: 'skip', label: t('responseImport.notMatch') },
+                          ]}
+                          onChange={(v) => {
+                            if (!v) return;
+                            const c: Choice =
+                              v === 'review' || v === 'new' || v === 'skip' ? { kind: v } : { kind: 'item', itemId: v };
+                            setChoices({ ...choices, [r.rowId]: c });
+                          }}
+                        />
+                        <Button
+                          size="compact-xs"
+                          variant="light"
+                          onClick={() => setDiffRow(r)}
+                          aria-label={t('responseImport.compareRow', { row: r.rowRef })}
+                        >
+                          {t('responseImport.compare')}
+                        </Button>
+                      </Group>
+                    );
+                  },
+                  { minWidth: 300 },
+                ),
               ]}
             />
 

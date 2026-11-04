@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BackupConfigInput, BackupListResult } from '@shared/ipc/contract';
 import { useAction, vss } from '../lib/api';
-import { useCopy } from '../lib/clipboard';
+import { CopyIconButton } from './ui/CopyIconButton';
 import { fmtDateTime } from '../lib/format';
 import { col, DataTable } from './DataTable';
 
@@ -30,7 +30,6 @@ const asNum = (v: string | number, fallback: number) => (typeof v === 'number' &
  */
 export function RecoveryPassphraseModal({ passphrase, onDone }: { passphrase: string | null; onDone: () => void }) {
   const { t } = useTranslation();
-  const copy = useCopy();
   const [saved, setSaved] = useState(false);
   useEffect(() => setSaved(false), [passphrase]);
   return (
@@ -51,9 +50,7 @@ export function RecoveryPassphraseModal({ passphrase, onDone }: { passphrase: st
         </Code>
         <Alert color="orange">{t('backup.passphraseWarning')}</Alert>
         <Group>
-          <Button variant="default" onClick={() => passphrase && void copy(passphrase, t('backup.passphraseCopied'))}>
-            {t('backup.copyPassphrase')}
-          </Button>
+          <CopyIconButton text={passphrase ?? ''} label={t('ui.copyField.passphrase')} />
         </Group>
         <Checkbox
           label={t('backup.passphraseSaved')}
@@ -202,9 +199,23 @@ export function BackupCard() {
             data={info.backups}
             rowId={(b) => b.name}
             columns={[
-              col<BackupListResult['backups'][number]>('n', t('backup.file'), (b) => b.name),
-              col<BackupListResult['backups'][number]>('d', t('backup.when'), (b) => fmtDateTime(b.modifiedAt)),
-              col<BackupListResult['backups'][number]>('s', t('backup.size'), (b) => `${Math.ceil(b.bytes / 1024)} KB`),
+              col<BackupListResult['backups'][number]>('n', t('backup.file'), (b) => b.name, {
+                sticky: 'first',
+                minWidth: 220,
+                grow: true,
+                truncate: true,
+                tooltip: (b) => b.name,
+              }),
+              col<BackupListResult['backups'][number]>('d', t('backup.when'), (b) => fmtDateTime(b.modifiedAt), {
+                width: 170,
+                nowrap: true,
+              }),
+              col<BackupListResult['backups'][number]>(
+                's',
+                t('backup.size'),
+                (b) => `${Math.ceil(b.bytes / 1024)} KB`,
+                { width: 100, nowrap: true },
+              ),
             ]}
           />
         )}

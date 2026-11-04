@@ -9,6 +9,19 @@ export const ui = {
       label: 'Copy {{field}}',
       done: 'Copied',
     },
+    dispClass: {
+      label: 'Disposition',
+      approved: 'Approved',
+      'non-approved': 'Non-approved',
+      unknown: 'Unclear',
+    },
+    copyField: {
+      body: 'body',
+      passphrase: 'passphrase',
+      rowText: 'row {{row}} as text',
+      rowTsv: 'row {{row}} as TSV',
+      allTsv: 'all rows as TSV',
+    },
     table: {
       chooseColumns: 'Choose columns',
       empty: 'Nothing to show',

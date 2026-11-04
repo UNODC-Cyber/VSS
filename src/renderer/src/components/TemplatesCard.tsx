@@ -83,21 +83,44 @@ export function TemplatesCard() {
             data={list.history}
             rowId={(r) => r.id}
             columns={[
-              col<TemplateInfo>('v', t('templates.version'), (r) => r.templateVersion ?? '-'),
-              col<TemplateInfo>('s', t('templates.source'), (r) => t(`templates.source.${r.source}`)),
-              col<TemplateInfo>('f', t('templates.file'), (r) => r.originalName || '-'),
-              col<TemplateInfo>('a', t('templates.added'), (r) => fmtDateTime(r.createdAt)),
-              col<TemplateInfo>('r', t('templates.replaced'), (r) => (r.replacedAt ? fmtDateTime(r.replacedAt) : '-')),
-              col<TemplateInfo>('x', '', (r) => (
-                <Group gap="xs">
-                  <Button size="xs" variant="default" onClick={() => void activate(r.id)}>
-                    {t('templates.use')}
-                  </Button>
-                  <Button size="xs" variant="subtle" color="red" onClick={() => void remove(r.id)}>
-                    {t('templates.remove')}
-                  </Button>
-                </Group>
-              )),
+              col<TemplateInfo>('v', t('templates.version'), (r) => r.templateVersion ?? '-', {
+                sticky: 'first',
+                width: 100,
+                nowrap: true,
+              }),
+              col<TemplateInfo>('s', t('templates.source'), (r) => t(`templates.source.${r.source}`), {
+                width: 140,
+                truncate: true,
+              }),
+              col<TemplateInfo>('f', t('templates.file'), (r) => r.originalName || '-', {
+                minWidth: 160,
+                grow: true,
+                truncate: true,
+                tooltip: (r) => r.originalName,
+              }),
+              col<TemplateInfo>('a', t('templates.added'), (r) => fmtDateTime(r.createdAt), {
+                width: 160,
+                nowrap: true,
+              }),
+              col<TemplateInfo>('r', t('templates.replaced'), (r) => (r.replacedAt ? fmtDateTime(r.replacedAt) : '-'), {
+                width: 160,
+                nowrap: true,
+              }),
+              col<TemplateInfo>(
+                'x',
+                '',
+                (r) => (
+                  <Group gap="xs" wrap="nowrap">
+                    <Button size="xs" variant="default" onClick={() => void activate(r.id)}>
+                      {t('templates.use')}
+                    </Button>
+                    <Button size="xs" variant="subtle" color="red" onClick={() => void remove(r.id)}>
+                      {t('templates.remove')}
+                    </Button>
+                  </Group>
+                ),
+                { width: 190, nowrap: true },
+              ),
             ]}
           />
         )}

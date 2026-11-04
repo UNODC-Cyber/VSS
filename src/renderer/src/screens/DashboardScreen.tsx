@@ -141,12 +141,24 @@ function Body({ d }: { d: Dashboard }) {
         empty={t('dashboard.noOutstanding')}
         rowId={(r) => r.requestId}
         columns={[
-          col<DashboardOutstandingRequest>('e', t('requests.event'), (r) => (
-            <a href={`#/requests/${r.requestId}`}>{r.eventName}</a>
-          )),
-          col<DashboardOutstandingRequest>('s', t('request.sent'), (r) => fmtDate(r.sentToDcAt.slice(0, 10))),
-          col<DashboardOutstandingRequest>('a', t('requests.aging'), (r) => t('common.days', { count: r.agingDays })),
-          col<DashboardOutstandingRequest>('i', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`),
+          col<DashboardOutstandingRequest>(
+            'e',
+            t('requests.event'),
+            (r) => <a href={`#/requests/${r.requestId}`}>{r.eventName}</a>,
+            { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => r.eventName },
+          ),
+          col<DashboardOutstandingRequest>('s', t('request.sent'), (r) => fmtDate(r.sentToDcAt.slice(0, 10)), {
+            width: 120,
+            nowrap: true,
+          }),
+          col<DashboardOutstandingRequest>('a', t('requests.aging'), (r) => t('common.days', { count: r.agingDays }), {
+            width: 100,
+            nowrap: true,
+          }),
+          col<DashboardOutstandingRequest>('i', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`, {
+            width: 88,
+            nowrap: true,
+          }),
         ]}
       />
 
