@@ -5,6 +5,41 @@
  * other locale file (tests/unit/renderer/i18n-keys.test.ts).
  */
 export const flow = {
+  // Delete-request confirmation with context (UI review round 3, R3O-05).
+  requestDelete: {
+    title: 'Delete the request "{{name}}"?',
+    summary: '{{count}} people on this request. Status: {{status}}. Received {{received}}.',
+    summary_one: '{{count}} person on this request. Status: {{status}}. Received {{received}}.',
+    summary_other: '{{count}} people on this request. Status: {{status}}. Received {{received}}.',
+    blockedTitle: 'This request cannot be deleted',
+    blockedBody:
+      'A vetting authority response file has been imported for it, and the vetting records made from that file depend on it. Close the request instead: a closed request stays on file and can be reopened.',
+    deletedHeading: 'What is deleted',
+    deleted: {
+      items: 'The request and the {{count}} people listed on it',
+      items_one: 'The request and the {{count}} person listed on it',
+      items_other: 'The request and the {{count}} people listed on it',
+      review: 'Open review items about this request',
+      files: 'The imported request workbook and the exports made for this request',
+      emailRecords: '{{count}} vetting records entered with "Responded by email"',
+      emailRecords_one: '{{count}} vetting record entered with "Responded by email"',
+      emailRecords_other: '{{count}} vetting records entered with "Responded by email"',
+      newPeople: 'People first added by this request, when nothing else refers to them',
+    },
+    keptHeading: 'What stays',
+    kept: {
+      people: 'People known from other requests or responses, with their other vetting records',
+      audit: 'The audit log entry that records this deletion',
+    },
+    irreversibleTitle: 'This cannot be undone',
+    irreversibleBody:
+      'The only way back is a backup made before the deletion. Make one first under <screen>Settings, Backup and restore</screen>.',
+    closeInstead: 'To keep the request on file but out of the way, close it instead of deleting it.',
+    ack: 'I understand that "{{name}}" and its {{count}} people are deleted permanently.',
+    ack_one: 'I understand that "{{name}}" and its {{count}} person are deleted permanently.',
+    ack_other: 'I understand that "{{name}}" and its {{count}} people are deleted permanently.',
+    confirm: 'Delete permanently',
+  },
   identity: {
     conflictTitle: 'These records disagree',
     conflictBody:

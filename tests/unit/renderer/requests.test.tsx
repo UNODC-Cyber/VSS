@@ -33,6 +33,50 @@ describe('request actions follow the request state (UI review O-16)', () => {
   });
 });
 
+describe('delete request confirmation (UI review R3O-05)', () => {
+  it('names the request, counts the people, lists what is lost, and needs a deliberate tick', async () => {
+    const ctl = mock();
+    const user = userEvent.setup();
+    const req = ctl.db.requests.find(
+      (r) => r.items.length > 1 && r.responseKind !== 'dc-file' && r.status !== 'closed',
+    )!;
+    req.responseKind = null;
+    ui(<RequestDetailScreen id={req.id} />);
+    await user.click(await screen.findByRole('button', { name: 'Delete request' }));
+    const dlg = await screen.findByRole('dialog', { name: `Delete the request "${req.eventName}"?` });
+    expect(within(dlg).getByTestId('delete-request-summary')).toHaveTextContent(
+      `${req.items.length} people on this request`,
+    );
+    expect(within(dlg).getByText('What is deleted')).toBeInTheDocument();
+    expect(within(dlg).getByText(`The request and the ${req.items.length} people listed on it`)).toBeInTheDocument();
+    expect(within(dlg).getByText('What stays')).toBeInTheDocument();
+    expect(within(dlg).getByText('This cannot be undone')).toBeInTheDocument();
+    expect(within(dlg).getByRole('link', { name: 'Settings, Backup and restore' })).toHaveAttribute(
+      'href',
+      '#/settings?card=backup',
+    );
+    const del = within(dlg).getByRole('button', { name: 'Delete permanently' });
+    expect(del).toBeDisabled();
+    expect(within(dlg).getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-autofocus');
+    await user.click(within(dlg).getByRole('checkbox', { name: /deleted permanently/ }));
+    expect(del).toBeEnabled();
+    await user.click(del);
+    await waitFor(() => expect(ctl.db.requests.some((r) => r.id === req.id)).toBe(false));
+  });
+
+  it('a request with an imported response file explains why it cannot be deleted and offers no delete', async () => {
+    const ctl = mock();
+    const user = userEvent.setup();
+    const req = ctl.db.requests.find((r) => r.status !== 'closed')!;
+    req.responseKind = 'dc-file';
+    ui(<RequestDetailScreen id={req.id} />);
+    await user.click(await screen.findByRole('button', { name: 'Delete request' }));
+    const dlg = await screen.findByRole('dialog');
+    expect(within(dlg).getByTestId('delete-request-blocked')).toHaveTextContent('Close the request instead');
+    expect(within(dlg).queryByRole('button', { name: 'Delete permanently' })).not.toBeInTheDocument();
+  });
+});
+
 describe('requests list', () => {
   it('lists requests and filters to outstanding only', async () => {
     mock();
