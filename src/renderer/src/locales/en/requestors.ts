@@ -7,16 +7,14 @@ export const requestors = {
   requestorField: {
     phone: 'Requestor phone',
     listLabel: 'Saved requestors',
-    found_one: '{{count}} saved requestor found',
-    found_other: '{{count}} saved requestors found',
+    found: 'Saved requestors found: {{count}}',
     none: 'No saved requestor matches',
     saved: 'Saved requestor selected: {{name}}',
     hint: 'Type to search saved requestors by name or e-mail address.',
   },
   requestorChoice: {
     title: 'Update the saved requestor?',
-    body_one: 'The details you changed belong to a saved requestor used by {{count}} request.',
-    body_other: 'The details you changed belong to a saved requestor used by {{count}} requests.',
+    body: 'The details you changed belong to a saved requestor. Requests using it: {{count}}.',
     update: 'Update saved requestor',
     updateHint: 'Changes the saved record; requests that still show its details follow it.',
     only: 'Only this request',

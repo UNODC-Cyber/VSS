@@ -132,7 +132,7 @@ describe('requestor helpers', () => {
     const user = userEvent.setup();
     const picked: string[] = [];
     ui(<RequestorChoiceModal count={2} onChoose={(c) => picked.push(c)} onCancel={() => picked.push('cancel')} />);
-    expect(await screen.findByText(/used by 2 requests/)).toBeInTheDocument();
+    expect(await screen.findByText(/Requests using it: 2/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Only this request' }));
     await user.click(screen.getByRole('button', { name: 'Update saved requestor' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
