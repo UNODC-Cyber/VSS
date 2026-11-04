@@ -1,4 +1,5 @@
 import type { IsoDate } from '../../../shared/domain/types.ts';
+import { isValidYmd } from '../../../shared/domain/dob.ts';
 
 /** Excel 1900 date system, including the historical leap-year bug (serial 60 is the non-existent 1900-02-29). */
 
@@ -6,12 +7,8 @@ export const MAX_SERIAL = 2958465; // 9999-12-31
 const EPOCH_MS = Date.UTC(1899, 11, 30);
 const DAY_MS = 86_400_000;
 
-export function isValidYmd(y: number, m: number, d: number): boolean {
-  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return false;
-  if (y < 1900 || y > 9999 || m < 1 || m > 12 || d < 1) return false;
-  const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return d <= dim;
-}
+/** One calendar check for every parser, the matcher and the renderer (shared/domain/dob.ts). */
+export { isValidYmd };
 
 export function formatIso(y: number, m: number, d: number): IsoDate {
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;

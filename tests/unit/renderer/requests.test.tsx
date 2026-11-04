@@ -283,7 +283,8 @@ describe('request detail', () => {
   });
 
   it('composes an email to the requestor and copies the body', async () => {
-    const { ctl, user } = await openDetail('Regional Cyber Workshop');
+    // A received request defaults to the acknowledgement (the template follows the request state, R2O-12).
+    const { ctl, user } = await openDetail('Seminar (draft)');
     await user.click(screen.getByRole('button', { name: 'Email requestor' }));
     const dlg = await screen.findByRole('dialog');
     expect(await within(dlg).findByDisplayValue(/vetting request received/)).toBeInTheDocument();

@@ -1,3 +1,4 @@
+import { isCalendarIsoDate } from '../../shared/domain/dob';
 import type { IsoDate, MatchEvidence, RawDate } from '../../shared/domain/types';
 import type { DobInfo } from './types';
 
@@ -17,7 +18,8 @@ export function isPlaceholderDob(date: IsoDate | null | undefined): boolean {
 }
 
 export function dobFromRaw(raw: RawDate | null | undefined): DobInfo {
-  if (!raw || raw.parsed === null || !ISO.test(raw.parsed)) return { date: null, precision: 'unknown' };
+  // An impossible stored date (e.g. month 20) is no date at all: never evidence for (or against) a match.
+  if (!raw || !isCalendarIsoDate(raw.parsed)) return { date: null, precision: 'unknown' };
   return {
     date: raw.parsed,
     precision: raw.ambiguousDayMonth ? 'ambiguous-dm' : 'exact',
@@ -40,7 +42,7 @@ export function swapDayMonth(date: IsoDate): IsoDate | null {
 }
 
 function usable(d: DobInfo): d is DobInfo & { date: IsoDate } {
-  return d.date !== null && d.precision !== 'unknown' && ISO.test(d.date);
+  return d.date !== null && d.precision !== 'unknown' && isCalendarIsoDate(d.date);
 }
 
 /**

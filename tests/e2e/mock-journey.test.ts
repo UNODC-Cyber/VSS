@@ -204,7 +204,9 @@ describe('mock journey', () => {
     await page.getByRole('button', { name: 'Email requestor' }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Subject').waitFor();
-    expect(await dlg.getByLabel('Subject').inputValue()).toContain('vetting request received');
+    // The request is Responded, so the template defaults to the outcome notice (UI review R2O-12).
+    expect(await dlg.getByLabel('Template', { exact: true }).inputValue()).toBe('Outcome notice to requestor');
+    await expect.poll(() => dlg.getByLabel('Subject').inputValue()).toMatch(/\S/);
     expect(await dlg.getByLabel('To', { exact: true }).inputValue()).toContain('pat@example.invalid');
     await dlg.getByRole('button', { name: 'Open in mail client' }).click();
     await dlg.getByTestId('mailto-status').waitFor();
@@ -251,9 +253,13 @@ describe('mock journey', () => {
   it('a saved e-mail template shows up in the next draft; the authority contacts are accessible', async () => {
     await nav('Settings').click();
     await page.getByRole('heading', { name: 'E-mail templates' }).waitFor();
-    await page.getByRole('tab', { name: 'Acknowledge receipt to requestor' }).click();
-    await page.getByLabel('Subject', { exact: true }).fill('Custom ack: {event}');
-    await page.getByTestId('preview-subject').filter({ hasText: 'Custom ack: Example Regional Workshop' }).waitFor();
+    // The journey request is Responded, so its draft defaults to the outcome notice (R2O-12): customise that one.
+    await page.getByRole('tab', { name: 'Outcome notice to requestor' }).click();
+    await page.getByLabel('Subject', { exact: true }).fill('Custom outcome: {event}');
+    await page
+      .getByTestId('preview-subject')
+      .filter({ hasText: 'Custom outcome: Example Regional Workshop' })
+      .waitFor();
     await page.getByRole('button', { name: 'Add To contact' }).click();
     await page.getByLabel('To contact 1: Name').fill('Example Desk');
     await page.getByLabel('To contact 1: E-mail address').fill('desk@example.invalid');
@@ -266,7 +272,7 @@ describe('mock journey', () => {
     await page.getByRole('button', { name: 'Email requestor' }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Subject').waitFor();
-    expect(await dlg.getByLabel('Subject').inputValue()).toBe('Custom ack: Journey Event');
+    expect(await dlg.getByLabel('Subject').inputValue()).toBe('Custom outcome: Journey Event');
     await page.keyboard.press('Escape');
   });
 

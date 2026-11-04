@@ -218,6 +218,11 @@ export interface VettingRequest {
   /** Manager's close note (kept on the row, never in the audit text); '' when none. */
   closeNote: string;
   reopenCount: number;
+  /**
+   * Person ids that have a vetting record recorded for THIS request (file or e-mail), filled by requests.get. The
+   * close summary counts answers from it, not from export decisions (UI review R2O-06). Absent = not loaded.
+   */
+  recordedPersonIds?: Ulid[];
 }
 
 export type ResponseSection = 'approved-unit' | 'approved-individual' | 'nonapproved-unit' | 'nonapproved-individual';

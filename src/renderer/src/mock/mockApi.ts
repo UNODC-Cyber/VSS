@@ -955,7 +955,9 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       get: (req) =>
         gate(() => {
           const r = db.requests.find((x) => x.id === req.id);
-          return r ? ok(structuredClone(r)) : fail('NOT_FOUND', 'Request not found.');
+          if (!r) return fail('NOT_FOUND', 'Request not found.');
+          const recordedPersonIds = [...new Set(db.records.filter((v) => v.requestId === r.id).map((v) => v.personId))];
+          return ok({ ...structuredClone(r), recordedPersonIds });
         }),
       importPreview: (req) =>
         gate(() => {
@@ -1647,7 +1649,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
                 }
             }
           }
-          return ok({ item: structuredClone(item), subjects });
+          const first = item.subjectIds[0];
+          const owner = first ? db.requests.find((r) => r.items.some((i) => i.id === first)) : undefined;
+          const context = owner ? { requestId: owner.id, eventName: owner.eventName } : null;
+          return ok({ item: structuredClone(item), subjects, context });
         }),
       resolve: (req) =>
         gate(() => {

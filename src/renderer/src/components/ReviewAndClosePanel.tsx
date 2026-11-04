@@ -4,13 +4,37 @@ import { useTranslation } from 'react-i18next';
 import { isExcluded, MIN_REASON_LENGTH } from '@shared/domain/lifecycle';
 import type { VettingRequest } from '@shared/domain/types';
 import { useAction, vss } from '../lib/api';
-import { fmtDate } from '../lib/format';
+import { fmtLocalDate } from '../lib/format';
 import { col, DataTable } from './DataTable';
 
 interface OutcomeRow {
   id: string;
   label: string;
   count: number;
+}
+
+/**
+ * Outcome counts for the close summary (UI review R2O-06). An item is "answered" when its person has a vetting
+ * record for THIS request, whatever its export decision: export decisions are re-applied after an answer (an
+ * approved person is then "excluded" from any further export), so they cannot say whether an answer exists.
+ * "Excluded" counts only the excluded items with no record on this request (nobody waits for an answer on them).
+ * Without `recordedPersonIds` (older main), the counts fall back to export decisions.
+ */
+export function outcomeCounts(req: Pick<VettingRequest, 'items' | 'recordedPersonIds'>): {
+  answered: number;
+  excluded: number;
+  waiting: number;
+  total: number;
+} {
+  const recorded = req.recordedPersonIds ? new Set(req.recordedPersonIds) : null;
+  let answered = 0;
+  let excluded = 0;
+  for (const i of req.items) {
+    const hasRecord = recorded ? i.personId !== null && recorded.has(i.personId) : !isExcluded(i.exportDecision);
+    if (hasRecord) answered++;
+    else if (isExcluded(i.exportDecision)) excluded++;
+  }
+  return { answered, excluded, waiting: req.items.length - answered - excluded, total: req.items.length };
 }
 
 /**
@@ -27,11 +51,13 @@ export function ReviewAndClosePanel({ req, reload }: { req: VettingRequest; relo
   if (dlg) mode.current = dlg;
   if (req.status !== 'finished' && req.status !== 'closed') return null;
 
-  const excluded = req.items.filter((i) => isExcluded(i.exportDecision)).length;
+  const n = outcomeCounts(req);
   const rows: OutcomeRow[] = [
-    { id: 'answered', label: t('lifecycle.answered'), count: req.items.length - excluded },
-    { id: 'excluded', label: t('lifecycle.excluded'), count: excluded },
-    { id: 'total', label: t('lifecycle.total'), count: req.items.length },
+    { id: 'answered', label: t('lifecycle.answered'), count: n.answered },
+    { id: 'excluded', label: t('lifecycle.excluded'), count: n.excluded },
+    // Only after a reopen or an undo can a Closed request hold items without an outcome; say so rather than hide it.
+    ...(n.waiting > 0 ? [{ id: 'waiting', label: t('lifecycleFlow.waiting'), count: n.waiting }] : []),
+    { id: 'total', label: t('lifecycle.total'), count: n.total },
   ];
   const done = () => {
     setDlg(null);
@@ -58,7 +84,7 @@ export function ReviewAndClosePanel({ req, reload }: { req: VettingRequest; relo
           <Text size="sm">{t('lifecycle.finishedIntro')}</Text>
         ) : (
           <>
-            <Text size="sm">{t('lifecycle.closedIntro', { date: fmtDate(req.closedAt?.slice(0, 10)) })}</Text>
+            <Text size="sm">{t('lifecycle.closedIntro', { date: fmtLocalDate(req.closedAt) })}</Text>
             {req.closeNote && (
               <Alert color="gray" title={t('lifecycle.note')} data-testid="close-note">
                 {req.closeNote}

@@ -17,9 +17,11 @@ import {
 } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { latestRecord } from '@shared/domain/status';
 import type { VettingRecord } from '@shared/domain/types';
 import type { MergeLogEntry, PersonDetail, PersonSummary, RequestSummary } from '@shared/ipc/contract';
 import { col, DataTable } from '../../components/DataTable';
+import { DobValue } from '../../components/DobValue';
 import {
   CopyButton,
   KeyValue,
@@ -31,8 +33,26 @@ import {
 } from '../../components/common';
 import { PersonPicker } from '../../components/PersonPicker';
 import { useAction, useQuery, vss } from '../../lib/api';
-import { fmtDate, fmtDateTime, todayIso } from '../../lib/format';
+import { fmtDate, fmtDateTime, fmtLocalDate, todayIso } from '../../lib/format';
 import { navigate } from '../../lib/router';
+
+/**
+ * The line next to the status badge (UI review O-28 / S-32): the status is computed for today, from the latest
+ * record, so the line names both (never "APPROVED as of <today>", which read like the approval date).
+ */
+export function statusBasis(
+  t: (k: string, o?: Record<string, unknown>) => string,
+  d: Pick<PersonDetail, 'statusAsOf' | 'records'>,
+): string {
+  const rec = latestRecord(d.records);
+  const today = t('personFlow.checkedOn', { date: d.statusAsOf });
+  if (!rec) return `${today} ${t('personFlow.noRecord')}`;
+  return `${today} ${t(rec.expiresAt ? 'personFlow.basedOn' : 'personFlow.basedOnNoExpiry', {
+    disp: t(`disp.${rec.disposition}`),
+    cert: fmtDate(rec.certDate),
+    expires: fmtDate(rec.expiresAt),
+  })}${rec.expiryAssumed ? ` ${t('personFlow.assumed')}` : ''}`;
+}
 
 function RecordDialog({ personId, onClose, onSaved }: { personId: string; onClose: () => void; onSaved: () => void }) {
   const { t } = useTranslation();
@@ -240,8 +260,8 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
       />
       <Group>
         <StatusBadge status={d.status} />
-        <Text size="sm" c="dimmed">
-          {t('person.asOf', { date: d.statusAsOf })}
+        <Text size="sm" c="dimmed" data-testid="person-status-basis">
+          {statusBasis(t, d)}
         </Text>
         {d.openReviewItemIds.map((id) => (
           <a key={id} href={`#/review/${id}`}>
@@ -252,7 +272,7 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
       <Card withBorder>
         <KeyValue
           rows={[
-            [t('people.dob'), <Sensitive key="d" value={p.dob} />],
+            [t('people.dob'), <DobValue key="d" parsed={p.dob} showRaw={false} />],
             [t('person.sex'), p.sex ?? '-'],
             [t('people.nationality'), p.nationality ?? '-'],
             [t('person.pob'), [p.pob.city, p.pob.state, p.pob.country].filter(Boolean).join(', ') || '-'],
@@ -338,7 +358,7 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
             truncate: true,
             tooltip: (r) => r.eventName,
           }),
-          col<RequestSummary>('r', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
+          col<RequestSummary>('r', t('requests.received'), (r) => fmtLocalDate(r.receivedAt), {
             width: 120,
             nowrap: true,
           }),

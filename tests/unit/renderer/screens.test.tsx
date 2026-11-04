@@ -26,8 +26,8 @@ describe('dashboard', () => {
     expect(screen.queryByTestId('get-started')).not.toBeInTheDocument();
     expect(screen.getByTestId('ta-file')).toHaveTextContent('1 requests, mean 9.0, median 9.0');
     expect(screen.getByTestId('ta-email')).toHaveTextContent('1 requests, mean 3.0, median 3.0');
-    expect(screen.getByTestId('exp-30')).toHaveTextContent('within 30 d: 2');
-    expect(screen.getByTestId('exp-90')).toHaveTextContent('within 90 d: 2');
+    expect(screen.getByTestId('exp-30')).toHaveTextContent('within 30 days: 2');
+    expect(screen.getByTestId('exp-90')).toHaveTextContent('within 90 days: 2');
     expect(screen.getByTestId('stat-backup')).toHaveTextContent('9 d ago');
   });
 

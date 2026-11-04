@@ -155,15 +155,26 @@ export const flow = {
     rows_one: '{{count}} row in the response',
     rows_other: '{{count}} rows in the response',
     auto: '{{count}} exact matches linked on import',
+    auto_one: '{{count}} exact match linked on import',
+    auto_other: '{{count}} exact matches linked on import',
     linked: '{{count}} rows linked to the person you chose',
+    linked_one: '{{count}} row linked to the person you chose',
+    linked_other: '{{count}} rows linked to the person you chose',
     created: '{{count}} new people created from rows',
+    created_one: '{{count}} new person created from a row',
+    created_other: '{{count}} new people created from rows',
     skipped: '{{count}} rows not matched ("None of these")',
+    skipped_one: '{{count}} row not matched ("None of these")',
+    skipped_other: '{{count}} rows not matched ("None of these")',
     review: '{{count}} rows go to the review queue (no decision yet)',
+    review_one: '{{count}} row goes to the review queue (no decision yet)',
+    review_other: '{{count}} rows go to the review queue (no decision yet)',
     unanswered: '{{count}} people on the request have no answer in this file',
+    unanswered_one: '{{count}} person on the request has no answer in this file',
+    unanswered_other: '{{count}} people on the request have no answer in this file',
   },
   importFlow: {
     fileShown: 'File: {{name}}',
-    dobUnreadable: 'not a date',
     needDetails: 'Fill in Requestor name and Event name (in Request details below the table) to continue.',
   },
   exportFlow: {
@@ -175,6 +186,9 @@ export const flow = {
   sentFlow: {
     noItems: 'This request has no individuals. Check that this is the right request before marking it as sent.',
     help: 'Record when you sent the export to the vetting authority. The waiting time is counted from this date.',
+    zone: 'Local time on this computer ({{zone}}). All times in VSS are shown in this time zone.',
+    notExported:
+      'No export has been made for this request yet. Mark it as sent only if you sent the individuals to the vetting authority another way.',
   },
   composeFlow: {
     notSent:
@@ -203,5 +217,56 @@ export const flow = {
   },
   backupFlow: {
     none: 'No backup has been made yet.',
+    setUpFirst: 'Choose a folder, enter your password and click Set up backups first.',
+  },
+  // UI review round 2 (2026-11-04): dates of birth that are not valid or not certain, unit rows of a response.
+  dobView: {
+    invalid: 'Invalid date',
+    ambiguous: 'Ambiguous',
+    invalidHelp:
+      'This is not a real calendar date. It is shown exactly as written, is not used for matching, and must be checked with the source.',
+    ambiguousHelp:
+      'Day and month can be read either way: as month/day {{md}}, as day/month {{dm}}. VSS uses the month/day reading of vetting authority files. Check it before you decide.',
+    ambiguousHelpRedacted: 'Day and month can be read either way. Turn off redaction to see both readings.',
+    ambiguousRows:
+      'Dates marked "Ambiguous" can be read as month/day or day/month. VSS reads them as month/day, the format of vetting authority files; the value as written in the file is shown below each date. Use Compare to check them.',
+    invalidRows:
+      'Dates marked "Invalid date" are not real dates. They are kept as written and are not used for matching.',
+    invalidInput: 'Not a real calendar date.',
+  },
+  auditFlow: {
+    allEvents: 'All events',
+    filterHelp: 'Type part of an event name, for example request.import.',
+    timeIn: 'Time ({{zone}})',
+  },
+  reviewHelp: {
+    compareShort: 'Compare and decide...',
+    compareN: 'Compare and decide (candidate {{n}})...',
+    choose: 'Choose person: search for the person this record is about; you compare before anything is linked.',
+    createNew: 'Create new person: this record is somebody VSS does not know yet.',
+    validate: 'Manually validate: record this row as a valid answer for a person you choose, with a reason.',
+    openRequest: 'Open request',
+    openRequestHelp:
+      'Open request: go to the request to record an e-mailed outcome for this person or to exclude them.',
+  },
+  personFlow: {
+    checkedOn: 'Status on {{date}} (today).',
+    basedOn: 'Based on the latest record: {{disp}} {{cert}}, expires {{expires}}.',
+    basedOnNoExpiry: 'Based on the latest record: {{disp}} {{cert}}.',
+    noRecord: 'No vetting record yet.',
+    assumed: '(expiry assumed)',
+  },
+  lifecycleFlow: {
+    waiting: 'No answer yet',
+  },
+  unitRow: {
+    badge: 'Unit approval',
+    label: 'Unit approval: {{unit}}',
+    commanderLabel: 'Commander:',
+    commander: 'Commander: {{name}}',
+    commanderUnknown:
+      'Commander not named in the file ("UNKNOWN"): the result is recorded for the unit only; no person is created or linked.',
+    explain:
+      'Rows marked "Unit approval" are results for a unit, not for a person. The result is recorded for the unit. A commander named in the file is matched to the request like a person; an "UNKNOWN" commander is not matched to anybody.',
   },
 };

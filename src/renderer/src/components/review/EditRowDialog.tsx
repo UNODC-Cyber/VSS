@@ -10,8 +10,10 @@ import type { ResponseRowPatch, ReviewItemDetail } from '@shared/ipc/contract';
 import { useAction, vss } from '../../lib/api';
 import { mask } from '../../lib/format';
 import { useUi } from '../../store';
+import { isCalendarIsoDate } from '@shared/domain/dob';
 
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day in YYYY-MM-DD (so 1995-20-07 is refused, UI review R2O-02). */
+const ISO = { test: (s: string): boolean => isCalendarIsoDate(s) };
 interface Form {
   nameRaw: string;
   dob: string;

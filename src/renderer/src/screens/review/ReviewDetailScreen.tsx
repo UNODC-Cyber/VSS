@@ -178,6 +178,9 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
   const canValidate = open && rowSubject !== null && VALIDATE_KINDS.has(item.kind);
   const rowLinked = row !== null && (row.match.decision === 'confirmed' || row.match.decision === 'auto');
   const persons = subjects.filter((s) => s.kind === 'person');
+  /** Help and actions follow what is on screen (UI review R2O-11): no compare / "not the same" without a candidate. */
+  const showCompare = (isLink && cands.length > 0) || (item.kind === 'duplicate-persons' && cands.length > 0);
+  const showNotSame = showCompare;
   const alternatives = {
     createNew: () => {
       setPicker(false);
@@ -227,8 +230,16 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
         <Group role="group" aria-label={t('review.actions')}>
           {isLink &&
             cands.map((c, k) => (
-              <Button key={c.id} variant="default" onClick={() => setComparing({ kind: 'link', index: k + 1 })}>
-                {t('identity.compareWith', { name: c.displayName })}
+              <Button
+                key={c.id}
+                variant="default"
+                // Short visible label (never truncated, UI review R2O-14); the name is in the accessible name and
+                // in the dialog title.
+                aria-label={t('identity.compareWith', { name: c.displayName })}
+                title={t('identity.compareWith', { name: c.displayName })}
+                onClick={() => setComparing({ kind: 'link', index: k + 1 })}
+              >
+                {cands.length > 1 ? t('reviewHelp.compareN', { n: k + 1 }) : t('reviewHelp.compareShort')}
               </Button>
             ))}
           {isLink && (
@@ -286,7 +297,19 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
               </Button>
             </>
           )}
-          {(isLink || item.kind === 'duplicate-persons') && (
+          {item.kind === 'unanswered-request-item' && detail.context && 'requestId' in detail.context && (
+            <Button
+              variant="default"
+              data-testid="open-request"
+              onClick={() => {
+                const c = detail.context;
+                if (c && 'requestId' in c) navigate(`/requests/${c.requestId}`);
+              }}
+            >
+              {t('reviewHelp.openRequest')}
+            </Button>
+          )}
+          {showNotSame && (
             <Button variant="default" onClick={() => void resolve({ action: 'not-same' }, t('review.notSame'))}>
               {t('review.notSamePerson')}
             </Button>
@@ -301,8 +324,14 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
       )}
       {open && (
         <List size="xs" spacing={2} data-testid="review-action-help">
-          {isIdentity && <List.Item>{t('reviewFlow.help.compare')}</List.Item>}
-          {isIdentity && <List.Item>{t('reviewFlow.help.notSame')}</List.Item>}
+          {showCompare && <List.Item>{t('reviewFlow.help.compare')}</List.Item>}
+          {isLink && <List.Item>{t('reviewHelp.choose')}</List.Item>}
+          {isLink && <List.Item>{t('reviewHelp.createNew')}</List.Item>}
+          {canValidate && <List.Item>{t('reviewHelp.validate')}</List.Item>}
+          {showNotSame && <List.Item>{t('reviewFlow.help.notSame')}</List.Item>}
+          {item.kind === 'unanswered-request-item' && detail.context && 'requestId' in detail.context && (
+            <List.Item>{t('reviewHelp.openRequestHelp')}</List.Item>
+          )}
           <List.Item>{t('reviewFlow.help.skip')}</List.Item>
           <List.Item>{t('reviewFlow.help.dismiss')}</List.Item>
         </List>

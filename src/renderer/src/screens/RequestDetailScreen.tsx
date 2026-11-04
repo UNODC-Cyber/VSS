@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RequestItem, VettingRequest } from '@shared/domain/types';
 import { col, DataTable } from '../components/DataTable';
+import { DobValue } from '../components/DobValue';
 import { RequestStatusBadge } from '../components/RequestStatusBadge';
 import { ReviewAndClosePanel } from '../components/ReviewAndClosePanel';
 import {
@@ -33,6 +34,15 @@ type Dlg = 'export' | 'sent' | 'clearance' | 'email' | 'edit' | 'delete' | null;
 function itemName(i: RequestItem): string {
   const o = i.observed;
   return `${o.surname}, ${[o.name1, o.name2, o.name3, o.name4].filter(Boolean).join(' ')}`;
+}
+/** Event dates and place without empty parts: "2026-12-01 - 2026-12-03, Example City", or "-" (UI review R2S-17). */
+export function eventText(req: Pick<VettingRequest, 'eventStart' | 'eventEnd' | 'eventLocation'>): string {
+  const dates =
+    req.eventStart && req.eventEnd && req.eventStart !== req.eventEnd
+      ? `${fmtDate(req.eventStart)} - ${fmtDate(req.eventEnd)}`
+      : (req.eventStart ?? req.eventEnd ?? '');
+  const place = (req.eventLocation ?? '').trim();
+  return [dates, place].filter(Boolean).join(', ') || '-';
 }
 function rowFields(i: RequestItem): string[] {
   const o = i.observed;
@@ -66,7 +76,9 @@ export function requestActions(status: VettingRequest['status']): RequestActions
     case 'responded':
       return { ...open, primary: null, hint: 'review' };
     case 'finished':
-      return { ...open, primary: null, hint: 'close' };
+      // Every person has an outcome (UI review R2O-19): no new export, sent mark or answer is offered. A corrected
+      // response can still be imported from the Responses screen.
+      return { ...open, export: false, markSent: false, answer: false, primary: null, hint: 'close' };
     case 'closed':
     case 'withdrawn':
       return {
@@ -174,13 +186,14 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
               `${req.requestor.name}${req.requestor.organisation ? `, ${req.requestor.organisation}` : ''}`,
             ],
             [t('request.requestorEmail'), req.requestor.email ?? '-'],
-            [t('request.received'), fmtDateTime(req.receivedAt)],
-            [t('request.sent'), fmtDateTime(req.sentToDcAt)],
+            // Local time with the zone shown (UI review R2O-07): the same clock the Mark sent input uses.
+            [t('request.received'), fmtDateTime(req.receivedAt, { zone: true })],
+            [t('request.sent'), fmtDateTime(req.sentToDcAt, { zone: true })],
             [
               t('request.responded'),
-              `${fmtDateTime(req.respondedAt)}${req.responseKind ? ` (${t(`respkind.${req.responseKind}`)})` : ''}`,
+              `${fmtDateTime(req.respondedAt, { zone: true })}${req.responseKind ? ` (${t(`respkind.${req.responseKind}`)})` : ''}`,
             ],
-            [t('request.event'), `${fmtDate(req.eventStart)} - ${fmtDate(req.eventEnd)} ${req.eventLocation ?? ''}`],
+            [t('request.event'), eventText(req)],
             [t('request.batchId'), req.batchId ?? '-'],
             [t('request.notes'), req.notes || '-'],
           ]}
@@ -218,7 +231,20 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
           col<RequestItem>(
             'dob',
             t('import.dob'),
-            (i) => <CopyField value={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />,
+            // Invalid or ambiguous dates carry a badge and are never shown as if valid (UI review R2O-02).
+            (i) => (
+              <Group gap={4} wrap="nowrap">
+                <DobValue
+                  parsed={i.observed.dob.parsed}
+                  raw={i.observed.dob.value}
+                  ambiguous={i.observed.dob.ambiguousDayMonth}
+                  showRaw={false}
+                />
+                {(i.observed.dob.parsed ?? i.observed.dob.value) && (
+                  <CopyButton text={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />
+                )}
+              </Group>
+            ),
             { width: 140, nowrap: true },
           ),
           col<RequestItem>(

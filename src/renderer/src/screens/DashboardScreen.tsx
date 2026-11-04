@@ -22,7 +22,7 @@ import { RequestStatusBadge } from '../components/RequestStatusBadge';
 import { ScreenLink } from '../components/ScreenLink';
 import { PageHeader, QueryBoundary, Sensitive, StatusBadge } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
-import { fmtDate } from '../lib/format';
+import { fmtDate, fmtLocalDate, todayIso } from '../lib/format';
 
 function Stat({
   label,
@@ -57,9 +57,7 @@ function ExpiryCsvButton() {
   const [open, setOpen] = useState(false);
   const [pw, setPw] = useState('');
   const run = async () => {
-    const f = await act(
-      vss().files.pickSave({ kind: 'csv', suggestedName: `vss-expiries-${new Date().toISOString().slice(0, 10)}.csv` }),
-    );
+    const f = await act(vss().files.pickSave({ kind: 'csv', suggestedName: `vss-expiries-${todayIso()}.csv` }));
     if (!f?.path) return;
     const r = await act(
       vss().stats.exportExpiryCsv({ withinDays: 90, password: pw, destPath: f.path }),
@@ -178,7 +176,7 @@ function Body({ d }: { d: Dashboard }) {
             (r) => <a href={`#/requests/${r.requestId}`}>{r.eventName}</a>,
             { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => r.eventName },
           ),
-          col<DashboardOutstandingRequest>('s', t('request.sent'), (r) => fmtDate(r.sentToDcAt.slice(0, 10)), {
+          col<DashboardOutstandingRequest>('s', t('request.sent'), (r) => fmtLocalDate(r.sentToDcAt), {
             width: 120,
             nowrap: true,
           }),

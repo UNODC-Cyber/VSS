@@ -1,5 +1,6 @@
 import { Badge, Table, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
+import { classifyDob } from '@shared/domain/dob';
 import { dobBoth, dobSwapped, mask } from '../lib/format';
 import { useUi } from '../store';
 
@@ -52,27 +53,43 @@ export function DiffGrid({ headers, fields, caption }: { headers: string[]; fiel
       <Table.Tbody>
         {fields.map((f) => {
           const differs = fieldDiffers(f);
+          // A value on one side only is "missing", not a disagreement (UI review R2O-10): only conflicts say DIFFERS,
+          // so the badge matches the "These records disagree" banner and the acknowledgement list.
+          const conflicts = fieldConflicts(f);
           const swapped =
             f.kind === 'dob' && f.values.some((a, i) => f.values.some((b, j) => j > i && dobSwapped(a, b)));
           return (
             <Table.Tr
               key={f.key}
               data-differs={differs ? 'true' : 'false'}
-              style={differs ? { background: 'var(--mantine-color-yellow-light)' } : undefined}
+              data-conflicts={conflicts ? 'true' : 'false'}
+              style={conflicts ? { background: 'var(--mantine-color-yellow-light)' } : undefined}
             >
               <Table.Th scope="row">
                 {f.label}
-                {differs && (
+                {conflicts ? (
                   <Badge ml={6} size="xs" color="orange">
                     {t('diff.differs')}
                   </Badge>
+                ) : (
+                  differs && (
+                    <Badge ml={6} size="xs" color="gray" variant="light">
+                      {t('diff.missing')}
+                    </Badge>
+                  )
                 )}
               </Table.Th>
               {f.values.map((v, i) => {
                 const both = swapped ? dobBoth(v) : null;
+                const invalidDob = f.kind === 'dob' && v.trim() !== '' && classifyDob(v, v).state === 'invalid';
                 return (
                   <Table.Td key={i}>
                     {show(v)}
+                    {invalidDob && (
+                      <Badge ml={6} size="xs" color="red" variant="light" data-testid="diff-dob-invalid">
+                        {t('dobView.invalid')}
+                      </Badge>
+                    )}
                     {both && (
                       <Text size="xs" c="dimmed">
                         {redact ? '' : t('diff.dobBoth', { dm: both.dm, md: both.md })}
