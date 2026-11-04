@@ -131,6 +131,8 @@ export interface ComposeOptions {
   appInfo?: { version: string; channel?: AppChannel };
   /** LANE L SLOT: extra wipe clean-up (services/wipe.ts), run after the password check, before the vault goes. */
   wipeExtras?: (req: VaultWipeRequest, ctx: WipeExtrasContext) => Promise<void>;
+  /** R16: forget the saved window position and re-centre the window (main/index.ts passes the keeper). */
+  resetWindowState?: () => void;
 }
 
 export interface ComposedApp {
@@ -665,6 +667,11 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
         }),
       // LANE I SLOT: the fixed, allowlisted feedback URL (docs/PLAN-ALPHA.md section 12).
       openFeedback: async () => err('NOT_SUPPORTED', 'Feedback is not available in this version'),
+      // R16: geometry only, no vault data: answers while locked too.
+      resetWindowState: async () => {
+        opts.resetWindowState?.();
+        return ok({ ok: true as const });
+      },
     },
   };
 

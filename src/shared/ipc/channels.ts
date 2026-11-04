@@ -60,7 +60,7 @@ export const METHODS = {
   peer: ['status', 'setEnabled', 'pair', 'forget', 'syncNow'],
   templates: ['list', 'import', 'setActive', 'remove'],
   files: ['pickOpen', 'pickSave', 'reveal', 'saveStored'],
-  app: ['info', 'openFeedback'],
+  app: ['info', 'openFeedback', 'resetWindowState'],
 } as const;
 
 export type Namespace = keyof typeof METHODS;

@@ -1397,6 +1397,7 @@ export const ipcSchemas = {
   app: {
     info: { req: none, res: appInfo },
     openFeedback: { req: none, res: ack },
+    resetWindowState: { req: none, res: ack },
   },
 } satisfies SchemaTable;
 

@@ -228,6 +228,32 @@ describe('mock journey', () => {
     await page.emulateMedia({ colorScheme: 'light' });
   });
 
+  it('deletes the database through the danger zone and starts over with a new vault (lane L)', async () => {
+    await nav('Settings').click();
+    await page.locator('#card-danger').scrollIntoViewIfNeeded();
+    await page.getByRole('button', { name: 'Delete database...' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Delete database' });
+    const confirm = dialog.getByRole('button', { name: 'Delete database' });
+    await dialog.getByLabel(/^Password to confirm/).fill(PASSWORD);
+    await dialog.getByLabel(/^Type DELETE DATABASE/).fill('delete database');
+    expect(await confirm.isDisabled()).toBe(true);
+    await dialog.getByLabel(/^Type DELETE DATABASE/).fill('DELETE DATABASE');
+    await confirm.click();
+    await page.getByRole('heading', { name: 'Create your vault' }).waitFor();
+    expect(page.url()).toContain('#/create');
+    await page.getByText('The database was deleted').waitFor();
+    // Straight away: a new vault, with none of the old data.
+    await page.getByLabel(/^Your name/).fill('Second User');
+    await page
+      .getByLabel(/^Password/)
+      .first()
+      .fill(PASSWORD);
+    await page.getByLabel(/^Confirm password/).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Create vault' }).click();
+    await page.getByRole('navigation', { name: 'Main navigation' }).waitFor();
+    await page.getByTestId('stat-outstanding').waitFor();
+  });
+
   it('raised no uncaught page errors', () => {
     expect(pageErrors).toEqual([]);
   });
