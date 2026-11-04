@@ -468,6 +468,14 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
       await run.go(`#/review/${rv.id}`);
       await run.click(/choose|pick|other person|someone/i);
     });
+    await run.screen('dialog-review-compare', async () => {
+      await run.go(`#/review/${rv.id}`);
+      await page
+        .getByRole('button', { name: /same person|compare and decide/i })
+        .first()
+        .click({ timeout: 6000 });
+      await page.getByRole('dialog').first().waitFor({ timeout: 6000 });
+    });
     await run.screen('dialog-review-validate', async () => {
       await run.go(`#/review/${rv.id}`);
       await run.click(/validate/i);
@@ -539,6 +547,19 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
   await run.screen('wizard-response-2-after-pick', async () => {
     await run.click(/choose file/i);
     await page.waitForTimeout(800);
+  });
+  // The wizard no longer preselects a weak match: choose the first candidate request, and tick the "no row matches"
+  // confirmation when it is asked for, as a user must.
+  await run.screen('wizard-response-2-request-chosen', async () => {
+    const select = page.getByLabel(/matching request/i).first();
+    await select.click({ timeout: 6000 });
+    const options = page.getByRole('option');
+    const n = await options.count();
+    await options.nth(n > 1 ? 1 : 0).click({ timeout: 6000 });
+    await page.waitForTimeout(900);
+    const ack = page.getByTestId('match-zero').getByRole('checkbox').first();
+    if (await ack.isVisible().catch(() => false)) await ack.check();
+    await page.waitForTimeout(300);
   });
   for (let i = 3; i <= 5; i++) {
     const next = page.getByRole('button', { name: /^next$/i });
