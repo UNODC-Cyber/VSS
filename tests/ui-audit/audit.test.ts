@@ -377,6 +377,7 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
   }
   await stubDialog(app, fx('responses/resp-011-request-workbook.xlsx'));
   await run.screen('error-wrong-response-file', async () => {
+    await run.go('#/'); // the wizard keeps its state when the hash does not change route
     await run.go('#/responses/import');
     await run.click(/choose file|choose another/i);
     await page.waitForTimeout(800);
