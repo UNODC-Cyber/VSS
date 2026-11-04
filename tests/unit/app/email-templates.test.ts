@@ -99,7 +99,7 @@ describe('drafts', () => {
     const d = buildDraft({ template: 'clearance-notice' }, snap);
     expect(d.subject).toBe(buildSubject('Example Workshop', '2027-01-10', 'clearance-notice'));
     expect(d.bodyText).toMatch(
-      /^Dear colleagues,\n\nPlease find below the vetting status for Example Workshop as of 2027-01-10\.\n\nName/,
+      /^Dear colleagues,\n\nPlease find below the vetting status for Example Workshop as of 2027-01-10\.\n\n1\. Name: /,
     );
     expect(d.bodyText.endsWith('\n\nKind regards')).toBe(true);
     const ack = buildDraft({ template: 'request-acknowledgement' }, snap);

@@ -5,6 +5,7 @@
  * screen can be exercised, but it is NOT the real backend: matching, parsing and export are faked from fixtures.
  */
 import { isConfidentSuggestion } from '@shared/domain/request-suggest';
+import { buildStatusTable } from '@shared/email-templates';
 import { addDays, daysBetween, deriveSnapshot, isRequestAwaitingResponse } from '@shared/domain/status';
 import type {
   DcResponse,
@@ -1695,22 +1696,19 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           const d = emailDraft(req.template, r);
           if (req.template === 'clearance-notice' || req.template === 'reminder-outstanding') {
             // Same column rule as main: name, unit, status, valid until; DOB / ID only when opted in per email.
-            const head = ['Name', 'Unit', 'Status', 'Valid until'];
-            if (req.fields?.dob) head.push('Date of birth');
-            if (req.fields?.ids) head.push('ID number');
+            // Same list format as main (shared buildStatusTable, UI review R3O-06).
             const rows = r.items.map((i) => {
               const s = i.personId ? snapshotFor(i.personId) : null;
-              const line = [
-                `${i.observed.surname}, ${i.observed.name1}`,
-                i.observed.unitName,
-                s?.status ?? 'pending',
-                s?.expiresAt ?? '-',
-              ];
-              if (req.fields?.dob) line.push(i.observed.dob.parsed ?? '-');
-              if (req.fields?.ids) line.push(i.observed.passport || i.observed.nationalId || '-');
-              return line.join(' | ');
+              return {
+                name: `${i.observed.surname}, ${i.observed.name1}`,
+                unit: i.observed.unitName,
+                status: s?.status ?? 'pending',
+                validUntil: s?.expiresAt ?? null,
+                dob: i.observed.dob.parsed,
+                idNumber: i.observed.passport || i.observed.nationalId || null,
+              };
             });
-            d.bodyText += `\n\n${[head.join(' | '), ...rows].join('\n')}`;
+            d.bodyText += `\n\n${buildStatusTable(rows, req.fields ?? {})}`;
             d.containsPersonalData = rows.length > 0;
           }
           if (req.to) d.to = req.to;
