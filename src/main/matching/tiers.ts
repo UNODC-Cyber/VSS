@@ -11,6 +11,8 @@
  * - T1 is also blocked by POB_CONFLICT (any mode) and by UNIT_CONFLICT within one request.
  * - SEX_CONFLICT or ID_CONFLICT caps a candidate at T3 (review, never pre-selected).
  * - DOB_SWAPPED / ambiguous dates never reach T1 (see compareDob).
+ * - NAME_SCRIPT_CONFLICT (Alpha 1, lane C: the Latin parts are equal but the non-Latin given names differ) caps a
+ *   candidate at T2, so it is never auto-linked. NAME_SCRIPT_IGNORED (non-Latin part on one side only) is information.
  */
 import type { MatchEvidence, MatchTier } from '../../shared/domain/types';
 import type { MatchMode } from './types';
@@ -22,7 +24,12 @@ export const CONFLICT_EVIDENCE: readonly MatchEvidence[] = [
   'FATHER_CONFLICT',
 ];
 /** Evidence that never allows T1 although it is not a conflict (the link may still be right; a human decides). */
-export const T1_BLOCKERS: readonly MatchEvidence[] = ['DOB_PLACEHOLDER', 'FATHER_CONFLICT', 'POB_CONFLICT'];
+export const T1_BLOCKERS: readonly MatchEvidence[] = [
+  'DOB_PLACEHOLDER',
+  'FATHER_CONFLICT',
+  'POB_CONFLICT',
+  'NAME_SCRIPT_CONFLICT',
+];
 
 export function tierRank(t: MatchTier): number {
   return t === 'T1' ? 1 : t === 'T2' ? 2 : t === 'T3' ? 3 : 4;

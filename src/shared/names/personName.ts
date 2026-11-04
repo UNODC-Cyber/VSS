@@ -1,7 +1,7 @@
 /** PersonName builders for the two source formats. */
 import type { PersonName } from '../domain/types';
 import { isUnknownSurname } from './key';
-import { cleanDisplay, detectNameScript } from './normalize';
+import { cleanDisplay, detectNameScript, splitByScript } from './normalize';
 
 function words(s: string): string[] {
   const c = cleanDisplay(s);
@@ -26,7 +26,8 @@ export function splitDcName(raw: string): PersonName {
     givenPart = clean.slice(comma + 1);
   }
   if (surname !== '' && isUnknownSurname(surname)) surname = '';
-  const given = words(givenPart.replace(/,/g, ' '));
+  // Given words are split where the script changes (Latin given names followed by the Thai-script ones, S-04).
+  const given = words(givenPart.replace(/,/g, ' ')).flatMap(splitByScript);
   return { surname, given, raw, script: detectNameScript([...words(surname), ...given]) };
 }
 
