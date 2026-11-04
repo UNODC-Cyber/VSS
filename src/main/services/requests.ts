@@ -13,6 +13,7 @@ import type {
   ObservedPerson,
   ObservedUnit,
   RequestItem,
+  Requestor,
   RowMatch,
   Ulid,
   ValidationIssue,
@@ -340,6 +341,12 @@ function previewOf(previewId: string, plan: PlannedImport): ImportPreview {
 }
 
 /** Writes everything a plan describes. Must run inside ctx.tx(). Returns the request id. */
+/** The requestor as stored on the request: linked to the saved record the hook returned (none = unlinked). */
+function withRequestorId(r: Requestor, id: Ulid | null): Requestor {
+  const { id: _drop, ...rest } = r;
+  return id ? { ...rest, id } : rest;
+}
+
 function persistPlan(
   ctx: Ctx,
   plan: PlannedImport,
@@ -413,12 +420,13 @@ function persistPlan(
   });
   const errors = errorsOf(plan.issues);
   const sent = header.sentToDcAt ?? null;
+  const requestorId = ctx.hooks.touchRequestor(header.requestor);
   ctx.repos.requests.insert(
     {
       id: plan.requestId,
       kind: plan.kind,
       receivedAt: at,
-      requestor: header.requestor,
+      requestor: withRequestorId(header.requestor, requestorId),
       eventName: header.eventName,
       eventStart: header.eventStart,
       eventEnd: header.eventEnd,
@@ -747,7 +755,12 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
     update: ({ id, patch }) =>
       run(() => {
         ctx.tx('requests.update', () => {
-          ctx.repos.requests.update(id, patch);
+          ctx.repos.requests.update(id, {
+            ...patch,
+            ...(patch.requestor
+              ? { requestor: withRequestorId(patch.requestor, ctx.hooks.touchRequestor(patch.requestor)) }
+              : {}),
+          });
           ctx.audit('request.update', 'request', id, { requestId: id, fields: Object.keys(patch).sort().join(',') });
         });
         return summaryOf(ctx, id);

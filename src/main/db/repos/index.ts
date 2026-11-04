@@ -5,6 +5,7 @@ import { MetaRepo } from './meta';
 import { NegativePairRepo } from './negativePair';
 import { PersonRepo } from './person';
 import { RequestRepo } from './request';
+import { RequestorRepo } from './requestor';
 import { ResponseRepo } from './response';
 import { ReviewItemRepo } from './reviewItem';
 import { SettingRepo } from './setting';
@@ -19,6 +20,7 @@ export * from './meta';
 export * from './negativePair';
 export * from './person';
 export * from './request';
+export * from './requestor';
 export * from './response';
 export * from './reviewItem';
 export * from './setting';
@@ -33,6 +35,7 @@ export interface Repos {
   units: UnitRepo;
   files: StoredFileRepo;
   requests: RequestRepo;
+  requestors: RequestorRepo;
   exports: ExportRepo;
   responses: ResponseRepo;
   vetting: VettingRecordRepo;
@@ -51,6 +54,7 @@ export function createRepos(db: Db): Repos {
     units: new UnitRepo(db),
     files: new StoredFileRepo(db),
     requests: new RequestRepo(db),
+    requestors: new RequestorRepo(db),
     exports: new ExportRepo(db),
     responses: new ResponseRepo(db),
     vetting: new VettingRecordRepo(db),

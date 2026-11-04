@@ -111,7 +111,14 @@ describe('mock journey', () => {
     await page.getByRole('button', { name: 'Choose file' }).click();
     await page.getByTestId('count-flagged').waitFor();
     expect(await page.getByTestId('count-flagged').textContent()).toBe('2 flagged');
-    await page.getByLabel(/^Requestor name/).fill('Pat Example');
+    // Type-ahead over the saved requestors (lane B): picking one fills the e-mail, so the email to the requestor has an address.
+    await page.getByLabel(/^Requestor name/).fill('pat');
+    await page
+      .getByRole('option', { name: /Pat Example/ })
+      .first()
+      .click();
+    expect(await page.getByLabel(/^Requestor name/).inputValue()).toBe('Pat Example');
+    expect(await page.getByLabel('Requestor email').inputValue()).toBe('pat@example.invalid');
     await page.getByLabel(/^Event name/).fill('Journey Event');
     await expectNoAxeViolations();
     await page.getByRole('button', { name: 'Import request' }).click();
@@ -169,6 +176,7 @@ describe('mock journey', () => {
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Subject').waitFor();
     expect(await dlg.getByLabel('Subject').inputValue()).toContain('vetting request received');
+    expect(await dlg.getByLabel('To').inputValue()).toContain('pat@example.invalid');
     await dlg.getByRole('button', { name: 'Open in mail client' }).click();
     await dlg.getByTestId('mailto-status').waitFor();
     await expectNoAxeViolations();

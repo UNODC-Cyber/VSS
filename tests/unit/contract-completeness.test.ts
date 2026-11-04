@@ -8,6 +8,7 @@ import { ALL_CHANNELS, channelName, METHODS, NAMESPACES } from '@shared/ipc/chan
 import type { Namespace } from '@shared/ipc/channels';
 import { EVENT_NAMES } from '@shared/ipc/contract';
 import { eventSchemas, ipcSchemas, schemasForChannel } from '@shared/ipc/schemas';
+import { APP_SCHEMA_VERSION } from '../../src/main/db/migrations';
 import { createMockApi } from '../../src/renderer/src/mock/mockApi';
 import { MOCK_EXTENSIONS } from '../../src/renderer/src/mock/ext';
 import { makeApp, PW } from './app/helpers';
@@ -23,11 +24,6 @@ const ID = '01HZZZZZZZZZZZZZZZZZZZZZZZ';
 const LANE_STUBS: [Namespace, string, unknown][] = [
   ['requests', 'close', { id: ID, note: 'done' }],
   ['requests', 'reopen', { id: ID, reason: 'reopened for a correction' }],
-  ['requestors', 'search', { text: 'pat' }],
-  ['requestors', 'get', { id: ID }],
-  ['requestors', 'upsert', { requestor: { name: 'Pat Example', email: null, organisation: null } }],
-  ['requestors', 'merge', { survivorId: ID, mergedId: ID }],
-  ['requestors', 'list', { offset: 0, limit: 10 }],
   ['persons', 'suggest', { forSubject: { kind: 'review-item', id: ID } }],
   ['review', 'manualValidate', { id: ID, target: { kind: 'new-person' }, reason: 'valid answer' }],
   ['review', 'editSubject', { id: ID, subject: { kind: 'person', personId: ID, patch: {} }, reason: 'typo' }],
@@ -103,7 +99,7 @@ describe('contract completeness', () => {
     const info = await t.call('app', 'info');
     expect(info.ok).toBe(true);
     expect(ipcSchemas.app.info.res.safeParse(info.value).success).toBe(true);
-    expect(info.value).toMatchObject({ version: '0.2.0-alpha.1', channel: 'dev', schemaVersion: 4 });
+    expect(info.value).toMatchObject({ version: '0.2.0-alpha.1', channel: 'dev', schemaVersion: APP_SCHEMA_VERSION });
     await t.call('vault', 'create', { password: PW, displayName: 'Test office' });
     for (const ns of ['requests', 'responses'] as const)
       expect(await t.call(ns, 'discardPreview', { previewId: 'unknown-preview' })).toMatchObject({

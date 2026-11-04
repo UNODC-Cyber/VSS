@@ -66,6 +66,7 @@ import {
 import type { MockDb } from './db';
 import { mockTemplate } from './db';
 import { applyMockExtensions } from './ext';
+import { linkMockRequestor } from './ext/requestors';
 import type { MockBaseApi } from './ext/types';
 
 export interface MockOptions {
@@ -1001,7 +1002,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
             id,
             kind: 'file',
             receivedAt: new Date().toISOString(),
-            requestor: req.requestor,
+            requestor: linkMockRequestor(db, req.requestor),
             eventName: req.eventName,
             eventStart: req.eventStart,
             eventEnd: req.eventEnd,
@@ -1080,7 +1081,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
             id,
             kind: 'manual',
             receivedAt: new Date().toISOString(),
-            requestor: req.requestor,
+            requestor: linkMockRequestor(db, req.requestor),
             eventName: req.eventName,
             eventStart: req.eventStart,
             eventEnd: req.eventEnd,
@@ -1108,7 +1109,11 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         gate(() => {
           const r = db.requests.find((x) => x.id === req.id);
           if (!r) return fail('NOT_FOUND', 'Request not found.');
-          Object.assign(r, req.patch);
+          Object.assign(
+            r,
+            req.patch,
+            req.patch.requestor ? { requestor: linkMockRequestor(db, req.patch.requestor) } : {},
+          );
           appendAudit(db, 'request.updated', 'request', r.id);
           return ok(summary(r));
         }),
