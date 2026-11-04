@@ -4,9 +4,10 @@
  *  1. `candidate` - the review item's own candidates plus the matcher's tiered candidates (T1..T4) for the subject,
  *     including surname trigram neighbours (blocking widened, tiering unchanged);
  *  2. `recent`    - active persons of the same request, or of the same unit touched in the last 30 days;
- *  3. `search`    - a tolerant text query: folded, split on commas and whitespace, particles dropped, tokens ANDed in
- *     any order against the trigram index (non-Latin tokens stay their own terms); when nothing matches every token,
- *     persons matching most tokens are offered instead.
+ *  3. `search`    - a tolerant text query over the typed text, else the subject's own name: folded, split on commas
+ *     and whitespace, particles dropped, tokens ANDed in any order against the trigram index (non-Latin tokens stay
+ *     their own terms); when nothing matches every token, persons matching most tokens are offered instead.
+ *     Typed text also narrows 1 and 2, so a refined query lists only persons that match it.
  * Merged and purged persons never appear; results are de-duplicated and bounded (limit <= 50).
  */
 import type { MatchCandidate, MatchEvidence, MatchTier, Ulid } from '@shared/domain/types';
@@ -15,11 +16,11 @@ import { DEFAULT_NAME_CONFIG } from '@shared/names/config';
 import { foldToken } from '@shared/names/normalize';
 import { foldForSearch, searchIds } from '../db/search';
 import { generateCandidates, rankTargets } from '../matching/matcher';
-import { subjectFromRequestItem, subjectFromResponseRow } from '../matching/records';
+import { observedName, subjectFromRequestItem, subjectFromResponseRow } from '../matching/records';
 import type { MatchSubject, MatchTarget } from '../matching/types';
 import { personSummaries } from './people';
 import { DbNegativePairs, SqlCandidateSource } from './people-source';
-import { fail } from './vetting-common';
+import { displayName, fail } from './vetting-common';
 import type { Ctx } from './vetting-common';
 
 export const SUGGEST_DEFAULT_LIMIT = 20;
@@ -37,6 +38,8 @@ interface Hit {
 
 interface Resolved {
   subject: MatchSubject | null;
+  /** Display name of the subject (searched when the picker sends no text). */
+  name: string;
   /** Candidates already stored on the review item. */
   stored: MatchCandidate[];
   requestId: Ulid | null;
@@ -80,6 +83,7 @@ function resolveSubject(ctx: Ctx, req: PersonSuggestRequest['forSubject']): Reso
     if (item)
       return {
         subject: subjectFromRequestItem(item),
+        name: displayName(observedName(item.observed)),
         requestId: item.requestId,
         unitId: item.unitId,
         self: new Set(),
@@ -89,6 +93,7 @@ function resolveSubject(ctx: Ctx, req: PersonSuggestRequest['forSubject']): Reso
       const head = ctx.repos.responses.getHeader(row.responseId);
       return {
         subject: subjectFromResponseRow(row),
+        name: displayName(row.name),
         requestId: head?.requestId ?? null,
         unitId: null,
         self: new Set(),
@@ -96,7 +101,13 @@ function resolveSubject(ctx: Ctx, req: PersonSuggestRequest['forSubject']): Reso
     }
     const p = ctx.repos.persons.get(id);
     if (p)
-      return { subject: { ...source.target(p), personId: p.id }, requestId: null, unitId: null, self: new Set([p.id]) };
+      return {
+        subject: { ...source.target(p), personId: p.id },
+        name: displayName(p.canonical),
+        requestId: null,
+        unitId: null,
+        self: new Set([p.id]),
+      };
     return fail('NOT_FOUND', 'Subject not found');
   };
   if (req.kind === 'review-item') {
@@ -177,9 +188,15 @@ export function suggestPersons(ctx: Ctx, req: PersonSuggestRequest): PersonSugge
     add(id, { tier: null, evidence: [], why: 'recent', rank: i }),
   );
 
-  // 3. tolerant text search.
-  if (req.text && req.text.trim() !== '')
-    tolerantSearch(ctx, req.text).forEach((id, i) => add(id, { tier: null, evidence: [], why: 'search', rank: i }));
+  // 3. tolerant text search: the typed text, else the subject's own name. Typed text also narrows 1 and 2, so a
+  //    refined query shows only persons matching it.
+  const typed = req.text && req.text.trim() !== '' ? req.text : null;
+  const found = tolerantSearch(ctx, typed ?? r.name);
+  if (typed) {
+    const keep = new Set(found);
+    for (const id of [...hits.keys()]) if (!keep.has(id)) hits.delete(id);
+  }
+  found.forEach((id, i) => add(id, { tier: null, evidence: [], why: 'search', rank: i }));
 
   const order = { candidate: 0, recent: 1, search: 2 } as const;
   const ids = [...hits.entries()]

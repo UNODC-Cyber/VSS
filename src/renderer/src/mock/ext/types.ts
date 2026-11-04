@@ -29,6 +29,8 @@ export type MockApiPatch = { [N in Namespaces]?: Partial<VssApi[N]> };
 export interface MockExtContext {
   db: MockDb;
   emit: <E extends VssEventName>(name: E, payload: VssEventMap[E]) => void;
+  /** The base mock (mockApi.ts), so a lane can extend a base method and fall back to it (lane K: review.resolve). */
+  base: MockBaseApi;
 }
 export type MockExtension = (ctx: MockExtContext) => MockApiPatch;
 

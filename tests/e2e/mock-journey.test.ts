@@ -11,6 +11,7 @@ import type { Browser, Page } from 'playwright';
 import { createServer } from 'vite';
 import type { ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { VssApi } from '../../src/shared/ipc/contract';
 
 const PASSWORD = 'correct horse battery staple';
 let server: ViteDevServer;
@@ -124,9 +125,13 @@ describe('mock journey', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Resolve identity for row R3' }).click();
     const dlg = page.getByRole('dialog');
-    await dlg.getByLabel('Search').fill('Cedar');
-    await dlg.getByRole('button', { name: 'Search' }).click();
-    await dlg.getByRole('button', { name: /Select Cedar/ }).click();
+    // Lane K picker: likely persons are listed at once; typing refines the list (no Search button).
+    await dlg.getByRole('option').first().waitFor();
+    await dlg.getByRole('combobox', { name: /Search/ }).fill('Cedar');
+    await dlg
+      .getByRole('option', { name: /Cedar, Solana/ })
+      .first()
+      .click();
     await page.getByTestId('unresolved-count').waitFor({ state: 'detached' });
 
     await page.getByRole('button', { name: 'Export for vetting' }).click();
@@ -166,6 +171,41 @@ describe('mock journey', () => {
     await dlg.getByTestId('mailto-status').waitFor();
     await expectNoAxeViolations();
     await page.keyboard.press('Escape');
+  });
+
+  it('resolves a no-candidate response row via the person picker (lane K, R11/R12)', async () => {
+    await nav('Review queue').click();
+    // R12: the queue names who the item is about.
+    const item = page.getByRole('link', { name: 'Open review item for UNLISTED, PERSON' });
+    await item.waitFor();
+    await expectNoAxeViolations();
+    await item.click();
+    await page.getByRole('button', { name: 'Choose person...' }).click();
+    const dlg = page.getByRole('dialog', { name: 'Choose the person this record is about' });
+    const input = dlg.getByRole('combobox', { name: /Search/ });
+    // R11: pre-filled with the subject's name and listing at once.
+    expect(await input.inputValue()).toBe('UNLISTED, PERSON');
+    await dlg
+      .getByRole('status')
+      .filter({ hasText: /possible person/ })
+      .waitFor();
+    await expectNoAxeViolations();
+    await input.fill('indigo, HAZEL');
+    await dlg.getByRole('option', { name: /Hazel, Indigo/ }).waitFor();
+    await dlg.getByText('1 possible person').waitFor();
+    await input.press('Enter');
+    await page.getByText('Compare the record with the person you selected').waitFor();
+    await expectNoAxeViolations();
+    await page.getByRole('button', { name: 'Confirm link to Hazel, Indigo' }).click();
+    const recorded = () =>
+      page.evaluate(async () => {
+        const v = (window as unknown as { vss: VssApi }).vss;
+        const people = await v.persons.list({ offset: 0, limit: 5, text: 'Hazel' });
+        if (!people.ok || !people.value.items[0]) return -1;
+        const d = await v.persons.get({ id: people.value.items[0].id });
+        return d.ok ? d.value.records.filter((r) => r.responseRowId !== null).length : -1;
+      });
+    await expect.poll(recorded).toBe(1);
   });
 
   it('dashboard numbers reflect the journey', async () => {

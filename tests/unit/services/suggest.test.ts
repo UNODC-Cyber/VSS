@@ -124,6 +124,15 @@ describe('persons.suggest', () => {
     const { reviews } = responseWithRows(h, [rowInput('QQQUNRELATED, Nobodyx')], { requestId: req.id });
     const s = unwrap(await h.svc.persons.suggest({ forSubject: { kind: 'review-item', id: reviews[0]!.id } }));
     expect(s.find((x) => x.person.id === p.id)?.why).toBe('recent');
+    // typed text narrows the list: recent persons that do not match it are not shown
+    const typed = unwrap(
+      await h.svc.persons.suggest({ forSubject: { kind: 'review-item', id: reviews[0]!.id }, text: 'Zzznomatch' }),
+    );
+    expect(typed.map((x) => x.person.id)).not.toContain(p.id);
+    const kept = unwrap(
+      await h.svc.persons.suggest({ forSubject: { kind: 'review-item', id: reviews[0]!.id }, text: 'kept recentsur' }),
+    );
+    expect(kept.find((x) => x.person.id === p.id)?.why).toBe('recent');
   });
 
   it('is bounded: default 20, never more than 50', async () => {
