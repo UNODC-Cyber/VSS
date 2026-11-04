@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Checkbox, Group, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ExportDecision, ValidationIssue } from '@shared/domain/types';
 import type { RequestorRecord } from '@shared/domain/types';
@@ -14,6 +14,8 @@ import {
   toRequestor,
 } from '../components/RequestorField';
 import type { RequestorForm } from '../components/RequestorField';
+import { DiscardDialog, Wizard } from '../components/Wizard';
+import type { WizardStep } from '../components/Wizard';
 import { useAction, useBusyAction, vss } from '../lib/api';
 import { navigate } from '../lib/router';
 import { useUi } from '../store';
@@ -49,12 +51,36 @@ export function ImportRequestScreen() {
   });
   const [busy, setBusy] = useState(false);
   const picker = useBusyAction();
+  const [step, setStep] = useState(0);
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
+  /** The preview id this screen holds in main; released when replaced, cancelled or left (no-op once committed). */
+  const heldId = useRef<string | null>(null);
+  const discardHeld = () => {
+    const id = heldId.current;
+    heldId.current = null;
+    if (id)
+      void vss()
+        .requests.discardPreview({ previewId: id })
+        .catch(() => undefined);
+  };
+  useEffect(
+    () => () => {
+      const id = heldId.current;
+      if (id)
+        void vss()
+          .requests.discardPreview({ previewId: id })
+          .catch(() => undefined);
+    },
+    [],
+  );
 
   const pick = async () => {
     const f = await picker.act(() => vss().files.pickOpen({ kind: 'request-xlsx', title: t('import.pickTitle') }));
     if (!f?.path) return;
     const p = await act(vss().requests.importPreview({ path: f.path }));
     if (!p) return;
+    discardHeld();
+    heldId.current = p.previewId;
     setPreview(p);
     setDecisions(
       Object.fromEntries(
@@ -107,6 +133,7 @@ export function ImportRequestScreen() {
         t('import.done'),
       );
       if (!s) return;
+      heldId.current = null;
       if (s.templateCaptured)
         toast({
           kind: 'info',
@@ -118,203 +145,281 @@ export function ImportRequestScreen() {
     }
   };
 
-  if (!preview) {
-    return (
-      <Stack>
-        <PageHeader title={t('import.title')} />
-        <Text>{t('import.intro')}</Text>
-        <Group>
-          <Button onClick={() => void pick()} loading={picker.busy}>
-            {t('import.pick')}
-          </Button>
-        </Group>
-      </Stack>
-    );
-  }
+  const steps: WizardStep[] = [
+    { id: 'pick', label: t('wizard.steps.pick') },
+    { id: 'review', label: t('wizard.steps.reviewRequestor') },
+    { id: 'confirm', label: t('wizard.steps.confirm') },
+  ];
+  const confirmLast = step === steps.length - 1;
+
+  /** Cancel drops the held preview from main's memory at once. */
+  const cancel = () => {
+    discardHeld();
+    navigate('/requests');
+  };
+  const guarded = (action: () => void) => (preview ? setPendingDiscard(() => action) : action());
 
   const counts = {
     include: Object.values(decisions).filter((d) => d.include).length,
     exclude: Object.values(decisions).filter((d) => !d.include).length,
-    flagged: preview.items.filter(isFlagged).length,
+    flagged: preview ? preview.items.filter(isFlagged).length : 0,
   };
-  const reasonMissing = preview.items.some((i) => {
-    const d = decisions[i.rowRef];
-    return d && d.include !== isIncluded(i.exportDecision) && d.reason.trim().length < 3;
-  });
+  const reasonMissing =
+    !!preview &&
+    preview.items.some((i) => {
+      const d = decisions[i.rowRef];
+      return d && d.include !== isIncluded(i.exportDecision) && d.reason.trim().length < 3;
+    });
   const formValid = requestor.name.trim() !== '' && form.eventName.trim() !== '';
-  const bySeverity = (sev: ValidationIssue['severity']) => preview.issues.filter((i) => i.severity === sev);
+  const bySeverity = (sev: ValidationIssue['severity']) =>
+    preview ? preview.issues.filter((i) => i.severity === sev) : [];
+
+  const nextDisabled =
+    !preview ||
+    (step === 1 && (!formValid || reasonMissing)) ||
+    (confirmLast && (!preview.canCommit || !formValid || reasonMissing));
+  const onNext = () => {
+    if (confirmLast) void commit();
+    else setStep(step + 1);
+  };
+
+  const countBadges = (
+    <Group gap="sm" aria-label={t('import.summary')} role="group">
+      <Badge size="lg" color="green" data-testid="count-include">
+        {t('import.countInclude', { count: counts.include })}
+      </Badge>
+      <Badge size="lg" color="gray" data-testid="count-exclude">
+        {t('import.countExclude', { count: counts.exclude })}
+      </Badge>
+      <Badge size="lg" color="orange" data-testid="count-flagged">
+        {t('import.countFlagged', { count: counts.flagged })}
+      </Badge>
+    </Group>
+  );
 
   return (
     <Stack>
-      <PageHeader
-        title={t('import.previewTitle', { name: preview.fileName })}
-        actions={
-          <Button variant="default" onClick={() => setPreview(null)}>
-            {t('import.chooseAnother')}
-          </Button>
-        }
-      />
-      {preview.duplicateOfRequestId && (
-        <Alert color="orange" title={t('import.duplicateTitle')}>
-          {t('import.duplicateBody')}{' '}
-          <a href={`#/requests/${preview.duplicateOfRequestId}`}>{t('import.openExisting')}</a>
-        </Alert>
-      )}
-      <Group gap="sm" aria-label={t('import.summary')} role="group">
-        <Badge size="lg" color="green" data-testid="count-include">
-          {t('import.countInclude', { count: counts.include })}
-        </Badge>
-        <Badge size="lg" color="gray" data-testid="count-exclude">
-          {t('import.countExclude', { count: counts.exclude })}
-        </Badge>
-        <Badge size="lg" color="orange" data-testid="count-flagged">
-          {t('import.countFlagged', { count: counts.flagged })}
-        </Badge>
-      </Group>
+      <PageHeader title={preview ? t('import.previewTitle', { name: preview.fileName }) : t('import.title')} />
+      <Wizard
+        steps={steps}
+        current={step}
+        onBack={step > 0 ? () => setStep(step - 1) : null}
+        onNext={onNext}
+        nextLabel={confirmLast ? t('import.commit') : t('wizard.next')}
+        nextDisabled={nextDisabled}
+        nextLoading={busy && confirmLast}
+        dirty={preview !== null}
+        onCancel={cancel}
+      >
+        {step === 0 && (
+          <Stack>
+            <Text>{preview ? t('wizard.fileReady', { name: preview.fileName }) : t('import.intro')}</Text>
+            <Group>
+              <Button
+                variant={preview ? 'default' : 'filled'}
+                onClick={() => guarded(() => void pick())}
+                loading={picker.busy}
+              >
+                {preview ? t('import.chooseAnother') : t('import.pick')}
+              </Button>
+            </Group>
+          </Stack>
+        )}
 
-      {(['error', 'warning', 'info'] as const).map((sev) => {
-        const list = bySeverity(sev);
-        if (list.length === 0) return null;
-        return (
-          <Card key={sev} withBorder padding="sm" aria-label={t(`severity.${sev}`)}>
-            <Title order={4}>
-              {t(`severity.${sev}`)} ({list.length})
-            </Title>
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
-              {list.map((iss, n) => (
-                <li key={`${iss.code}-${n}`}>
-                  {iss.rowRef ? (
-                    <Button variant="subtle" size="compact-sm" onClick={() => jumpTo(iss.rowRef)}>
-                      {iss.rowRef}: {iss.message}
-                    </Button>
-                  ) : (
-                    <Text size="sm" component="span">
-                      {iss.message}
-                    </Text>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        );
-      })}
+        {step === 1 && preview && (
+          <Stack>
+            {preview.duplicateOfRequestId && (
+              <Alert color="orange" title={t('import.duplicateTitle')}>
+                {t('import.duplicateBody')}{' '}
+                <a href={`#/requests/${preview.duplicateOfRequestId}`}>{t('import.openExisting')}</a>
+              </Alert>
+            )}
+            {countBadges}
+            {(['error', 'warning', 'info'] as const).map((sev) => {
+              const list = bySeverity(sev);
+              if (list.length === 0) return null;
+              return (
+                <Card key={sev} withBorder padding="sm" aria-label={t(`severity.${sev}`)}>
+                  <Title order={4}>
+                    {t(`severity.${sev}`)} ({list.length})
+                  </Title>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {list.map((iss, n) => (
+                      <li key={`${iss.code}-${n}`}>
+                        {iss.rowRef ? (
+                          <Button variant="subtle" size="compact-sm" onClick={() => jumpTo(iss.rowRef)}>
+                            {iss.rowRef}: {iss.message}
+                          </Button>
+                        ) : (
+                          <Text size="sm" component="span">
+                            {iss.message}
+                          </Text>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              );
+            })}
 
-      <DataTable<ImportPreviewItem>
-        caption={t('import.itemsCaption')}
-        data={preview.items}
-        rowId={(i) => i.rowRef}
-        rowProps={(i) => ({
-          id: `row-${i.rowRef}`,
-          tabIndex: -1,
-          ...(focusRow === i.rowRef ? { 'data-focused': 'true' } : {}),
-        })}
-        columns={[
-          col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef),
-          col<ImportPreviewItem>('name', t('import.name'), (i) => <Sensitive value={i.displayName} />),
-          col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName),
-          col<ImportPreviewItem>('dob', t('import.dob'), (i) => <Sensitive value={i.dobRaw} />),
-          col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />),
-          col<ImportPreviewItem>('prior', t('import.prior'), (i) =>
-            i.prior ? <StatusBadge status={i.prior.status} /> : '-',
-          ),
-          col<ImportPreviewItem>('issues', t('import.issues'), (i) =>
-            i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-',
-          ),
-          col<ImportPreviewItem>('export', t('import.export'), (i) => {
-            const d = decisions[i.rowRef] ?? { include: true, reason: '' };
-            const changed = d.include !== isIncluded(i.exportDecision);
-            return (
-              <Stack gap={4}>
-                <Checkbox
-                  label={t('import.includeInExport')}
-                  aria-label={t('import.includeRow', { row: i.rowRef })}
-                  checked={d.include}
-                  onChange={(e) => {
-                    const include = e.currentTarget.checked;
-                    setDecisions((prev) => ({ ...prev, [i.rowRef]: { include, reason: '' } }));
-                  }}
+            <DataTable<ImportPreviewItem>
+              caption={t('import.itemsCaption')}
+              tableId="import-request"
+              data={preview.items}
+              rowId={(i) => i.rowRef}
+              rowProps={(i) => ({
+                id: `row-${i.rowRef}`,
+                tabIndex: -1,
+                ...(focusRow === i.rowRef ? { 'data-focused': 'true' } : {}),
+              })}
+              columns={[
+                col<ImportPreviewItem>('name', t('import.name'), (i) => <Sensitive value={i.displayName} />, {
+                  sticky: 'first',
+                  minWidth: 200,
+                  grow: true,
+                  truncate: true,
+                  tooltip: (i) => i.displayName,
+                }),
+                col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef, { width: 72, nowrap: true }),
+                col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName, {
+                  maxWidth: 200,
+                  truncate: true,
+                  tooltip: (i) => i.unitName,
+                }),
+                col<ImportPreviewItem>('dob', t('import.dob'), (i) => <Sensitive value={i.dobRaw} />, {
+                  width: 120,
+                  nowrap: true,
+                }),
+                col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
+                  minWidth: 150,
+                  nowrap: true,
+                }),
+                col<ImportPreviewItem>(
+                  'prior',
+                  t('import.prior'),
+                  (i) => (i.prior ? <StatusBadge status={i.prior.status} /> : '-'),
+                  { minWidth: 150, nowrap: true },
+                ),
+                col<ImportPreviewItem>(
+                  'issues',
+                  t('import.issues'),
+                  (i) => (i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-'),
+                  {
+                    minWidth: 160,
+                    truncate: true,
+                    tooltip: (i) => i.issues.map((x) => x.code).join(', '),
+                  },
+                ),
+                col<ImportPreviewItem>(
+                  'export',
+                  t('import.export'),
+                  (i) => {
+                    const d = decisions[i.rowRef] ?? { include: true, reason: '' };
+                    const changed = d.include !== isIncluded(i.exportDecision);
+                    return (
+                      <Stack gap={4}>
+                        <Checkbox
+                          label={t('import.includeInExport')}
+                          aria-label={t('import.includeRow', { row: i.rowRef })}
+                          checked={d.include}
+                          onChange={(e) => {
+                            const include = e.currentTarget.checked;
+                            setDecisions((prev) => ({ ...prev, [i.rowRef]: { include, reason: '' } }));
+                          }}
+                        />
+                        {changed ? (
+                          <TextInput
+                            size="xs"
+                            aria-label={t('import.reasonFor', { row: i.rowRef })}
+                            placeholder={t('common.reason')}
+                            value={d.reason}
+                            onChange={(e) => {
+                              const reason = e.currentTarget.value;
+                              setDecisions((prev) => ({
+                                ...prev,
+                                [i.rowRef]: { include: prev[i.rowRef]?.include ?? d.include, reason },
+                              }));
+                            }}
+                          />
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            {d.reason}
+                          </Text>
+                        )}
+                      </Stack>
+                    );
+                  },
+                  { minWidth: 240 },
+                ),
+              ]}
+            />
+
+            <Card withBorder maw={720}>
+              <Title order={4} mb="sm">
+                {t('import.detailsTitle')}
+              </Title>
+              <RequestorField
+                value={requestor}
+                saved={saved}
+                onChange={(next, rec) => {
+                  setRequestor(next);
+                  setSaved(rec);
+                }}
+              />
+              <Group grow align="flex-start" mt="sm" wrap="wrap">
+                <TextInput
+                  label={t('request.eventName')}
+                  required
+                  value={form.eventName}
+                  onChange={(e) => setForm({ ...form, eventName: e.currentTarget.value })}
                 />
-                {changed ? (
-                  <TextInput
-                    size="xs"
-                    aria-label={t('import.reasonFor', { row: i.rowRef })}
-                    placeholder={t('common.reason')}
-                    value={d.reason}
-                    onChange={(e) => {
-                      const reason = e.currentTarget.value;
-                      setDecisions((prev) => ({
-                        ...prev,
-                        [i.rowRef]: { include: prev[i.rowRef]?.include ?? d.include, reason },
-                      }));
-                    }}
-                  />
-                ) : (
-                  <Text size="xs" c="dimmed">
-                    {d.reason}
-                  </Text>
-                )}
-              </Stack>
-            );
-          }),
-        ]}
-      />
+                <TextInput
+                  label={t('request.eventStart')}
+                  type="date"
+                  value={form.eventStart}
+                  onChange={(e) => setForm({ ...form, eventStart: e.currentTarget.value })}
+                />
+                <TextInput
+                  label={t('request.eventEnd')}
+                  type="date"
+                  value={form.eventEnd}
+                  onChange={(e) => setForm({ ...form, eventEnd: e.currentTarget.value })}
+                />
+                <TextInput
+                  label={t('request.eventLocation')}
+                  value={form.eventLocation}
+                  onChange={(e) => setForm({ ...form, eventLocation: e.currentTarget.value })}
+                />
+              </Group>
+              <Textarea
+                mt="sm"
+                label={t('request.notes')}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.currentTarget.value })}
+              />
+            </Card>
+          </Stack>
+        )}
 
-      <Card withBorder>
-        <Title order={4} mb="sm">
-          {t('import.detailsTitle')}
-        </Title>
-        <RequestorField
-          value={requestor}
-          saved={saved}
-          onChange={(next, rec) => {
-            setRequestor(next);
-            setSaved(rec);
-          }}
-        />
-        <Group grow align="flex-start" mt="sm">
-          <TextInput
-            label={t('request.eventName')}
-            required
-            value={form.eventName}
-            onChange={(e) => setForm({ ...form, eventName: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('request.eventStart')}
-            type="date"
-            value={form.eventStart}
-            onChange={(e) => setForm({ ...form, eventStart: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('request.eventEnd')}
-            type="date"
-            value={form.eventEnd}
-            onChange={(e) => setForm({ ...form, eventEnd: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('request.eventLocation')}
-            value={form.eventLocation}
-            onChange={(e) => setForm({ ...form, eventLocation: e.currentTarget.value })}
-          />
-        </Group>
-        <Textarea
-          mt="sm"
-          label={t('request.notes')}
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.currentTarget.value })}
-        />
-      </Card>
-      {!preview.canCommit && <Alert color="red">{t('import.cannotCommit')}</Alert>}
-      <Group>
-        <Button
-          onClick={() => void commit()}
-          disabled={!preview.canCommit || !formValid || reasonMissing}
-          loading={busy}
-        >
-          {t('import.commit')}
-        </Button>
-        {reasonMissing && <Text size="sm">{t('import.reasonNeeded')}</Text>}
-      </Group>
+        {step === 2 && preview && (
+          <Stack maw={720}>
+            <Text size="sm">{t('wizard.requestConfirmText')}</Text>
+            {countBadges}
+            {!preview.canCommit && <Alert color="red">{t('import.cannotCommit')}</Alert>}
+            {reasonMissing && <Text size="sm">{t('import.reasonNeeded')}</Text>}
+          </Stack>
+        )}
+      </Wizard>
       <RequestorChoiceModal count={askCount} onChoose={(c) => void commit(c)} onCancel={() => setAskCount(null)} />
+      <DiscardDialog
+        opened={pendingDiscard !== null}
+        onKeep={() => setPendingDiscard(null)}
+        onDiscard={() => {
+          const action = pendingDiscard;
+          setPendingDiscard(null);
+          action?.();
+        }}
+      />
     </Stack>
   );
 }

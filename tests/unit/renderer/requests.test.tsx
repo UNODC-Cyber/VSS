@@ -38,6 +38,7 @@ describe('import wizard', () => {
     const user = userEvent.setup();
     ui(<ImportRequestScreen />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     expect(await screen.findByTestId('count-include')).toHaveTextContent('3 to include');
     expect(screen.getByTestId('count-exclude')).toHaveTextContent('1 to exclude');
     expect(screen.getByTestId('count-flagged')).toHaveTextContent('2 flagged');
@@ -53,17 +54,19 @@ describe('import wizard', () => {
     const user = userEvent.setup();
     ui(<ImportRequestScreen />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     await screen.findByTestId('count-include');
     await user.type(screen.getByLabelText(/^Requestor name/), 'Pat Example');
     await user.type(screen.getByLabelText(/^Event name/), 'Import Test Event');
-    const commit = screen.getByRole('button', { name: 'Import request' });
-    expect(commit).toBeEnabled();
+    const next = screen.getByRole('button', { name: 'Next' });
+    expect(next).toBeEnabled();
     await user.click(screen.getByRole('checkbox', { name: 'Include row R2 in the export' }));
     expect(screen.getByTestId('count-exclude')).toHaveTextContent('2 to exclude');
-    expect(commit).toBeDisabled();
+    expect(next).toBeDisabled();
     await user.type(screen.getByLabelText('Reason for changing row R2'), 'Already vetted elsewhere');
-    expect(commit).toBeEnabled();
-    await user.click(commit);
+    expect(next).toBeEnabled();
+    await user.click(next);
+    await user.click(await screen.findByRole('button', { name: 'Import request' }));
     await waitFor(() => expect(ctl.db.requests.some((r) => r.eventName === 'Import Test Event')).toBe(true));
     const req = ctl.db.requests.find((r) => r.eventName === 'Import Test Event')!;
     await waitFor(() =>

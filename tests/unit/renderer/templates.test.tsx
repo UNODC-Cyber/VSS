@@ -38,10 +38,12 @@ describe('Settings > Templates', () => {
     const user = userEvent.setup();
     ui(<ImportRequestScreen />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     await screen.findByTestId('count-include');
     await user.type(screen.getByLabelText(/^Requestor name/), 'Pat Example');
     await user.type(screen.getByLabelText(/^Event name/), 'Capture Event');
     expect(ctl.db.templates).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Import request' }));
     expect(await screen.findByText(/Saved this file as the export template \(version 1\.11\.0\)/)).toBeInTheDocument();
     expect(ctl.db.templates).toMatchObject([{ source: 'auto-capture', active: true }]);
