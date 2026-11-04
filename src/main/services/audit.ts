@@ -37,6 +37,7 @@ export const AUDIT_DETAIL_KEYS: ReadonlySet<string> = new Set([
   'personsDeleted',
   'unitsDeleted',
   'itemsDeleted',
+  'noteLength',
   'filesDeleted',
   // enums / codes
   'status',

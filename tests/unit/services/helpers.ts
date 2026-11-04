@@ -133,12 +133,17 @@ export function errCode<T>(r: Result<T>): string {
   return r.error.code;
 }
 
-/** Runs a mutating call and asserts it appended exactly one audit event. */
+/**
+ * Runs a mutating call and asserts it appended exactly one audit event. The derived, system-authored
+ * `request.finish` event of the lifecycle (lane D) is a consequence, not a user action, and is not counted.
+ */
 export async function once<T>(h: Harness, p: () => Promise<Result<T>>): Promise<T> {
-  const before = h.auditCount();
+  const userEvents = (): number =>
+    (h.fx.db.prepare("SELECT count(*) AS n FROM audit WHERE type <> 'request.finish'").get() as { n: number }).n;
+  const before = userEvents();
   const r = await p();
   const v = unwrap(r);
-  const after = h.auditCount();
+  const after = userEvents();
   if (after - before !== 1) throw new Error(`expected exactly one audit event, got ${after - before}`);
   return v;
 }

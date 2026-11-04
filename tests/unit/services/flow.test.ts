@@ -235,7 +235,7 @@ describe('response flow', () => {
     expect(out.responseDays).toBe(20);
 
     const req = h.fx.repos.requests.getHeader(s.id)!;
-    expect(req.status).toBe('responded');
+    expect(req.status).toBe('finished'); // every item answered => derived Finished (lane D)
     expect(req.responseKind).toBe('dc-file');
     expect(req.batchId).toBe('SYNTH-0000000001');
     for (const pid of pids) {
