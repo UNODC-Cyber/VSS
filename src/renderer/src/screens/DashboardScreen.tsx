@@ -1,18 +1,30 @@
 import { Alert, Badge, Button, Card, Group, Modal, PasswordInput, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import type { VettingStatus } from '@shared/domain/types';
+import { Trans, useTranslation } from 'react-i18next';
+import type { RequestStatus, VettingStatus } from '@shared/domain/types';
 import type { Dashboard, DashboardOutstandingRequest } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
+import { RequestStatusBadge } from '../components/RequestStatusBadge';
+import { ScreenLink } from '../components/ScreenLink';
 import { PageHeader, QueryBoundary, Sensitive, StatusBadge } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
 import { fmtDate } from '../lib/format';
 
-function Stat({ label, value, testId }: { label: string; value: string | number; testId?: string }) {
+function Stat({
+  label,
+  value,
+  testId,
+  href,
+}: {
+  label: string;
+  value: string | number;
+  testId?: string;
+  href?: string;
+}) {
   return (
     <Card withBorder padding="sm">
       <Text size="sm" c="dimmed">
-        {label}
+        {href ? <ScreenLink to={href}>{label}</ScreenLink> : label}
       </Text>
       <Title order={2} data-testid={testId}>
         {value}
@@ -81,11 +93,25 @@ function Body({ d }: { d: Dashboard }) {
       <PageHeader title={t('dashboard.title')} />
       {(backupDays === null || backupDays > 30) && (
         <Alert color="orange" role="status">
-          {backupDays === null ? t('dashboard.noBackup') : t('dashboard.backupOld', { count: backupDays })}
+          {backupDays === null ? (
+            <Trans i18nKey="dashboard.noBackup" components={{ screen: <ScreenLink to="/settings?card=backup" /> }} />
+          ) : (
+            <Trans
+              i18nKey="dashboard.backupOld"
+              values={{ count: backupDays }}
+              components={{ screen: <ScreenLink to="/settings?card=backup" /> }}
+            />
+          )}
         </Alert>
       )}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
         <Stat label={t('dashboard.outstanding')} value={d.outstandingRequests.length} testId="stat-outstanding" />
+        <Stat
+          label={t('lifecycle.awaitingClose')}
+          value={d.requestsByStatus.finished}
+          testId="stat-finished"
+          href="/requests?status=finished"
+        />
         <Stat label={t('dashboard.review')} value={d.openReviewItems} testId="stat-review" />
         <Stat label={t('dashboard.people')} value={d.totalPersons} testId="stat-people" />
         <Stat
@@ -192,6 +218,18 @@ function Body({ d }: { d: Dashboard }) {
           </li>
         ))}
       </ul>
+
+      <Title order={3}>{t('lifecycle.byStatus')}</Title>
+      <Group>
+        {(Object.keys(d.requestsByStatus) as RequestStatus[]).map((s) => (
+          <Group key={s} gap={4}>
+            <RequestStatusBadge status={s} />
+            <Text size="sm" data-testid={`req-status-${s}`}>
+              {d.requestsByStatus[s]}
+            </Text>
+          </Group>
+        ))}
+      </Group>
 
       <Title order={3}>{t('dashboard.statusCounts')}</Title>
       <Group>

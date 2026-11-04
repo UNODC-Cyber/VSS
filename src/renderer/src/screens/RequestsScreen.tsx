@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next';
 import type { RequestStatus } from '@shared/domain/types';
 import type { RequestSummary } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
+import { RequestStatusBadge } from '../components/RequestStatusBadge';
 import { PageHeader, QueryBoundary, SimplePager } from '../components/common';
 import { useQuery, vss } from '../lib/api';
 import { fmtDate } from '../lib/format';
-import { navigate } from '../lib/router';
+import { navigate, useRoute } from '../lib/router';
 
 const STATUSES: RequestStatus[] = [
   'received',
@@ -15,6 +16,7 @@ const STATUSES: RequestStatus[] = [
   'exported',
   'sent-to-dc',
   'responded',
+  'finished',
   'closed',
   'withdrawn',
 ];
@@ -22,7 +24,10 @@ const PAGE = 25;
 
 export function RequestsScreen() {
   const { t } = useTranslation();
-  const [statuses, setStatuses] = useState<string[]>([]);
+  const initial = useRoute().query.get('status');
+  const [statuses, setStatuses] = useState<string[]>(
+    initial && (STATUSES as string[]).includes(initial) ? [initial] : [],
+  );
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [text, setText] = useState('');
@@ -55,6 +60,30 @@ export function RequestsScreen() {
           </>
         }
       />
+      <Group gap="xs" role="group" aria-label={t('lifecycle.presets')}>
+        <Button
+          size="compact-sm"
+          variant={statuses.length === 0 ? 'filled' : 'default'}
+          aria-pressed={statuses.length === 0}
+          onClick={() => {
+            setStatuses([]);
+            setOffset(0);
+          }}
+        >
+          {t('lifecycle.allRequests')}
+        </Button>
+        <Button
+          size="compact-sm"
+          variant={statuses.join() === 'finished' ? 'filled' : 'default'}
+          aria-pressed={statuses.join() === 'finished'}
+          onClick={() => {
+            setStatuses(['finished']);
+            setOffset(0);
+          }}
+        >
+          {t('lifecycle.needsClosing')}
+        </Button>
+      </Group>
       <Group align="flex-end" role="group" aria-label={t('requests.filters')}>
         <MultiSelect
           label={t('requests.status')}
@@ -105,9 +134,7 @@ export function RequestsScreen() {
                 )),
                 col<RequestSummary>('received', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10))),
                 col<RequestSummary>('requestor', t('requests.requestor'), (r) => r.requestor.name),
-                col<RequestSummary>('status', t('requests.status'), (r) => (
-                  <Badge variant="light">{t(`reqstatus.${r.status}`)}</Badge>
-                )),
+                col<RequestSummary>('status', t('requests.status'), (r) => <RequestStatusBadge status={r.status} />),
                 col<RequestSummary>('items', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`),
                 col<RequestSummary>('issues', t('requests.issues'), (r) =>
                   r.unresolvedLinkCount + r.errorCount > 0 ? (

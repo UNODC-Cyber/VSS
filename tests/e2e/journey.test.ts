@@ -297,7 +297,7 @@ describe('real app journey (no mock)', () => {
     const tahus = await v(call(page, 'persons', 'get', { id: tahusItem.personId }));
     expect(tahus.status).toBe('approved');
     expect(tahus.records[0]).toMatchObject({ certDate: '2026-10-20', expiresAt: '2027-10-20', source: 'dc-file' });
-    expect((await v(call(page, 'requests', 'get', { id: req.id }))).status).toBe('responded');
+    expect((await v(call(page, 'requests', 'get', { id: req.id }))).status).toBe('finished'); // every item answered => derived Finished (lane D)
 
     // ---- 8. email-only clearance for another request, through the UI: 30-day default shown as assumed
     const pv1 = await v(

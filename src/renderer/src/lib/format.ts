@@ -1,4 +1,4 @@
-import type { IsoDate, IsoDateTime, RawDate, VettingStatus } from '@shared/domain/types';
+import type { IsoDate, IsoDateTime, RawDate, RequestStatus, VettingStatus } from '@shared/domain/types';
 
 export function fmtDate(d: IsoDate | null | undefined): string {
   return d ?? '-';
@@ -33,6 +33,17 @@ export const STATUS_COLOR: Record<VettingStatus, string> = {
   expiring: 'orange',
   expired: 'red',
   'non-approved': 'red',
+};
+
+export const REQUEST_STATUS_COLOR: Record<RequestStatus, string> = {
+  received: 'gray',
+  validated: 'gray',
+  exported: 'blue',
+  'sent-to-dc': 'blue',
+  responded: 'cyan',
+  finished: 'green',
+  closed: 'dark',
+  withdrawn: 'red',
 };
 
 /** Mask a sensitive value. Keeps the shape (separators) but hides characters. */

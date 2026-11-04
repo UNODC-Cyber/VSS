@@ -28,6 +28,8 @@ export type MockApiPatch = { [N in Namespaces]?: Partial<VssApi[N]> };
 
 export interface MockExtContext {
   db: MockDb;
+  /** The base mock (before any extension), for modules that wrap an existing method (lane D). */
+  api: MockBaseApi;
   emit: <E extends VssEventName>(name: E, payload: VssEventMap[E]) => void;
 }
 export type MockExtension = (ctx: MockExtContext) => MockApiPatch;
