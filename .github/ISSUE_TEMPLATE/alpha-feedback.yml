@@ -1,0 +1,43 @@
+name: Alpha feedback
+description: Report a problem or a suggestion about an alpha build of VSS
+labels: [alpha]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing. This is a public page. **Do not paste names, dates of birth, passport or ID numbers,
+        e-mail addresses, file names of real cases or any file content.** Describe what happened in general words, or use
+        the synthetic example data that ships with the project. Screenshots must show synthetic data only.
+  - type: input
+    id: build
+    attributes:
+      label: Build (the issue title already carries version, Windows version and processor type)
+      description: Installer or portable exe?
+      placeholder: installer
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Which screen, which button, what you saw. Write the steps so someone else can repeat them with synthetic data.
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How bad is it?
+      options:
+        - Blocks me (crash, cannot continue, data looks wrong)
+        - Confusing (I did not know what to do next)
+        - Polish (wording, spacing, colour)
+        - Idea
+    validations:
+      required: true
+  - type: checkboxes
+    id: no-personal-data
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have not pasted names, dates of birth or any file content.
+          required: true
