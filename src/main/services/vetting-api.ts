@@ -9,7 +9,7 @@
 import type { Dashboard, DashboardQuery, Result } from '@shared/ipc/contract';
 import { AuditLog } from './audit';
 import { createEmailTemplatesService } from './email-templates';
-import type { EmailTemplatesService } from './email-templates';
+import type { EmailTemplatesDeps, EmailTemplatesService } from './email-templates';
 import type { ExporterPort } from './exporter-port';
 import type { DomainHooks } from './hooks';
 import { createLifecycleService } from './lifecycle';
@@ -47,12 +47,20 @@ export interface DomainServices {
 }
 
 export function createDomainServices(
-  deps: Omit<ServiceDeps, 'audit'> & { audit?: AuditLog; exporter: ExporterPort },
+  deps: Omit<ServiceDeps, 'audit'> & {
+    audit?: AuditLog;
+    exporter: ExporterPort;
+    /** Request data for e-mail template placeholders (lane E). */
+    emailSnapshot?: EmailTemplatesDeps['snapshot'];
+  },
 ): DomainServices {
   const base: ServiceDeps = { ...deps, audit: deps.audit ?? new AuditLog(deps.db) };
   const requestors = createRequestorsService(base);
   const lifecycle = createLifecycleService(base);
-  const emailTemplates = createEmailTemplatesService(base);
+  const emailTemplates = createEmailTemplatesService({
+    ...base,
+    ...(deps.emailSnapshot ? { snapshot: deps.emailSnapshot } : {}),
+  });
   const hooks: DomainHooks = {
     touchRequestor: (r) => requestors.touch(r),
     onRequestAnswered: (id) => lifecycle.onRequestAnswered(id),

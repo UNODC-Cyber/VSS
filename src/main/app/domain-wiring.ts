@@ -77,6 +77,12 @@ export function requestStatusSnapshot(ctx: Ctx, requestId: Ulid): RequestStatusS
     eventName: req.eventName,
     asOf: ctx.today(),
     attachmentName: file?.originalName ?? null,
+    requestorName: req.requestor.name,
+    requestorOrg: req.requestor.organisation,
+    requestorEmail: req.requestor.email,
+    eventStart: req.eventStart,
+    eventEnd: req.eventEnd,
+    batchId: req.batchId,
     rows: req.items.map((i) => {
       const s = i.personId ? snaps.get(i.personId) : undefined;
       const status: VettingStatus = s?.status ?? (i.personId ? 'unknown' : 'pending');
@@ -87,6 +93,7 @@ export function requestStatusSnapshot(ctx: Ctx, requestId: Ulid): RequestStatusS
         status: STATUS_LABEL[status],
         validUntil: status === 'non-approved' ? null : (s?.expiresAt ?? null),
         dob: o.dob.parsed ?? (o.dob.value || null),
+        approved: status === 'approved' || status === 'expiring',
         idNumber: [o.passport, o.nationalId].filter((x) => x.trim() !== '').join(' / ') || null,
       };
     }),
@@ -184,13 +191,18 @@ export function createDomainContribution(sc: ServiceContext): LaneHContribution 
         files: atomicFiles,
         verifyPassword: sc.verifyPassword,
       };
+      const ctx = makeCtx(deps);
       cache = {
         conn,
         svc: {
-          ...createDomainServices({ ...deps, exporter: investcExporter }),
+          ...createDomainServices({
+            ...deps,
+            exporter: investcExporter,
+            emailSnapshot: (id) => requestStatusSnapshot(ctx, id),
+          }),
           templates: createTemplatesService(deps),
         },
-        ctx: makeCtx(deps),
+        ctx,
       };
     }
     return cache;

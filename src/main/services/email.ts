@@ -5,7 +5,13 @@
  * The request -> status data comes from an injected `RequestStatusSource` (lane H supplies it).
  */
 import { randomBytes } from 'node:crypto';
+import type { EmailTemplatePurpose } from '@shared/domain/types';
 import { isValidEmailAddress } from '@shared/email-address';
+import { EN_DASH, buildPurposeDraft, oneLine } from '@shared/email-templates';
+import type { DraftSettings, EmailFieldSet, RequestStatusSnapshot } from '@shared/email-templates';
+
+export { buildStatusTable as buildTable, snapshotContext } from '@shared/email-templates';
+export type { DraftSettings, EmailFieldSet, RequestStatusRow, RequestStatusSnapshot } from '@shared/email-templates';
 import type { EmailDraft, EmailDraftRequest, EmailMailtoResult, EmailTemplateId } from '@shared/ipc/contract';
 
 export class EmailError extends Error {
@@ -22,25 +28,6 @@ export class EmailError extends Error {
 // Data source (injected)
 // ---------------------------------------------------------------------------------------------------------------
 
-export interface RequestStatusRow {
-  /** Name exactly as submitted. */
-  name: string;
-  unit: string;
-  /** Human-readable status label. */
-  status: string;
-  /** ISO date or null. */
-  validUntil: string | null;
-  dob?: string | null;
-  /** Passport / national ID, only used when the field set opts in. */
-  idNumber?: string | null;
-}
-export interface RequestStatusSnapshot {
-  eventName: string;
-  /** ISO date the status is as of. */
-  asOf: string;
-  attachmentName?: string | null;
-  rows: RequestStatusRow[];
-}
 export interface RequestStatusSource {
   snapshot(requestId: string): Promise<RequestStatusSnapshot | null>;
 }
@@ -49,17 +36,9 @@ export interface ExportFileSource {
   read(exportId: string): Promise<{ name: string; bytes: Uint8Array } | null>;
 }
 
-/** Which optional columns the body table includes. Default: none (Name, Unit, Status, Valid until only). */
-export interface EmailFieldSet {
-  dob?: boolean;
-  ids?: boolean;
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // Draft text
 // ---------------------------------------------------------------------------------------------------------------
-
-const EN_DASH = '\u2013';
 
 export function buildSubject(eventName: string, asOf: string, template: EmailTemplateId = 'clearance-notice'): string {
   const what: Record<EmailTemplateId, string> = {
@@ -71,55 +50,21 @@ export function buildSubject(eventName: string, asOf: string, template: EmailTem
   return `${oneLine(eventName)} ${EN_DASH} ${what[template]} ${EN_DASH} ${asOf}`;
 }
 
-const oneLine = (s: string): string => s.replace(/[\r\n\t]+/g, ' ').trim();
-const cell = (s: string | null | undefined): string => oneLine(s ?? '') || '-';
-const width = (s: string): number => [...s].length;
-const pad = (s: string, n: number): string => s + ' '.repeat(Math.max(0, n - width(s)));
-
-/** Plain-text table with ` | ` separators and a rule under the header. */
-export function buildTable(rows: RequestStatusRow[], fields: EmailFieldSet = {}): string {
-  const head = ['Name', 'Unit', 'Status', 'Valid until'];
-  if (fields.dob) head.push('Date of birth');
-  if (fields.ids) head.push('ID number');
-  const body = rows.map((r) => {
-    const line = [cell(r.name), cell(r.unit), cell(r.status), cell(r.validUntil)];
-    if (fields.dob) line.push(cell(r.dob));
-    if (fields.ids) line.push(cell(r.idNumber));
-    return line;
-  });
-  const widths = head.map((h, i) => Math.max(width(h), ...body.map((l) => width(l[i] ?? ''))));
-  const fmt = (l: string[]): string =>
-    l
-      .map((c, i) => pad(c, widths[i] ?? 0))
-      .join(' | ')
-      .trimEnd();
-  return [fmt(head), widths.map((w) => '-'.repeat(w)).join('-+-'), ...body.map(fmt)].join('\n');
-}
+/** Legacy template ids of `email.draft` -> Alpha 1 template purposes. */
+export const TEMPLATE_PURPOSE: Record<EmailTemplateId, EmailTemplatePurpose> = {
+  'clearance-notice': 'status-to-requestor',
+  'reminder-outstanding': 'reminder',
+  'request-to-dc': 'request-to-dc',
+  'request-acknowledgement': 'acknowledgement',
+};
 
 export function buildDraft(
   req: Pick<EmailDraftRequest, 'template' | 'to' | 'cc'>,
   snap: RequestStatusSnapshot,
   fields: EmailFieldSet = {},
+  cfg: DraftSettings = {},
 ): EmailDraft {
-  const showTable = req.template === 'clearance-notice' || req.template === 'reminder-outstanding';
-  const event = oneLine(snap.eventName);
-  const intro: Record<EmailTemplateId, string> = {
-    'clearance-notice': `Please find below the vetting status for ${event} as of ${snap.asOf}.`,
-    'reminder-outstanding': `This is a reminder that vetting for ${event} is still outstanding. Current status as of ${snap.asOf}:`,
-    'request-to-dc': `Please find attached the vetting request for ${event}.`,
-    'request-acknowledgement': `We acknowledge receipt of the vetting request for ${event}.`,
-  };
-  const lines = ['Dear colleagues,', '', intro[req.template]];
-  if (showTable && snap.rows.length > 0) lines.push('', buildTable(snap.rows, fields));
-  lines.push('', 'Kind regards');
-  return {
-    to: req.to ?? [],
-    cc: req.cc ?? [],
-    subject: buildSubject(snap.eventName, snap.asOf, req.template),
-    bodyText: lines.join('\n'),
-    attachmentName: req.template === 'request-to-dc' ? (snap.attachmentName ?? null) : null,
-    containsPersonalData: showTable && snap.rows.length > 0,
-  };
+  return buildPurposeDraft(TEMPLATE_PURPOSE[req.template], snap, fields, cfg, { to: req.to, cc: req.cc });
 }
 
 // ---------------------------------------------------------------------------------------------------------------

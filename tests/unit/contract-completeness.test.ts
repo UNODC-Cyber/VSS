@@ -31,8 +31,6 @@ const LANE_STUBS: [Namespace, string, unknown][] = [
   ['persons', 'suggest', { forSubject: { kind: 'review-item', id: ID } }],
   ['review', 'manualValidate', { id: ID, target: { kind: 'new-person' }, reason: 'valid answer' }],
   ['review', 'editSubject', { id: ID, subject: { kind: 'person', personId: ID, patch: {} }, reason: 'typo' }],
-  ['email', 'renderTemplate', { template: 'reminder', requestId: ID }],
-  ['email', 'previewTemplate', { template: 'reminder', subject: 'S', body: 'B' }],
   ['app', 'openFeedback', undefined],
 ];
 
