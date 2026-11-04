@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Group,
+  Menu,
   Modal,
   NavLink,
   Text,
@@ -13,7 +14,7 @@ import {
 import { Component, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { vss } from '../lib/api';
+import { useAction, vss } from '../lib/api';
 import { navigate, useRoute } from '../lib/router';
 import { AuditScreen } from '../screens/AuditScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -30,6 +31,8 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { UnitDetailScreen, UnitsScreen } from '../screens/UnitsScreens';
 import { useUi } from '../store';
+import { AlphaBanner } from './AlphaBanner';
+import { AboutBody } from './settings/AboutCard';
 import { ToastHost } from './ToastHost';
 
 export class ErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
@@ -100,6 +103,32 @@ function ThemeToggle() {
     >
       {t(`theme.${colorScheme}`)}
     </Button>
+  );
+}
+
+function HelpMenu() {
+  const { t } = useTranslation();
+  const act = useAction();
+  const [about, setAbout] = useState(false);
+  return (
+    <>
+      <Menu position="bottom-end" withinPortal>
+        <Menu.Target>
+          <Button size="xs" variant="subtle" aria-label={t('alpha.helpMenu')}>
+            {t('alpha.helpMenu')}
+          </Button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item onClick={() => setAbout(true)}>{t('alpha.aboutItem')}</Menu.Item>
+          <Menu.Item onClick={() => void act(vss().app.openFeedback(), t('alpha.feedbackOpened'))}>
+            {t('alpha.feedbackLink')}
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+      <Modal opened={about} onClose={() => setAbout(false)} title={t('alpha.aboutTitle')} trapFocus returnFocus>
+        <AboutBody />
+      </Modal>
+    </>
   );
 }
 
@@ -240,6 +269,7 @@ export function Shell() {
           <Group gap="sm">
             <NetworkIndicator />
             <ThemeToggle />
+            <HelpMenu />
             <Button size="xs" variant="default" onClick={() => void vss().vault.lock()} aria-keyshortcuts="Control+L">
               {t('topbar.lock')}
             </Button>
@@ -274,6 +304,7 @@ export function Shell() {
         ))}
       </AppShell.Navbar>
       <AppShell.Main id="main" key={epoch}>
+        <AlphaBanner />
         <ErrorBoundary label={t('common.crashed')}>
           <Routes />
         </ErrorBoundary>

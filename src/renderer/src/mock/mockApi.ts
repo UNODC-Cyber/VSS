@@ -121,7 +121,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
   let clipTimer: ReturnType<typeof setTimeout> | null = null;
   let update: UpdateState = {
     phase: 'idle',
-    currentVersion: '0.1.0',
+    currentVersion: '0.2.0-alpha.1',
     availableVersion: null,
     releaseNotes: null,
     downloadedBytes: 0,
