@@ -195,7 +195,10 @@ describe('integration: real services behind the handler table', () => {
     expect(d.outstandingRequests).toEqual([]);
     expect(d.agingBuckets).toEqual({ '0-7': 0, '8-14': 0, '15-30': 0, '>30': 0 });
     expect(d.turnaroundByKind.file).toMatchObject({ count: 1, meanDays: 12 });
-    expect(d.turnaroundByKind.email).toMatchObject({ count: 2, medianDays: 33 }); // 63 (seed) and 3 days
+    expect(d.turnaroundByKind.email.count).toBe(2);
+    // 63 (seed) and 3 days; the exact value depends on the time of day the test runs
+    expect(d.turnaroundByKind.email.medianDays).toBeGreaterThanOrEqual(33);
+    expect(d.turnaroundByKind.email.medianDays).toBeLessThanOrEqual(34);
     expect(d.perMonth).toHaveLength(12);
     expect(d.perMonth.at(-1)).toMatchObject({ received: 3, responded: 3 });
     expect(d.lastBackupAt).toBeNull();
