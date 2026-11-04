@@ -228,12 +228,12 @@ describe('request detail', () => {
     const { ctl, user } = await openDetail('Regional Cyber Workshop');
     await user.click(screen.getByRole('button', { name: 'Email requestor' }));
     const dlg = await screen.findByRole('dialog');
-    expect(await within(dlg).findByDisplayValue(/Received: vetting request/)).toBeInTheDocument();
+    expect(await within(dlg).findByDisplayValue(/vetting request received/)).toBeInTheDocument();
     // main opens the mail client; the renderer only reports it (it cannot navigate to mailto: itself)
     await user.click(within(dlg).getByRole('button', { name: 'Open in mail client' }));
     expect(await within(dlg).findByTestId('mailto-status')).toHaveTextContent(/asked to open/);
     await user.click(within(dlg).getByRole('button', { name: 'Copy body' }));
-    expect(ctl.db.clipboard).toMatch(/We confirm receipt/);
+    expect(ctl.db.clipboard).toMatch(/We acknowledge receipt/);
   });
 
   it('status emails show name, unit, status, valid until; DOB is opt-in per email', async () => {
