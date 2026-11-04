@@ -28,6 +28,13 @@ export function passwordScore(pw: string): number {
   return score;
 }
 
+/** Words for the strength meter (it is never an unlabeled bar). */
+export function strengthLevel(pw: string, score: number): 'none' | 'tooShort' | 'weak' | 'fair' | 'strong' {
+  if (pw === '') return 'none';
+  if (pw.length < MIN_PASSWORD) return 'tooShort';
+  return score < 2 ? 'weak' : score < 4 ? 'fair' : 'strong';
+}
+
 export function CreateVaultScreen() {
   const { t } = useTranslation();
   const act = useAction();
@@ -70,15 +77,21 @@ export function CreateVaultScreen() {
           <Stack>
             <Title order={1}>{t('vault.createTitle')}</Title>
             <Text c="dimmed">{t('vault.createIntro')}</Text>
+            <Text size="sm" c="dimmed">
+              {t('vault.locationFixed')}
+            </Text>
+            <Alert color="orange" variant="light" title={t('vault.noRecoveryTitle')} data-testid="no-recovery">
+              <Stack gap="xs">
+                <Text size="sm">{t('vault.noRecovery')}</Text>
+                <Text size="sm">{t('vault.noRecoveryBackup')}</Text>
+              </Stack>
+            </Alert>
             <TextInput
               label={t('vault.displayName')}
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
               required
             />
-            <Text size="sm" c="dimmed">
-              {t('vault.locationFixed')}
-            </Text>
             <PasswordInput
               label={t('vault.password')}
               value={pw}
@@ -92,6 +105,9 @@ export function CreateVaultScreen() {
               color={score < 2 ? 'red' : score < 4 ? 'yellow' : 'green'}
               aria-label={t('vault.strength')}
             />
+            <Text size="xs" data-testid="strength-label">
+              {t('vault.strengthLabel', { level: t(`vault.strengthLevel.${strengthLevel(pw, score)}`) })}
+            </Text>
             <div id="pw-guidance">
               <Text size="sm" fw={600}>
                 {t('vault.guidanceTitle')}
@@ -110,9 +126,6 @@ export function CreateVaultScreen() {
               autoComplete="new-password"
               error={confirm !== '' && !match ? t('vault.mismatch') : undefined}
             />
-            <Alert color="orange" variant="light">
-              {t('vault.noRecovery')}
-            </Alert>
             <Button type="submit" disabled={!valid} loading={busy}>
               {t('vault.create')}
             </Button>

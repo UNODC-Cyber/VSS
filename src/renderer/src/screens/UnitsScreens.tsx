@@ -39,6 +39,7 @@ export function UnitsScreen() {
             label: t(`unittype.${u}`),
           }))}
           value={type}
+          placeholder={t('emptyFlow.anyType')}
           clearable
           onChange={(v) => {
             setType(v);
@@ -52,7 +53,8 @@ export function UnitsScreen() {
             <DataTable<UnitSummary>
               caption={t('units.caption')}
               data={q.data.items}
-              empty={t('units.empty')}
+              empty={text || type ? t('units.empty') : t('emptyFlow.units')}
+              {...(text || type ? {} : { emptyHint: t('emptyFlow.unitsHint') })}
               rowId={(u) => u.id}
               tableId="units"
               columns={[

@@ -62,7 +62,7 @@ export function SearchScreen({ initial }: { initial: string }) {
         <>
           <Title order={3}>{t('search.people', { count: people.data?.total ?? 0 })}</Title>
           <QueryBoundary loading={people.loading && !people.data} error={people.error}>
-            {people.data && <PersonTable rows={people.data.items} caption={t('people.caption')} />}
+            {people.data && <PersonTable rows={people.data.items} caption={t('people.caption')} context="search" />}
           </QueryBoundary>
           <Title order={3}>{t('search.requests', { count: requests.data?.total ?? 0 })}</Title>
           <QueryBoundary loading={requests.loading && !requests.data} error={requests.error}>
