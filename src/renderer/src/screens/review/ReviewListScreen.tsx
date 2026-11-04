@@ -38,6 +38,7 @@ export function ReviewScreen() {
         label={t('review.kinds')}
         data={KINDS.map((k) => ({ value: k, label: t(`reviewkind.${k}`) }))}
         value={kinds}
+        placeholder={kinds.length === 0 ? t('emptyFlow.allKinds') : undefined}
         onChange={(v) => {
           setKinds(v);
           setOffset(0);

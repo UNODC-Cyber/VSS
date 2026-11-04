@@ -1,4 +1,18 @@
-import { Alert, Badge, Button, Card, Group, Modal, PasswordInput, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Group,
+  List,
+  Modal,
+  PasswordInput,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core';
+import { navigate } from '../lib/router';
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import type { RequestStatus, VettingStatus } from '@shared/domain/types';
@@ -104,6 +118,23 @@ function Body({ d }: { d: Dashboard }) {
           )}
         </Alert>
       )}
+      {Object.values(d.requestsByStatus).reduce((a, b) => a + b, 0) === 0 && (
+        <Card withBorder data-testid="get-started">
+          <Title order={3}>{t('dashboardFlow.startTitle')}</Title>
+          <List type="ordered" size="sm" mt="xs">
+            <List.Item>{t('dashboardFlow.step1')}</List.Item>
+            <List.Item>{t('dashboardFlow.step2')}</List.Item>
+            <List.Item>{t('dashboardFlow.step3')}</List.Item>
+            <List.Item>{t('dashboardFlow.step4')}</List.Item>
+          </List>
+          <Group mt="sm">
+            <Button onClick={() => navigate('/requests/import')}>{t('requests.import')}</Button>
+            <Button variant="default" onClick={() => navigate('/requests/new')}>
+              {t('requests.createManual')}
+            </Button>
+          </Group>
+        </Card>
+      )}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
         <Stat label={t('dashboard.outstanding')} value={d.outstandingRequests.length} testId="stat-outstanding" />
         <Stat
@@ -167,21 +198,25 @@ function Body({ d }: { d: Dashboard }) {
         <Card withBorder>
           <Text fw={600}>{t('dashboard.viaFile')}</Text>
           <Text data-testid="ta-file">
-            {t('dashboard.meanMedian', {
-              n: ta.file.count,
-              mean: num(ta.file.meanDays),
-              median: num(ta.file.medianDays),
-            })}
+            {ta.file.count === 0
+              ? t('dashboardFlow.noData')
+              : t('dashboard.meanMedian', {
+                  n: ta.file.count,
+                  mean: num(ta.file.meanDays),
+                  median: num(ta.file.medianDays),
+                })}
           </Text>
         </Card>
         <Card withBorder>
           <Text fw={600}>{t('dashboard.viaEmail')}</Text>
           <Text data-testid="ta-email">
-            {t('dashboard.meanMedian', {
-              n: ta.email.count,
-              mean: num(ta.email.meanDays),
-              median: num(ta.email.medianDays),
-            })}
+            {ta.email.count === 0
+              ? t('dashboardFlow.noData')
+              : t('dashboard.meanMedian', {
+                  n: ta.email.count,
+                  mean: num(ta.email.meanDays),
+                  median: num(ta.email.medianDays),
+                })}
           </Text>
         </Card>
       </SimpleGrid>

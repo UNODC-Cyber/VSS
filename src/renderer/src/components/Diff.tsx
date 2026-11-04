@@ -23,6 +23,14 @@ export function fieldDiffers(f: DiffField): boolean {
   return set.size > 1 || (set.size === 1 && anyEmpty && f.values.length > 1);
 }
 
+/**
+ * True when two or more records state different values for the field (a missing value is not a conflict). This is
+ * conflict evidence: identity decisions that ignore it must be acknowledged explicitly (IdentityConfirm).
+ */
+export function fieldConflicts(f: DiffField): boolean {
+  return new Set(f.values.filter((v) => v.trim() !== '').map((v) => norm(v, f.kind))).size > 1;
+}
+
 /** Side-by-side comparison; differing fields are highlighted and marked with text (not colour alone). */
 export function DiffGrid({ headers, fields, caption }: { headers: string[]; fields: DiffField[]; caption: string }) {
   const { t } = useTranslation();

@@ -12,8 +12,8 @@ import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PersonDetail, PersonSuggestion, ReviewSubject, SuggestSubject } from '@shared/ipc/contract';
 import { vss } from '../lib/api';
-import { DiffGrid } from './Diff';
 import type { DiffField } from './Diff';
+import { IdentityConfirm } from './IdentityConfirm';
 import { Sensitive, TierBadge } from './common';
 
 export const PICKER_DEBOUNCE_MS = 200;
@@ -144,21 +144,16 @@ export function PersonPicker({
   const empty = loaded && !loading && rows.length === 0;
 
   const compare = chosen && subject && (
-    <Stack>
-      <DiffGrid
-        caption={t('picker.compareCaption')}
-        headers={[subject.source || t('picker.compareSubject'), t('picker.compareChosen')]}
-        fields={comparisonFields(t, subject, chosen, chosenDetail)}
-      />
-      <Group justify="flex-end">
-        <Button variant="default" onClick={() => setChosen(null)}>
-          {t('picker.back')}
-        </Button>
-        <Button data-autofocus onClick={() => onPick(chosen.person)}>
-          {t('picker.confirm', { name: chosen.person.displayName })}
-        </Button>
-      </Group>
-    </Stack>
+    <IdentityConfirm
+      caption={t('picker.compareCaption')}
+      headers={[subject.source || t('picker.compareSubject'), t('picker.compareChosen')]}
+      fields={comparisonFields(t, subject, chosen, chosenDetail)}
+      confirmLabel={t('picker.confirm', { name: chosen.person.displayName })}
+      backLabel={t('picker.back')}
+      ready={chosenDetail !== null}
+      onBack={() => setChosen(null)}
+      onConfirm={() => onPick(chosen.person)}
+    />
   );
 
   return (
@@ -281,6 +276,7 @@ function comparisonFields(
   return [
     { key: 'name', label: t('import.name'), kind: 'name', values: [s.displayName, p.displayName] },
     { key: 'dob', label: t('import.dob'), kind: 'dob', values: [s.dob ?? s.dobRaw, p.dob ?? ''] },
+    { key: 'sex', label: t('person.sex'), kind: 'text', values: [s.sex ?? '', d?.person.sex ?? ''] },
     { key: 'pob', label: t('person.pob'), kind: 'text', values: [s.pobCountry ?? '', d?.person.pob.country ?? ''] },
     { key: 'unit', label: t('import.unit'), kind: 'text', values: [s.unitName ?? '', p.currentUnitName ?? ''] },
     {

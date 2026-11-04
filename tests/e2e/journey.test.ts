@@ -352,8 +352,14 @@ describe('real app journey (no mock)', () => {
     await page.getByRole('heading', { name: 'Second Synthetic Event' }).waitFor();
     await page.getByRole('button', { name: 'Responded by email' }).click();
     const dlg = page.getByRole('dialog');
+    // Nothing is pre-chosen (UI review O-04): outcome and scope are explicit, then a summary is confirmed.
+    expect(await dlg.getByRole('button', { name: 'Review before recording' }).isDisabled()).toBe(true);
+    await dlg.getByRole('radio', { name: 'Approved', exact: true }).check();
+    await dlg.getByRole('radio', { name: /^Everyone on the request/ }).check();
     await dlg.getByTestId('expiry-assumed').waitFor();
     expect(await dlg.getByLabel('Expires on').inputValue()).toBe(addDays(today(), 30));
+    await dlg.getByRole('button', { name: 'Review before recording' }).click();
+    await dlg.getByTestId('clearance-summary').waitFor();
     await dlg.getByRole('button', { name: 'Record outcome' }).click();
     await dlg.waitFor({ state: 'detached' });
     const r1Person = (await v(call(page, 'requests', 'get', { id: r1.id }))).items[0].personId;

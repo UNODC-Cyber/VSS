@@ -12,7 +12,7 @@ export const lifecycle = {
     byStatus: 'Requests by status',
     reviewTitle: 'Review and close',
     finishedIntro:
-      'Every person on this request has an answer. Check the summary, add a note if you like, then close the request.',
+      'Every person on this request is either answered or excluded. Check the summary, add a note if you like, then close the request.',
     closedIntro: 'This request was closed on {{date}}. Reopen it if more work is needed.',
     summaryCaption: 'Outcomes on this request',
     outcome: 'Outcome',
@@ -36,6 +36,6 @@ export const lifecycle = {
     reopenConfirm: 'Reopen request',
     reopened: 'Request reopened',
     reopenCount: 'Reopened {{count}} time(s)',
-    autoFinished: 'All people on this request have an answer, so it is marked Finished.',
+    autoFinished: 'Every person on this request is answered or excluded, so it is marked Finished.',
   },
 };

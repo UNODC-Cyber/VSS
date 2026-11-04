@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Group, Modal, Select, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Checkbox, Group, List, Modal, Select, Stack, Text } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VettingRequest } from '@shared/domain/types';
@@ -17,7 +17,7 @@ import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
 import { DispBadge, PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
-import { dobDisplay, fmtDate, fmtDateTime } from '../lib/format';
+import { fmtDate, fmtDateTime } from '../lib/format';
 import { navigate } from '../lib/router';
 
 const PAGE = 25;
@@ -39,6 +39,7 @@ export function ResponsesScreen() {
               caption={t('responses.caption')}
               data={q.data.items}
               empty={t('responses.empty')}
+              emptyHint={t('emptyFlow.responsesHint')}
               rowId={(r) => r.id}
               tableId="responses"
               columns={[
@@ -139,7 +140,7 @@ function RowDiffDialog({
     {
       header: t('diff.responseRow', { row: row.rowRef }),
       name: row.nameRaw,
-      dob: row.dobRaw,
+      dob: row.dob ?? row.dobRaw,
       unit: row.unitName,
       tier: '',
     },
@@ -188,6 +189,89 @@ function RowDiffDialog({
         </Button>
       </Group>
     </Modal>
+  );
+}
+
+/** Select value for an explicit "no request (record only)" choice; '' would read as "nothing chosen". */
+const NO_REQUEST = '__none__';
+/** A D/M/Y or M/D/Y cell where day and month could both be the month (e.g. 2/11/1988). */
+export function ambiguousUsDate(raw: string): boolean {
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw.trim());
+  return !!m && Number(m[1]) <= 12 && Number(m[2]) <= 12 && m[1] !== m[2];
+}
+const isIndividualRow = (r: ResponsePreviewRow) =>
+  r.section === 'approved-individual' || r.section === 'nonapproved-individual';
+
+/** Why a request is (or is not) pre-selected, in words (UI review O-03 / S-16). */
+function MatchReason({
+  preview,
+  chosen,
+  requestChosen,
+  preselected,
+}: {
+  preview: ResponsePreview;
+  chosen: string | null;
+  requestChosen: boolean;
+  preselected: string | null;
+}) {
+  const { t } = useTranslation();
+  const people = preview.rows.filter(isIndividualRow).length;
+  const best = preview.requestCandidates[0];
+  const why = (c: ResponsePreview['requestCandidates'][number]) =>
+    [
+      c.batchIdMatch ? t('matchRequest.batchSame') : t('matchRequest.batchDiffers'),
+      t('matchRequest.rowsOf', { count: c.matchedRows, total: people }),
+    ].join('; ');
+  if (preselected && chosen === preselected) {
+    const c = preview.requestCandidates.find((x) => x.requestId === preselected);
+    return (
+      <Text size="sm" data-testid="match-reason">
+        {t('matchRequest.preselected', { why: c ? why(c) : '' })}
+      </Text>
+    );
+  }
+  if (requestChosen) return null;
+  return (
+    <Alert color="gray" title={t('matchRequest.noneTitle')} data-testid="match-reason">
+      <Text size="sm">
+        {best ? t('matchRequest.weak', { why: why(best) }) : t('matchRequest.noCandidates')} {t('matchRequest.choose')}
+      </Text>
+    </Alert>
+  );
+}
+
+/** What the import will record (UI review O-09): counts per outcome, before anything is saved. */
+function ImportSummary({
+  preview,
+  choices,
+  requestChosen,
+}: {
+  preview: ResponsePreview;
+  choices: Record<string, Choice>;
+  requestChosen: boolean;
+}) {
+  const { t } = useTranslation();
+  const n = { auto: 0, linked: 0, created: 0, skipped: 0, review: 0 };
+  for (const r of preview.rows) {
+    const c = choices[r.rowId];
+    if (r.decision === 'auto') n.auto++;
+    else if (c?.kind === 'item') n.linked++;
+    else if (c?.kind === 'new') n.created++;
+    else if (c?.kind === 'skip') n.skipped++;
+    else n.review++;
+  }
+  return (
+    <List size="sm" data-testid="import-summary" aria-label={t('importSummary.title')}>
+      <List.Item>{t('importSummary.rows', { count: preview.rows.length })}</List.Item>
+      {requestChosen && <List.Item>{t('importSummary.auto', { count: n.auto })}</List.Item>}
+      {requestChosen && <List.Item>{t('importSummary.linked', { count: n.linked })}</List.Item>}
+      <List.Item>{t('importSummary.created', { count: n.created })}</List.Item>
+      <List.Item>{t('importSummary.skipped', { count: n.skipped })}</List.Item>
+      <List.Item>{t('importSummary.review', { count: n.review })}</List.Item>
+      {requestChosen && (
+        <List.Item>{t('importSummary.unanswered', { count: preview.unansweredItemIds.length })}</List.Item>
+      )}
+    </List>
   );
 }
 
@@ -248,6 +332,12 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
   const [preview, setPreview] = useState<ResponsePreview | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [chosenRequest, setChosenRequest] = useState<string | null>(requestId ?? null);
+  /** True once a request (or "no request") is chosen: explicitly, or pre-selected because the ranking is confident. */
+  const [requestChosen, setRequestChosen] = useState(requestId !== undefined);
+  /** The confident suggestion that was pre-selected for this file, if any (shown with its reasons). */
+  const [preselected, setPreselected] = useState<string | null>(null);
+  /** The user confirmed a request on which no response row matches anybody. */
+  const [zeroAck, setZeroAck] = useState(false);
   const [request, setRequest] = useState<VettingRequest | null>(null);
   /** rowId -> explicit decision; auto rows and rows without candidates need none. */
   const [choices, setChoices] = useState<Record<string, Choice>>({});
@@ -259,14 +349,23 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
   const heldId = useRef<string | null>(null);
   useEffect(() => () => discardQuietly(heldId.current), []);
 
-  /** Load a file, optionally matched against `rid`. File-first: the best-ranked request is proposed, never committed. */
-  const open = async (p: string, name: string, rid: string | null, propose: boolean): Promise<void> => {
+  /**
+   * Load a file, optionally matched against `rid`. File-first: a request is pre-selected only when main calls the
+   * ranking confident (score and at least one matched person row); otherwise the user must choose. `explicit` marks
+   * a choice the user made (including "no request").
+   */
+  const open = async (p: string, name: string, rid: string | null, propose: boolean, explicit = false) => {
     let loaded = await fetchPreview(p, rid, name);
+    let chosen = explicit || rid !== null;
     if (loaded.kind === 'ok' && propose && !rid && loaded.preview.suggestedRequestId) {
       const suggested = loaded.preview.suggestedRequestId;
       discardQuietly(loaded.preview.previewId);
       loaded = await fetchPreview(p, suggested, name);
-    }
+      chosen = true;
+      setPreselected(loaded.kind === 'ok' ? suggested : null);
+    } else if (propose) setPreselected(null);
+    setRequestChosen(chosen);
+    setZeroAck(false);
     // The preview this screen held is replaced now, so it leaves main now.
     const previous = heldId.current;
     heldId.current = loaded.kind === 'ok' ? loaded.preview.previewId : null;
@@ -347,8 +446,14 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
     { id: 'confirm', label: t('wizard.steps.confirm') },
   ];
   const confirmLast = step === steps.length - 1;
+  /** A request is chosen but not one response row matches anybody on it: likely the wrong request. */
+  const noRowMatch = !!preview && chosenRequest !== null && !preview.rows.some((r) => r.candidates.length > 0);
+  const matchBlocked = !requestChosen || (noRowMatch && !zeroAck);
   const nextDisabled =
-    !preview || (step === 2 && undecided.length > 0) || (confirmLast && (!preview.canCommit || undecided.length > 0));
+    !preview ||
+    (step === 1 && matchBlocked) ||
+    (step === 2 && undecided.length > 0) ||
+    (confirmLast && (!preview.canCommit || undecided.length > 0));
   const onNext = () => {
     if (confirmLast) void commit();
     else setStep(step + 1);
@@ -366,9 +471,8 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
 
   return (
     <Stack>
-      <PageHeader
-        title={preview ? t('responseImport.previewTitle', { name: preview.fileName }) : t('responseImport.title')}
-      />
+      <PageHeader title={t('responseImport.title')} />
+      {preview && <Text size="sm">{t('importFlow.fileShown', { name: preview.fileName })}</Text>}
       <Wizard
         steps={steps}
         current={step}
@@ -376,6 +480,13 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
         onNext={onNext}
         nextLabel={confirmLast ? t('responseImport.commit') : t('wizard.next')}
         nextDisabled={nextDisabled}
+        nextHint={
+          step === 1 && !requestChosen
+            ? t('matchRequest.hintChoose')
+            : step === 1 && matchBlocked
+              ? t('matchRequest.hintZero')
+              : null // later steps show "n rows still need a decision" in the step body
+        }
         nextLoading={busy && confirmLast}
         dirty={hasWork}
         onCancel={cancel}
@@ -424,19 +535,41 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
               <Select
                 label={t('responseImport.requestLabel')}
                 description={t('responseImport.requestHelp')}
+                placeholder={t('matchRequest.placeholder')}
                 data={[
-                  { value: '', label: t('responseImport.noRequest') },
+                  { value: NO_REQUEST, label: t('responseImport.noRequest') },
                   ...preview.requestCandidates.map((c) => ({
                     value: c.requestId,
-                    label: `${c.eventName} (${t('responseImport.score', { score: c.score.toFixed(2) })})${c.requestId === preview.suggestedRequestId ? ` - ${t('responseImport.suggested')}` : ''}`,
+                    label: `${c.eventName} (${t('responseImport.score', { score: c.score.toFixed(2) })}, ${t('matchRequest.rows', { count: c.matchedRows })})${c.requestId === preselected ? ` - ${t('responseImport.suggested')}` : ''}`,
                   })),
                 ]}
-                value={chosenRequest ?? ''}
+                value={chosenRequest ?? (requestChosen ? NO_REQUEST : null)}
                 allowDeselect={false}
                 onChange={(v) => {
-                  if (path) guarded(() => void open(path, fileName, v || null, false));
+                  if (!path || v === null) return;
+                  guarded(() => void open(path, fileName, v === NO_REQUEST ? null : v, false, true));
                 }}
               />
+            )}
+            {!requestId && (
+              <MatchReason
+                preview={preview}
+                chosen={chosenRequest}
+                requestChosen={requestChosen}
+                preselected={preselected}
+              />
+            )}
+            {noRowMatch && (
+              <Alert color="orange" title={t('matchRequest.zeroTitle')} data-testid="match-zero">
+                <Stack gap="xs">
+                  <Text size="sm">{t('matchRequest.zeroBody')}</Text>
+                  <Checkbox
+                    label={t('matchRequest.zeroAck')}
+                    checked={zeroAck}
+                    onChange={(e) => setZeroAck(e.currentTarget.checked)}
+                  />
+                </Stack>
+              </Alert>
             )}
             <Group gap="sm" role="group" aria-label={t('responseImport.summary')}>
               <Badge size="lg" color="green">
@@ -494,11 +627,17 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                 col<ResponsePreviewRow>(
                   'dob',
                   t('import.dob'),
-                  (r) => <Sensitive value={dobDisplay(r.dobRaw, true)} />,
-                  {
-                    width: 104,
-                    nowrap: true,
-                  },
+                  (r) => (
+                    <Stack gap={0}>
+                      <Sensitive value={r.dob ?? r.dobRaw} />
+                      {ambiguousUsDate(r.dobRaw) && (
+                        <Text size="xs" data-testid="dob-as-written">
+                          {t('matchRequest.dobInFile')} <Sensitive value={r.dobRaw} />
+                        </Text>
+                      )}
+                    </Stack>
+                  ),
+                  { width: 120, nowrap: true },
                 ),
                 col<ResponsePreviewRow>(
                   'cert',
@@ -594,6 +733,7 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
         {step === 3 && preview && (
           <Stack>
             <Text size="sm">{t('wizard.confirmText')}</Text>
+            <ImportSummary preview={preview} choices={choices} requestChosen={chosenRequest !== null} />
             {!preview.canCommit && <Alert color="red">{t('wizard.cannotCommit')}</Alert>}
             {undecided.length > 0 && (
               <Text size="sm">{t('responseImport.needChoice', { count: undecided.length })}</Text>

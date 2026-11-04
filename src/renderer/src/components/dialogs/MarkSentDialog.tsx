@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Stack, TextInput } from '@mantine/core';
+import { Alert, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAction, vss } from '../../lib/api';
@@ -12,6 +12,12 @@ export function MarkSentDialog({ opened, onClose, request, onChanged }: DialogPr
   return (
     <Modal opened={opened} onClose={onClose} title={t('sent.title')} trapFocus returnFocus>
       <Stack>
+        {request.items.length === 0 && (
+          <Alert color="orange" data-testid="sent-no-items">
+            {t('sentFlow.noItems')}
+          </Alert>
+        )}
+        <Text size="sm">{t('sentFlow.help')}</Text>
         <TextInput
           label={t('sent.when')}
           type="datetime-local"

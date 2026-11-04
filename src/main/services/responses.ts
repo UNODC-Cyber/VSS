@@ -4,6 +4,7 @@
  * (matchResponseRows). On commit only matcher 'auto' rows (single T1, one-to-one) are pre-confirmed; everything else
  * needs an explicit decision or becomes a ReviewItem. Certificate and expiry dates are stored exactly as stated.
  */
+import { isConfidentSuggestion } from '@shared/domain/request-suggest';
 import { daysBetween } from '@shared/domain/status';
 import type {
   DcResponse,
@@ -204,7 +205,9 @@ function rankRequests(ctx: Ctx, draft: DcResponseDraft, rows: ResponseRow[], unk
   const out: RequestCandidate[] = [];
   for (const h of heads) {
     let score = 0;
-    if (draft.batchId && h.batchId === draft.batchId) score += 0.5;
+    let matchedRows = 0;
+    const batchIdMatch = !!draft.batchId && h.batchId === draft.batchId;
+    if (batchIdMatch) score += 0.5;
     const ev = toks(h.eventName);
     if (ev.length > 0 && toks(a.event).length > 0) score += 0.25 * tokenSetJaroWinkler(toks(a.event), ev);
     if (a.place && h.eventLocation && foldForSearch(a.place) === foldForSearch(h.eventLocation)) score += 0.05;
@@ -220,9 +223,17 @@ function rankRequests(ctx: Ctx, draft: DcResponseDraft, rows: ResponseRow[], unk
       const hit = rows.filter(
         (r, i) => isIndividualSection(r.section) && ms[i]!.candidates.some((c) => c.tier === 'T1' || c.tier === 'T2'),
       ).length;
+      matchedRows = hit;
       score += (0.4 * hit) / indiv.length;
     }
-    if (score > 0) out.push({ requestId: h.id, eventName: h.eventName, score: Math.round(score * 1000) / 1000 });
+    if (score > 0)
+      out.push({
+        requestId: h.id,
+        eventName: h.eventName,
+        score: Math.round(score * 1000) / 1000,
+        matchedRows,
+        batchIdMatch,
+      });
   }
   return out.sort((x, y) => y.score - x.score || (x.requestId < y.requestId ? -1 : 1));
 }
@@ -380,7 +391,9 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
     post: p.draft.post ?? '',
     resultsAsOf: p.draft.resultsAsOf,
     assistanceLine: p.draft.assistanceLine ?? '',
-    suggestedRequestId: p.matchedRequestId ?? p.candidates[0]?.requestId ?? null,
+    // Only a confident ranking is offered for pre-selection (UI review O-03); the request the rows were matched
+    // against is reported in matchedRequestId, never as a "suggestion".
+    suggestedRequestId: isConfidentSuggestion(p.candidates[0]) ? p.candidates[0]!.requestId : null,
     rows: p.rows.map((r): ResponsePreviewRow => ({
       rowId: r.id,
       rowRef: r.rowRef,
@@ -388,6 +401,7 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
       disp: r.disp,
       nameRaw: r.nameRaw,
       dobRaw: r.dob.value,
+      dob: r.dob.parsed,
       certDate: r.certDate.parsed,
       expires: r.expires.parsed,
       unitName: r.unitName,

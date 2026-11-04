@@ -5,12 +5,47 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Wizard } from '../../../src/renderer/src/components/Wizard';
 import { vss } from '../../../src/renderer/src/lib/api';
+import { ImportRequestScreen } from '../../../src/renderer/src/screens/ImportRequestScreen';
 import { ImportResponseScreen } from '../../../src/renderer/src/screens/ResponsesScreens';
 
 const STEPS = [
   { id: 'a', label: 'First' },
   { id: 'b', label: 'Second' },
 ];
+
+describe('request import preview (UI review O-05, O-10)', () => {
+  it('shows the parsed date of birth, never an Excel serial, and says why Next is disabled', async () => {
+    mock();
+    const user = userEvent.setup();
+    const real = window.vss.requests.importPreview;
+    vi.spyOn(window.vss.requests, 'importPreview').mockImplementation(async (q) => {
+      const r = await real(q);
+      if (!r.ok) return r;
+      const [first, ...rest] = r.value.items;
+      return {
+        ...r,
+        value: {
+          ...r.value,
+          items: [
+            { ...first!, dob: '1996-12-10', dobRaw: '35410' },
+            { ...first!, rowRef: 'R99', dob: null, dobRaw: 'n/a' },
+            ...rest,
+          ],
+        },
+      };
+    });
+    ui(<ImportRequestScreen />);
+    await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    const table = await screen.findByRole('table', { name: 'Rows in the file' });
+    expect(within(table).getByText('1996-12-10')).toBeInTheDocument();
+    expect(within(table).queryByText('35410')).not.toBeInTheDocument();
+    expect(within(table).getByTestId('dob-unreadable')).toHaveTextContent('not a date');
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(screen.getByTestId('wizard-next-hint')).toHaveTextContent(/Fill in Requestor name and Event name/);
+    expect(screen.getByRole('heading', { name: 'Import a request file' })).toBeInTheDocument();
+  });
+});
 
 describe('Wizard shell', () => {
   it('marks the current step, disables Back on the first step and calls Next', async () => {

@@ -4,6 +4,7 @@
  * All data is synthetic. Behaviour mirrors the contract in src/shared/ipc/contract.ts closely enough that every
  * screen can be exercised, but it is NOT the real backend: matching, parsing and export are faked from fixtures.
  */
+import { isConfidentSuggestion } from '@shared/domain/request-suggest';
 import { addDays, daysBetween, deriveSnapshot, isRequestAwaitingResponse } from '@shared/domain/status';
 import type {
   DcResponse,
@@ -444,7 +445,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       [...db.requests].reverse().find((r) => r.sentToDcAt && !r.respondedAt) ??
       null;
     const items = req?.items ?? [];
-    const rows: ResponsePreview['rows'] = [];
+    const rows: Omit<ResponsePreview['rows'][number], 'dob'>[] = [];
     const unanswered: string[] = [];
     items.forEach((item, idx) => {
       const o = item.observed;
@@ -518,6 +519,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       sectionSource: 'label',
     });
     const pending = rows.filter((r) => r.decision === 'pending').length;
+    const matchedRows = rows.filter((r) => r.candidates.some((c) => c.tier === 'T1' || c.tier === 'T2')).length;
+    const candidates = req
+      ? [{ requestId: req.id, eventName: req.eventName, score: 0.9, matchedRows, batchIdMatch: !!req.batchId }]
+      : [];
     return {
       previewId: newId(),
       fileName: path.split('/').pop() ?? 'response.xlsx',
@@ -527,8 +532,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       post: 'Example Post',
       resultsAsOf: today(),
       assistanceLine: 'Synthetic assistance line for demonstration only.',
-      suggestedRequestId: req?.id ?? null,
-      rows,
+      suggestedRequestId: isConfidentSuggestion(candidates[0]) ? candidates[0]!.requestId : null,
+      rows: rows.map((r) => ({ ...r, dob: /^\d{4}-\d{2}-\d{2}$/.test(r.dobRaw) ? r.dobRaw : null })),
       issues: [],
       errorCount: 0,
       warningCount: 0,
@@ -538,7 +543,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       unansweredItemIds: unanswered,
       duplicateOfResponseId: null,
       canCommit: true,
-      requestCandidates: req ? [{ requestId: req.id, eventName: req.eventName, score: 0.9 }] : [],
+      requestCandidates: candidates,
       matchedRequestId: requestId ?? null,
     };
   }
@@ -1265,7 +1270,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           if (/request[^/]*$/i.test(req.path)) return fail('WRONG_FILE_KIND', 'This is a vetting request workbook.');
           if (!/\/response[^/]*$/.test(req.path)) return fail('FILE_INVALID', 'This is not a response workbook.');
           const p = buildResponsePreview(req.path, req.requestId);
-          respPreviews.set(p.previewId, { preview: p, requestId: p.suggestedRequestId });
+          respPreviews.set(p.previewId, { preview: p, requestId: p.matchedRequestId ?? p.suggestedRequestId });
           return ok(structuredClone(p));
         }),
       importCommit: (req) =>

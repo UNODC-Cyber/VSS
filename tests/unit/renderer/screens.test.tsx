@@ -20,9 +20,10 @@ describe('dashboard', () => {
     ui(<DashboardScreen />);
     expect(await screen.findByTestId('stat-outstanding')).toHaveTextContent('1');
     expect(screen.getByTestId('stat-review')).toHaveTextContent('1');
-    expect(screen.getByTestId('aging-8-14')).toHaveTextContent('8-14 d: 1');
-    expect(screen.getByTestId('aging-0-7')).toHaveTextContent('0-7 d: 0');
-    expect(screen.getByTestId('aging->30')).toHaveTextContent('>30 d: 0');
+    expect(screen.getByTestId('aging-8-14')).toHaveTextContent('8-14 days: 1');
+    expect(screen.getByTestId('aging-0-7')).toHaveTextContent('0-7 days: 0');
+    expect(screen.getByTestId('aging->30')).toHaveTextContent('>30 days: 0');
+    expect(screen.queryByTestId('get-started')).not.toBeInTheDocument();
     expect(screen.getByTestId('ta-file')).toHaveTextContent('1 requests, mean 9.0, median 9.0');
     expect(screen.getByTestId('ta-email')).toHaveTextContent('1 requests, mean 3.0, median 3.0');
     expect(screen.getByTestId('exp-30')).toHaveTextContent('within 30 d: 2');
@@ -35,6 +36,15 @@ describe('dashboard', () => {
     ctl.db.audit = ctl.db.audit.filter((e) => e.type !== 'vault.backup');
     ui(<DashboardScreen />);
     expect(await screen.findByText(/No backup has been made yet/)).toBeInTheDocument();
+  });
+
+  it('an empty vault shows the first steps instead of bare zeros (O-23)', async () => {
+    const ctl = mock();
+    ctl.db.requests = [];
+    ui(<DashboardScreen />);
+    const card = await screen.findByTestId('get-started');
+    expect(within(card).getByRole('button', { name: 'Import request file' })).toBeInTheDocument();
+    expect(screen.getByTestId('ta-file')).toHaveTextContent('No data yet');
   });
 });
 
@@ -134,6 +144,15 @@ describe('review queue', () => {
     const keep = await screen.findByRole('button', { name: 'Merge, keep Fir, Marlo' });
     expect(screen.getAllByTestId('diff').length).toBeGreaterThan(0);
     await user.click(keep);
+    // Merging is an identity decision: an explicit compare step, nothing merged on the first click.
+    const dlg = await screen.findByRole('dialog', { name: 'Merge these two person records?' });
+    expect(rv.state).toBe('open');
+    const confirm = within(dlg).getByRole('button', { name: 'Merge, keep Fir, Marlo' });
+    if (confirm.getAttribute('data-conflicts') === 'true') {
+      expect(confirm).toBeDisabled();
+      await user.click(within(dlg).getByRole('checkbox', { name: /I compared/ }));
+    }
+    await user.click(confirm);
     await waitFor(() => expect(rv.state).toBe('resolved'));
     expect(ctl.db.merges).toHaveLength(1);
   });
@@ -157,7 +176,20 @@ describe('review queue', () => {
     const dobRow = (await screen.findByText('Date of birth')).closest('tr')!;
     expect(dobRow).toHaveAttribute('data-differs', 'true');
     expect(within(dobRow).getAllByText(/as D\/M/)).toHaveLength(2);
-    await user.click(screen.getByRole('button', { name: /Same person as Cedar, Solana/ }));
+    // UI review O-02: with conflict evidence no button is emphasised and nothing links on one click.
+    expect(screen.getByTestId('review-conflicts')).toHaveTextContent('Date of birth');
+    expect(screen.queryByRole('button', { name: /Same person as/ })).not.toBeInTheDocument();
+    const actions = screen.getByRole('group', { name: 'Review actions' });
+    for (const b of within(actions).getAllByRole('button')) expect(b).not.toHaveAttribute('data-variant', 'filled');
+    await user.click(screen.getByRole('button', { name: 'Compare and decide: Cedar, Solana...' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Is this the same person as Cedar, Solana?' });
+    expect(within(dlg).getByTestId('identity-conflicts')).toHaveTextContent('Date of birth');
+    const confirm = within(dlg).getByRole('button', { name: 'Same person as Cedar, Solana' });
+    expect(confirm).toBeDisabled();
+    expect(confirm).not.toHaveAttribute('data-variant', 'filled');
+    expect(rv.state).toBe('open');
+    await user.click(within(dlg).getByRole('checkbox', { name: /I compared .*Date of birth/ }));
+    await user.click(confirm);
     await waitFor(() => expect(rv.state).toBe('resolved'));
     const item = ctl.db.requests.at(-1)!.items.find((i) => i.observed.rowRef === 'R3')!;
     expect(item.linkState).toBe('confirmed');
@@ -171,6 +203,25 @@ describe('review queue', () => {
     await user.click(await screen.findByRole('button', { name: 'Not the same person' }));
     await waitFor(() => expect(rv.state).toBe('dismissed'));
     expect(ctl.db.notSame).toHaveLength(1);
+  });
+
+  it('dismiss asks first and explains what it does (O-21)', async () => {
+    const ctl = mock();
+    const user = userEvent.setup();
+    const rv = ctl.db.reviews[0]!;
+    ui(<ReviewDetailScreen id={rv.id} />);
+    expect(await screen.findByTestId('review-action-help')).toHaveTextContent(/Skip for now: leaves the item open/);
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Dismiss this review item?' });
+    await user.click(within(dlg).getByRole('button', { name: 'Cancel' }));
+    expect(rv.state).toBe('open');
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Dismiss this review item?' })).getByRole('button', {
+        name: 'Dismiss item',
+      }),
+    );
+    await waitFor(() => expect(rv.state).toBe('dismissed'));
   });
 });
 

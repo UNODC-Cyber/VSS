@@ -1,5 +1,6 @@
 // End-to-end service flow on a real encrypted temp DB with the synthetic lane B fixtures.
 import { afterEach, describe, expect, it } from 'vitest';
+import { isConfidentSuggestion } from '@shared/domain/request-suggest';
 import type { RequestSummary } from '@shared/ipc/contract';
 import { parseInvestc } from '../../../src/main/formats/investc/parse';
 import {
@@ -209,6 +210,29 @@ describe('export', () => {
   });
 });
 
+describe('request suggestion for a response file (UI review O-03)', () => {
+  it('needs both a confident score and at least one matched person row', () => {
+    expect(isConfidentSuggestion({ score: 0.06, matchedRows: 0 })).toBe(false);
+    expect(isConfidentSuggestion({ score: 0.9, matchedRows: 0 })).toBe(false); // batch ID alone, nobody matches
+    expect(isConfidentSuggestion({ score: 0.45, matchedRows: 4 })).toBe(false);
+    expect(isConfidentSuggestion({ score: 0.5, matchedRows: 1 })).toBe(true);
+    expect(isConfidentSuggestion(undefined)).toBe(false);
+  });
+
+  it('never suggests a request on which no response row matches anybody', async () => {
+    h = harness();
+    const s = await importRequest(h, 'req-001-basic');
+    await exportAndSend(h, s.id, '2026-11-05T08:00:00.000Z');
+    for (const f of ['resp-003-nonapproved', 'resp-004-thai', 'resp-008-mixed-script-names']) {
+      const hint = unwrap(await h.svc.responses.importFile(`${f}.xlsx`, fixtureBytes(`responses/${f}.xlsx`)));
+      const best = hint.requestCandidates[0];
+      if (!best || best.matchedRows === 0) expect(hint.suggestedRequestId).toBeNull();
+      else expect(hint.suggestedRequestId).toBe(isConfidentSuggestion(best) ? best.requestId : null);
+      if (hint.previewId) await h.svc.responses.discardPreview({ previewId: hint.previewId });
+    }
+  });
+});
+
 describe('response flow', () => {
   it('all-approved: auto-links one-to-one, stores DC dates verbatim, marks responded, statuses approved', async () => {
     h = harness();
@@ -223,6 +247,9 @@ describe('response flow', () => {
     const hint = unwrap(await h.svc.responses.importFile('resp-001.xlsx', bytes));
     expect(hint.requestCandidates[0]!.requestId).toBe(s.id);
     expect(hint.matchedRequestId).toBeNull(); // never auto-chosen
+    // UI review O-03: a suggestion needs a confident score AND matched person rows; this one has both.
+    expect(hint.requestCandidates[0]!.matchedRows).toBeGreaterThan(0);
+    expect(hint.suggestedRequestId).toBe(isConfidentSuggestion(hint.requestCandidates[0]) ? s.id : null);
     expect(h.count('response')).toBe(0);
 
     const pv = unwrap(await h.svc.responses.importFile('resp-001.xlsx', bytes, s.id));

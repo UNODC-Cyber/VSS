@@ -190,7 +190,7 @@ export function BackupCard() {
             {t('settings.backupNow')}
           </Button>
           <Text size="sm" data-testid="backup-last">
-            {info?.lastBackupAt ? t('backup.last', { at: fmtDateTime(info.lastBackupAt) }) : t('dashboard.noBackup')}
+            {info?.lastBackupAt ? t('backup.last', { at: fmtDateTime(info.lastBackupAt) }) : t('backupFlow.none')}
           </Text>
         </Group>
         {info && info.backups.length > 0 && (

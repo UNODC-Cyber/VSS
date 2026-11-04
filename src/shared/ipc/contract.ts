@@ -495,6 +495,8 @@ export interface ResponsePreviewRow {
   disp: string;
   nameRaw: string;
   dobRaw: string;
+  /** The DOB as parsed on import (ISO), null when the cell could not be read as a date. */
+  dob: IsoDate | null;
   certDate: IsoDate | null;
   expires: IsoDate | null;
   unitName: string;
@@ -512,6 +514,10 @@ export interface ResponseRequestCandidate {
   eventName: string;
   /** Higher is better; a ranking hint only, never an automatic choice. */
   score: number;
+  /** Person rows of the response with a T1/T2 candidate on this request. */
+  matchedRows: number;
+  /** The response's batch ID equals the request's. */
+  batchIdMatch: boolean;
 }
 export interface ResponsePreview {
   previewId: string;
@@ -524,6 +530,10 @@ export interface ResponsePreview {
   post: string;
   resultsAsOf: IsoDate | null;
   assistanceLine: string;
+  /**
+   * The request the importer may pre-select: the best-ranked candidate, only when it is confident (score and at
+   * least one matched person row, shared/domain/request-suggest.ts). Null means the user must choose.
+   */
   suggestedRequestId: Ulid | null;
   rows: ResponsePreviewRow[];
   issues: ValidationIssue[];

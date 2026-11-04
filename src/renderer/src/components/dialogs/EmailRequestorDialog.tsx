@@ -76,7 +76,14 @@ export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogPr
     vss()
       .requestors.search({ text: request.requestor.name, limit: 8 })
       .then(
-        (r) => alive && setRequestors(r.ok ? r.value.filter((x) => x.email) : []),
+        (r) => {
+          if (!alive) return;
+          const list = r.ok ? r.value.filter((x) => x.email) : [];
+          setRequestors(list);
+          // The request's own saved requestor is pre-selected, matching the pre-filled To (UI review O-41).
+          const own = list.find((x) => x.id === request.requestor.id);
+          if (own) setChosen(own.id);
+        },
         () => alive && setRequestors([]),
       );
     return () => {
@@ -163,7 +170,11 @@ export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogPr
                 <Text size="sm">{mailState === 'opened' ? t('compose.mailtoReady') : t('compose.truncated')}</Text>
               </Alert>
             )}
+            <Text size="sm">{t('composeFlow.notSent')}</Text>
             <Group justify="flex-end">
+              <Button variant="subtle" color="gray" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
               <Button
                 variant="default"
                 onClick={async () => {

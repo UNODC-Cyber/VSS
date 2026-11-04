@@ -63,8 +63,12 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
         {preview?.filterOriginalAvailable && (
           <Radio.Group label={t('export.mode')} value={mode} onChange={(v) => setMode(v as ExportMode)}>
             <Group mt="xs">
-              <Radio value="regenerate" label={t('export.regenerate')} />
-              <Radio value="filter-original" label={t('export.filterOriginal')} />
+              <Radio value="regenerate" label={t('export.regenerate')} description={t('exportFlow.regenerateHelp')} />
+              <Radio
+                value="filter-original"
+                label={t('export.filterOriginal')}
+                description={t('exportFlow.filterOriginalHelp')}
+              />
             </Group>
           </Radio.Group>
         )}
@@ -154,7 +158,10 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
           )}
         {result && (
           <Alert color="green" role="status">
-            {t('export.saved', { path: result })}
+            <Text size="sm">{t('export.saved', { path: result })}</Text>
+            <Text size="sm" data-testid="export-next-step">
+              {t('exportFlow.nextStep')}
+            </Text>
           </Alert>
         )}
         {notices.length > 0 && (
@@ -168,7 +175,7 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
         )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
-            {t('common.close')}
+            {result ? t('common.close') : t('common.cancel')}
           </Button>
           <Button disabled={!preview || blocked || preview.includedCount === 0} onClick={() => void doExport()}>
             {t('export.run')}

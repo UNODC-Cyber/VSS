@@ -47,6 +47,8 @@ export function RequestsScreen() {
     [offset, statuses.join(), from, to, text, outstanding],
   );
 
+  const filtered = statuses.length > 0 || from !== '' || to !== '' || text !== '' || outstanding;
+
   return (
     <Stack>
       <PageHeader
@@ -89,6 +91,7 @@ export function RequestsScreen() {
           label={t('requests.status')}
           data={STATUSES.map((s) => ({ value: s, label: t(`reqstatus.${s}`) }))}
           value={statuses}
+          placeholder={statuses.length === 0 ? t('emptyFlow.anyStatus') : undefined}
           onChange={(v) => {
             setStatuses(v);
             setOffset(0);
@@ -126,7 +129,9 @@ export function RequestsScreen() {
             <DataTable<RequestSummary>
               caption={t('requests.caption')}
               data={q.data.items}
-              empty={t('requests.empty')}
+              // An empty vault is not "no match": say what to do first (UI review O-22).
+              empty={filtered ? t('requests.empty') : t('emptyFlow.requests')}
+              {...(filtered ? {} : { emptyHint: t('emptyFlow.requestsHint') })}
               rowId={(r) => r.id}
               tableId="requests"
               columns={[

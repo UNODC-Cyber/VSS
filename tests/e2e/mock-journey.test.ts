@@ -55,8 +55,28 @@ async function chooseOption(label: string, option: RegExp | string, index = 0): 
   await page.getByRole('option', { name: option }).first().click();
 }
 
+/**
+ * The explicit compare step (UI review O-02): once the full record is loaded, a conflict must be acknowledged before
+ * the confirm button works. `expectConflict` asserts that the conflict path was taken.
+ */
+async function confirmIdentity(confirmName: string, expectConflict = false): Promise<void> {
+  const dlg = page.getByRole('dialog');
+  const confirm = dlg.getByRole('button', { name: confirmName });
+  await confirm.waitFor();
+  await dlg.getByText(/These records disagree|Compare the records field by field/).waitFor();
+  const conflicts = await dlg.getByTestId('identity-conflicts').count();
+  if (expectConflict) expect(conflicts).toBe(1);
+  if (conflicts > 0) {
+    expect(await confirm.isDisabled()).toBe(true);
+    await dlg.getByRole('checkbox', { name: /I compared/ }).check();
+  }
+  await confirm.click();
+}
+
 async function expectNoAxeViolations(): Promise<void> {
   await page.mouse.move(0, 0); // hover styles change contrast; test the resting state
+  // A dialog that is still fading in is measured at partial opacity; wait for transitions to settle.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
   const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(
     r.violations.map(
@@ -141,6 +161,8 @@ describe('mock journey', () => {
       .getByRole('option', { name: /Cedar, Solana/ })
       .first()
       .click();
+    // Identity is never linked on the first click: compare, acknowledge any conflict, then confirm.
+    await confirmIdentity('Confirm link to Cedar, Solana');
     await page.getByTestId('unresolved-count').waitFor({ state: 'detached' });
 
     await page.getByRole('button', { name: 'Export for vetting' }).click();
@@ -214,7 +236,7 @@ describe('mock journey', () => {
     await input.press('Enter');
     await page.getByText('Compare the record with the person you selected').waitFor();
     await expectNoAxeViolations();
-    await page.getByRole('button', { name: 'Confirm link to Hazel, Indigo' }).click();
+    await confirmIdentity('Confirm link to Hazel, Indigo', true);
     const recorded = () =>
       page.evaluate(async () => {
         const v = (window as unknown as { vss: VssApi }).vss;
