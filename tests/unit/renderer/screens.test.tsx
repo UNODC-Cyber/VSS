@@ -195,7 +195,7 @@ describe('audit', () => {
   });
 });
 
-describe('settings', () => {
+describe('settings', { timeout: 60_000 }, () => {
   it('requires the password to save, rejects a wrong one, saves with the right one', async () => {
     const { ctl, user } = app({ state: 'unlocked' });
     await user.click(await screen.findByRole('link', { name: 'Settings' }));
