@@ -54,16 +54,34 @@ export const PERSON_COLUMNS = (t: TFunction): Col<PersonSummary>[] => [
   ),
 ];
 
-export function PersonTable({ rows, caption }: { rows: PersonSummary[]; caption: string }) {
+/**
+ * `context` picks the empty state (UI review O-22): an empty vault says how people get in, a filtered list says how
+ * to widen it, and Search (which has no status filter) never mentions one.
+ */
+export function PersonTable({
+  rows,
+  caption,
+  context = 'filtered',
+}: {
+  rows: PersonSummary[];
+  caption: string;
+  context?: 'none' | 'filtered' | 'search';
+}) {
   const { t } = useTranslation();
   return (
     <DataTable<PersonSummary>
       caption={caption}
       data={rows}
-      empty={t('people.empty')}
+      empty={context === 'none' ? t('emptyFlow.people') : t('people.empty')}
       rowId={(p) => p.id}
       tableId="people"
-      emptyHint={t('ui.people.emptyHint')}
+      emptyHint={
+        context === 'none'
+          ? t('emptyFlow.peopleHint')
+          : context === 'search'
+            ? t('emptyFlow.searchHint')
+            : t('ui.people.emptyHint')
+      }
       columns={PERSON_COLUMNS(t)}
     />
   );
@@ -123,6 +141,7 @@ export function PeopleScreen() {
             label={t('items.status')}
             data={STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))}
             value={statuses}
+            placeholder={statuses.length === 0 ? t('emptyFlow.anyStatus') : undefined}
             onChange={(v) => {
               setStatuses(v);
               setOffset(0);
@@ -139,7 +158,11 @@ export function PeopleScreen() {
             <Text size="sm" c="dimmed" role="status">
               {t('people.count', { count: q.data.total })}
             </Text>
-            <PersonTable rows={q.data.items} caption={t('people.caption')} />
+            <PersonTable
+              rows={q.data.items}
+              caption={t('people.caption')}
+              context={submitted !== '' || statuses.length > 0 ? 'filtered' : 'none'}
+            />
             <SimplePager total={q.data.total} offset={offset} limit={PAGE} onChange={setOffset} />
           </>
         )}

@@ -737,6 +737,7 @@ const responsePreviewRow = z.object({
   disp: str(),
   nameRaw: str(),
   dobRaw: str(),
+  dob: isoDate.nullable(),
   certDate: isoDate.nullable(),
   expires: isoDate.nullable(),
   unitName: str(),
@@ -767,7 +768,15 @@ const responsePreview = z.object({
   unansweredItemIds: z.array(ulid),
   duplicateOfResponseId: ulid.nullable(),
   canCommit: z.boolean(),
-  requestCandidates: z.array(z.object({ requestId: ulid, eventName: str(), score: z.number() })),
+  requestCandidates: z.array(
+    z.object({
+      requestId: ulid,
+      eventName: str(),
+      score: z.number(),
+      matchedRows: z.number().int().min(0),
+      batchIdMatch: z.boolean(),
+    }),
+  ),
   matchedRequestId: ulid.nullable(),
 });
 const responseRowDecision = z.union([ulid, z.literal('new'), z.literal('skip')]);

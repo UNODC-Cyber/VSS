@@ -44,7 +44,15 @@ describe('person picker', () => {
     await user.click(screen.getByRole('button', { name: 'Back to the list' }));
     await within(dlg).findAllByRole('option');
     fireEvent.keyDown(within(dlg).getByRole('combobox', { name: /Search/ }), { key: 'Enter' });
-    await user.click(await screen.findByRole('button', { name: 'Confirm link to Alder, Terra' }));
+    // The dates of birth differ: the conflict is named, Back is the focused default, and Confirm stays disabled
+    // (and not emphasised) until the user ticks that they compared the differing fields.
+    const confirm = await screen.findByRole('button', { name: 'Confirm link to Alder, Terra' });
+    expect(await screen.findByTestId('identity-conflicts')).toHaveTextContent('Date of birth');
+    expect(confirm).toBeDisabled();
+    expect(confirm).not.toHaveAttribute('data-variant', 'filled');
+    await user.click(screen.getByRole('checkbox', { name: /I compared .*Date of birth/ }));
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
     const alder = ctl.db.persons.find((p) => p.canonical.surname === 'Alder')!;
     await waitFor(() => expect(ctl.db.reviews.find((r) => r.id === reviewId)!.state).toBe('resolved'));
     expect(ctl.db.records.filter((r) => r.responseRowId === row.id).map((r) => r.personId)).toEqual([alder.id]);

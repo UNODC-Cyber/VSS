@@ -39,6 +39,48 @@ function rowFields(i: RequestItem): string[] {
   return [itemName(i), o.dob.parsed ?? o.dob.value, o.passport, o.nationalId, o.unitName];
 }
 
+export interface RequestActions {
+  export: boolean;
+  markSent: boolean;
+  /** Import response / Responded by email. */
+  answer: boolean;
+  edit: boolean;
+  delete: boolean;
+  /** The one emphasised action for this state (none once the request is answered). */
+  primary: 'export' | 'import' | null;
+  /** Next-step line shown under the action bar. */
+  hint: 'export' | 'markSent' | 'import' | 'review' | 'close' | 'closed' | null;
+}
+
+/** Which request actions make sense in each state (UI review O-16): a closed request offers no new work. */
+export function requestActions(status: VettingRequest['status']): RequestActions {
+  const open = { export: true, markSent: true, answer: true, edit: true, delete: true };
+  switch (status) {
+    case 'received':
+    case 'validated':
+      return { ...open, primary: 'export', hint: 'export' };
+    case 'exported':
+      return { ...open, primary: null, hint: 'markSent' };
+    case 'sent-to-dc':
+      return { ...open, primary: 'import', hint: 'import' };
+    case 'responded':
+      return { ...open, primary: null, hint: 'review' };
+    case 'finished':
+      return { ...open, primary: null, hint: 'close' };
+    case 'closed':
+    case 'withdrawn':
+      return {
+        export: false,
+        markSent: false,
+        answer: false,
+        edit: false,
+        delete: false,
+        primary: null,
+        hint: status === 'closed' ? 'closed' : null,
+      };
+  }
+}
+
 /** A value with its copy icon; the value is cut with an ellipsis (full text on hover) so the icon stays visible. */
 function CopyField({ value, label }: { value: string; label: string }) {
   const redact = useUi((s) => s.settings.redactionMode);
@@ -61,38 +103,59 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
   const awaiting = req.status === 'sent-to-dc' || req.status === 'exported';
   const unresolved = req.items.filter((i) => i.linkState === 'pending-review').length;
   const close = () => setDlg(null);
+  const actions = requestActions(req.status);
+  const sentBlocked = ['responded', 'finished'].includes(req.status);
   return (
     <Stack>
       <PageHeader
         title={req.eventName}
         actions={
           <>
-            <Button onClick={() => setDlg('export')}>{t('request.exportForVetting')}</Button>
-            <Button
-              variant="default"
-              onClick={() => setDlg('sent')}
-              disabled={['responded', 'finished', 'closed'].includes(req.status)}
-            >
-              {t('request.markSent')}
-            </Button>
-            <Button variant="default" onClick={() => setDlg('clearance')}>
-              {t('request.respondedByEmail')}
-            </Button>
-            <Button variant="default" onClick={() => navigate(`/responses/import?requestId=${req.id}`)}>
-              {t('request.importResponse')}
-            </Button>
+            {actions.export && (
+              <Button variant={actions.primary === 'export' ? 'filled' : 'default'} onClick={() => setDlg('export')}>
+                {t('request.exportForVetting')}
+              </Button>
+            )}
+            {actions.markSent && (
+              <Button
+                variant="default"
+                onClick={() => setDlg('sent')}
+                disabled={sentBlocked}
+                title={sentBlocked ? t('requestFlow.markSentDisabled') : undefined}
+              >
+                {t('request.markSent')}
+              </Button>
+            )}
+            {actions.answer && (
+              <Button
+                variant={actions.primary === 'import' ? 'filled' : 'default'}
+                onClick={() => navigate(`/responses/import?requestId=${req.id}`)}
+              >
+                {t('request.importResponse')}
+              </Button>
+            )}
+            {actions.answer && (
+              <Button variant="default" onClick={() => setDlg('clearance')}>
+                {t('request.respondedByEmail')}
+              </Button>
+            )}
             <Button variant="default" onClick={() => setDlg('email')}>
               {t('request.emailRequestor')}
             </Button>
-            <Button variant="subtle" onClick={() => setDlg('edit')}>
-              {t('request.edit')}
-            </Button>
-            <Button variant="subtle" color="red" onClick={() => setDlg('delete')}>
-              {t('request.delete')}
-            </Button>
+            {actions.edit && (
+              <Button variant="subtle" onClick={() => setDlg('edit')}>
+                {t('request.edit')}
+              </Button>
+            )}
+            {actions.delete && (
+              <Button variant="subtle" color="red" onClick={() => setDlg('delete')}>
+                {t('request.delete')}
+              </Button>
+            )}
           </>
         }
       />
+      {actions.hint && <Text size="sm">{t(`requestFlow.next.${actions.hint}`)}</Text>}
       <Group>
         <RequestStatusBadge status={req.status} />
         {awaiting && <Badge color="yellow">{t('request.awaiting')}</Badge>}
@@ -238,6 +301,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
           itemId={linkItem}
           onChanged={reload}
           itemName={((it) => (it ? itemName(it) : ''))(req.items.find((x) => x.id === linkItem))}
+          {...((it) => (it ? { item: it } : {}))(req.items.find((x) => x.id === linkItem))}
         />
       )}
       <Modal opened={dlg === 'delete'} onClose={close} title={t('request.deleteTitle')} trapFocus returnFocus>

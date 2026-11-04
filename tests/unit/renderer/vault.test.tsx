@@ -31,6 +31,20 @@ describe('create vault', () => {
     expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
   });
 
+  it('says, before the password fields, that the password cannot be recovered and what the backup passphrase is for', async () => {
+    const { user } = app({ state: 'no-vault' });
+    const warn = await screen.findByTestId('no-recovery');
+    expect(warn).toHaveTextContent('Your password cannot be recovered');
+    expect(warn).toHaveTextContent(/decrypts your backup files only/);
+    expect(warn).toHaveTextContent(/does not reset or replace your password/);
+    // The warning comes before the password field in reading order.
+    const pw = screen.getAllByLabelText(/^Password/)[0]!;
+    expect(warn.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('strength-label')).toHaveTextContent('Strength: enter a password');
+    await user.type(pw, 'short');
+    expect(screen.getByTestId('strength-label')).toHaveTextContent('Strength: too short');
+  });
+
   it('scores passphrases higher than short passwords', () => {
     expect(passwordScore('short')).toBe(0);
     expect(passwordScore('correct horse battery staple')).toBeGreaterThanOrEqual(3);
