@@ -92,6 +92,7 @@ interface ReqRow {
   requestor_name: string | null;
   requestor_email: string | null;
   requestor_org: string | null;
+  requestor_id: string | null;
   event_name: string | null;
   event_start: string | null;
   event_end: string | null;
@@ -152,9 +153,9 @@ export class RequestRepo {
     this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO request(id, kind, received_at, requestor_name, requestor_email, requestor_org, event_name, event_start, event_end,
+          `INSERT INTO request(id, kind, received_at, requestor_name, requestor_email, requestor_org, requestor_id, event_name, event_start, event_end,
              event_location, source_file_id, template_version, units_json, status, sent_to_dc_at, responded_at, response_kind, batch_id, notes)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         )
         .run(
           id,
@@ -163,6 +164,7 @@ export class RequestRepo {
           input.requestor.name,
           input.requestor.email,
           input.requestor.organisation,
+          input.requestor.id ?? null,
           input.eventName,
           input.eventStart,
           input.eventEnd,
@@ -246,6 +248,7 @@ export class RequestRepo {
       set('requestor_name', patch.requestor.name);
       set('requestor_email', patch.requestor.email);
       set('requestor_org', patch.requestor.organisation);
+      set('requestor_id', patch.requestor.id ?? null);
     }
     if (patch.eventName !== undefined) set('event_name', patch.eventName);
     if (patch.eventStart !== undefined) set('event_start', patch.eventStart);
@@ -469,7 +472,12 @@ export class RequestRepo {
       id: r.id,
       kind: r.kind as VettingRequest['kind'],
       receivedAt: r.received_at,
-      requestor: { name: r.requestor_name ?? '', email: r.requestor_email, organisation: r.requestor_org },
+      requestor: {
+        ...(r.requestor_id ? { id: r.requestor_id } : {}),
+        name: r.requestor_name ?? '',
+        email: r.requestor_email,
+        organisation: r.requestor_org,
+      },
       eventName: r.event_name ?? '',
       eventStart: r.event_start,
       eventEnd: r.event_end,

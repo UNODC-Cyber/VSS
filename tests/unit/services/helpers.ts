@@ -68,6 +68,8 @@ export interface Harness {
   setNow(iso: string): void;
   fault: { step: string | null };
   auditCount(): number;
+  /** Audit events other than the saved-requestor side events (lane B), which ride along with request writes. */
+  actionAuditCount(): number;
   count(table: string): number;
   cleanup(): void;
 }
@@ -105,6 +107,8 @@ export function harness(startIso = '2026-11-03T09:00:00.000Z'): Harness {
     },
     fault,
     auditCount: () => count('audit'),
+    actionAuditCount: () =>
+      (fx.db.prepare("SELECT count(*) AS n FROM audit WHERE type NOT LIKE 'requestor.%'").get() as { n: number }).n,
     count,
     cleanup: fx.cleanup,
   };
@@ -135,10 +139,10 @@ export function errCode<T>(r: Result<T>): string {
 
 /** Runs a mutating call and asserts it appended exactly one audit event. */
 export async function once<T>(h: Harness, p: () => Promise<Result<T>>): Promise<T> {
-  const before = h.auditCount();
+  const before = h.actionAuditCount();
   const r = await p();
   const v = unwrap(r);
-  const after = h.auditCount();
+  const after = h.actionAuditCount();
   if (after - before !== 1) throw new Error(`expected exactly one audit event, got ${after - before}`);
   return v;
 }

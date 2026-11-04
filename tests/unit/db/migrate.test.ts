@@ -48,7 +48,7 @@ describe('runMigrations', () => {
     db.prepare("INSERT INTO setting(key, value_json, updated_at) VALUES ('autoLockMinutes', '7', 'x')").run();
     const r = runMigrations(db, { backupDir: s.backupDir, now: () => new Date('2026-01-02T03:04:05Z') });
     expect(r.from).toBe(1);
-    expect(r.backupPath).toMatch(/vss-pre-migration-v1-to-v4-2026-01-02T03-04-05-000Z\.db$/);
+    expect(r.backupPath).toContain(`vss-pre-migration-v1-to-v${APP_SCHEMA_VERSION}-2026-01-02T03-04-05-000Z.db`);
     expect(readdirSync(s.backupDir)).toHaveLength(1);
     db.close();
     const b = openDatabase(r.backupPath!, s.key);
