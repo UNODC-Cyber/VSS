@@ -45,7 +45,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <Stack>
+    <Stack maw={720}>
       <PageHeader title={t('settings.title')} />
       <GeneralCard value={s} onChange={setS} />
       <ExportPolicyCard value={s} onChange={setS} />

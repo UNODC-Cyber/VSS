@@ -54,13 +54,30 @@ export function UnitsScreen() {
               data={q.data.items}
               empty={t('units.empty')}
               rowId={(u) => u.id}
+              tableId="units"
               columns={[
-                col<UnitSummary>('n', t('units.name'), (u) => <a href={`#/units/${u.id}`}>{u.name}</a>),
-                col<UnitSummary>('t', t('units.type'), (u) => t(`unittype.${u.type}`)),
-                col<UnitSummary>('c', t('units.country'), (u) => u.country),
-                col<UnitSummary>('p', t('units.people'), (u) => u.personCount),
-                col<UnitSummary>('v', t('units.lastVetting'), (u) =>
-                  u.lastVetting ? fmtDate(u.lastVetting.certDate) : '-',
+                col<UnitSummary>('n', t('units.name'), (u) => <a href={`#/units/${u.id}`}>{u.name}</a>, {
+                  sticky: 'first',
+                  minWidth: 240,
+                  grow: true,
+                  truncate: true,
+                  tooltip: (u) => u.name,
+                }),
+                col<UnitSummary>('t', t('units.type'), (u) => t(`unittype.${u.type}`), {
+                  maxWidth: 180,
+                  truncate: true,
+                }),
+                col<UnitSummary>('c', t('units.country'), (u) => u.country, {
+                  width: 120,
+                  truncate: true,
+                  tooltip: (u) => u.country,
+                }),
+                col<UnitSummary>('p', t('units.people'), (u) => u.personCount, { width: 90, nowrap: true }),
+                col<UnitSummary>(
+                  'v',
+                  t('units.lastVetting'),
+                  (u) => (u.lastVetting ? fmtDate(u.lastVetting.certDate) : '-'),
+                  { width: 130, nowrap: true },
                 ),
               ]}
             />

@@ -81,7 +81,7 @@ export function ManualRequestScreen() {
   };
 
   return (
-    <Stack component="form" onSubmit={(e: React.FormEvent) => e.preventDefault()}>
+    <Stack maw={720} component="form" onSubmit={(e: React.FormEvent) => e.preventDefault()}>
       <PageHeader title={t('manual.title')} />
       <Text c="dimmed">{t('manual.intro')}</Text>
       <RequestorField

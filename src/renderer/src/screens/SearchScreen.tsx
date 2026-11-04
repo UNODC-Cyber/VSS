@@ -76,8 +76,15 @@ export function SearchScreen({ initial }: { initial: string }) {
                   col<RequestSummary>('e', t('requests.event'), (r) => (
                     <a href={`#/requests/${r.id}`}>{r.eventName}</a>
                   )),
-                  col<RequestSummary>('d', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10))),
-                  col<RequestSummary>('r', t('requests.requestor'), (r) => r.requestor.name),
+                  col<RequestSummary>('d', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
+                    width: 120,
+                    nowrap: true,
+                  }),
+                  col<RequestSummary>('r', t('requests.requestor'), (r) => r.requestor.name, {
+                    maxWidth: 200,
+                    truncate: true,
+                    tooltip: (r) => r.requestor.name,
+                  }),
                 ]}
               />
             )}
@@ -92,7 +99,10 @@ export function SearchScreen({ initial }: { initial: string }) {
                 rowId={(u) => u.id}
                 columns={[
                   col<UnitSummary>('n', t('units.name'), (u) => <a href={`#/units/${u.id}`}>{u.name}</a>),
-                  col<UnitSummary>('t', t('units.type'), (u) => t(`unittype.${u.type}`)),
+                  col<UnitSummary>('t', t('units.type'), (u) => t(`unittype.${u.type}`), {
+                    maxWidth: 180,
+                    truncate: true,
+                  }),
                 ]}
               />
             )}

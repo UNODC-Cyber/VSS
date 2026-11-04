@@ -42,6 +42,8 @@
   outline-offset: 2px;
 }
 .vss-table .vss-cell {
+  /* Containing block for absolutely placed helpers (visually hidden live regions) so they never widen the page. */
+  position: relative;
   overflow: hidden;
   vertical-align: middle;
 }

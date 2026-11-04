@@ -76,8 +76,8 @@ export function ReviewAndClosePanel({ req, reload }: { req: VettingRequest; relo
           data={rows}
           rowId={(r) => r.id}
           columns={[
-            col<OutcomeRow>('l', t('lifecycle.outcome'), (r) => r.label),
-            col<OutcomeRow>('c', t('lifecycle.people'), (r) => r.count),
+            col<OutcomeRow>('l', t('lifecycle.outcome'), (r) => r.label, { minWidth: 200, grow: true }),
+            col<OutcomeRow>('c', t('lifecycle.people'), (r) => r.count, { width: 100, nowrap: true }),
           ]}
         />
         <Group>

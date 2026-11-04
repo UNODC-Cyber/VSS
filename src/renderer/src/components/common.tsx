@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Group, Loader, Modal, Pagination, Stack, Text, Te
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { IsoDate, MatchTier, VettingStatus } from '@shared/domain/types';
+import type { DispClass, IsoDate, MatchTier, VettingStatus } from '@shared/domain/types';
 import type { LinkState } from '@shared/domain/types';
 import { CopyIconButton } from './ui/CopyIconButton';
 import { mask, STATUS_COLOR } from '../lib/format';
@@ -43,6 +43,17 @@ export function StatusBadge({ status }: { status: VettingStatus }) {
   return (
     <Badge color={STATUS_COLOR[status]} variant="light" data-status={status}>
       {t(`status.${status}`)}
+    </Badge>
+  );
+}
+
+const DISP_COLOR: Record<DispClass, string> = { approved: 'green', 'non-approved': 'red', unknown: 'gray' };
+/** Disposition class of a response row (approved / non-approved / unclear); always text, never colour alone. */
+export function DispBadge({ value }: { value: DispClass }) {
+  const { t } = useTranslation();
+  return (
+    <Badge color={DISP_COLOR[value]} variant="light" data-disp={value}>
+      {t(`ui.dispClass.${value}`)}
     </Badge>
   );
 }

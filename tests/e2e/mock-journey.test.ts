@@ -110,6 +110,7 @@ describe('mock journey', () => {
     await expectNoAxeViolations();
     await page.getByRole('button', { name: 'Import request file' }).click();
     await page.getByRole('button', { name: 'Choose file' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.getByTestId('count-flagged').waitFor();
     expect(await page.getByTestId('count-flagged').textContent()).toBe('2 flagged');
     // Type-ahead over the saved requestors (lane B): picking one fills the e-mail, so the email to the requestor has an address.
@@ -122,6 +123,7 @@ describe('mock journey', () => {
     expect(await page.getByLabel('Requestor email').inputValue()).toBe('pat@example.invalid');
     await page.getByLabel(/^Event name/).fill('Journey Event');
     await expectNoAxeViolations();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Import request' }).click();
     await page.getByRole('heading', { name: 'Journey Event' }).waitFor();
     await page.getByTestId('unresolved-count').waitFor();

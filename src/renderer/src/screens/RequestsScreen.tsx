@@ -128,23 +128,47 @@ export function RequestsScreen() {
               data={q.data.items}
               empty={t('requests.empty')}
               rowId={(r) => r.id}
+              tableId="requests"
               columns={[
-                col<RequestSummary>('event', t('requests.event'), (r) => (
-                  <a href={`#/requests/${r.id}`}>{r.eventName}</a>
-                )),
-                col<RequestSummary>('received', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10))),
-                col<RequestSummary>('requestor', t('requests.requestor'), (r) => r.requestor.name),
-                col<RequestSummary>('status', t('requests.status'), (r) => <RequestStatusBadge status={r.status} />),
-                col<RequestSummary>('items', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`),
-                col<RequestSummary>('issues', t('requests.issues'), (r) =>
-                  r.unresolvedLinkCount + r.errorCount > 0 ? (
-                    <Badge color="orange">{r.unresolvedLinkCount + r.errorCount}</Badge>
-                  ) : (
-                    '-'
-                  ),
+                col<RequestSummary>(
+                  'event',
+                  t('requests.event'),
+                  (r) => <a href={`#/requests/${r.id}`}>{r.eventName}</a>,
+                  { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => r.eventName },
                 ),
-                col<RequestSummary>('aging', t('requests.aging'), (r) =>
-                  r.agingDays === null ? '-' : t('common.days', { count: r.agingDays }),
+                col<RequestSummary>('received', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
+                  width: 120,
+                  nowrap: true,
+                }),
+                col<RequestSummary>('requestor', t('requests.requestor'), (r) => r.requestor.name, {
+                  maxWidth: 200,
+                  truncate: true,
+                  tooltip: (r) => r.requestor.name,
+                }),
+                col<RequestSummary>('status', t('requests.status'), (r) => <RequestStatusBadge status={r.status} />, {
+                  minWidth: 150,
+                  nowrap: true,
+                }),
+                col<RequestSummary>('items', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`, {
+                  width: 88,
+                  nowrap: true,
+                }),
+                col<RequestSummary>(
+                  'issues',
+                  t('requests.issues'),
+                  (r) =>
+                    r.unresolvedLinkCount + r.errorCount > 0 ? (
+                      <Badge color="orange">{r.unresolvedLinkCount + r.errorCount}</Badge>
+                    ) : (
+                      '-'
+                    ),
+                  { width: 88, nowrap: true },
+                ),
+                col<RequestSummary>(
+                  'aging',
+                  t('requests.aging'),
+                  (r) => (r.agingDays === null ? '-' : t('common.days', { count: r.agingDays })),
+                  { width: 100, nowrap: true },
                 ),
               ]}
             />

@@ -1,3 +1,4 @@
+import { isFinal } from '@shared/domain/lifecycle';
 import { Alert, Anchor, Button, Checkbox, Group, Modal, Select, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,7 +6,7 @@ import type { EmailTemplatePurpose, RequestorRecord } from '@shared/domain/types
 import { isValidEmailAddress } from '@shared/email-address';
 import type { EmailDraft, EmailTemplateId } from '@shared/ipc/contract';
 import { useAction, vss } from '../../lib/api';
-import { useCopy } from '../../lib/clipboard';
+import { CopyIconButton } from '../ui/CopyIconButton';
 import { useUi } from '../../store';
 import type { DialogProps } from './types';
 
@@ -27,7 +28,6 @@ const DRAFT_ID: Partial<Record<EmailTemplatePurpose, EmailTemplateId>> = {
 export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogProps, 'onChanged'>) {
   const { t } = useTranslation();
   const act = useAction();
-  const copy = useCopy();
   const toast = useUi((s) => s.pushToast);
   const [template, setTemplate] = useState<EmailTemplatePurpose>('acknowledgement');
   /** Saved requestors matching the request's requestor (lane B); empty when that lane's API is unavailable. */
@@ -89,7 +89,10 @@ export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogPr
       <Stack>
         <Select
           label={t('compose.template')}
-          data={PICKER.map((v) => ({ value: v, label: t(`emailTpl.purpose.${v}`) }))}
+          data={PICKER.filter((v) => !(v === 'reminder' && isFinal(request.status))).map((v) => ({
+            value: v,
+            label: t(`emailTpl.purpose.${v}`),
+          }))}
           value={template}
           allowDeselect={false}
           onChange={(v) => v && setTemplate(v as EmailTemplatePurpose)}
@@ -183,9 +186,7 @@ export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogPr
               >
                 {t('compose.saveEml')}
               </Button>
-              <Button onClick={() => void copy(draft.bodyText, t('compose.bodyCopied'))}>
-                {t('compose.copyBody')}
-              </Button>
+              <CopyIconButton text={draft.bodyText} label={t('ui.copyField.body')} />
             </Group>
           </>
         )}

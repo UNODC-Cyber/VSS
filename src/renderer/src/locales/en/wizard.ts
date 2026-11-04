@@ -10,6 +10,7 @@ export const wizard = {
     steps: {
       pick: 'Pick file',
       match: 'Match request',
+      reviewRequestor: 'Review & requestor',
       decide: 'Decide rows',
       confirm: 'Confirm',
     },
@@ -23,6 +24,8 @@ export const wizard = {
       'This file cannot be imported as it is. Fix the errors listed on the match step, or choose another file.',
     confirmText:
       'Importing saves this response with your decisions. Nothing is saved before this step. Cancel discards the file from memory.',
+    requestConfirmText:
+      'Importing saves this request with your export decisions. Nothing is saved before this step. Cancel discards the file from memory.',
     discardTitle: 'Discard this import?',
     discardBody: 'Your decisions for this file will be lost. The file is removed from memory and nothing is saved.',
     keepEditing: 'Keep editing',
