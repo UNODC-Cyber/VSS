@@ -181,7 +181,7 @@ describe('mock journey', () => {
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Subject').waitFor();
     expect(await dlg.getByLabel('Subject').inputValue()).toContain('vetting request received');
-    expect(await dlg.getByLabel('To').inputValue()).toContain('pat@example.invalid');
+    expect(await dlg.getByLabel('To', { exact: true }).inputValue()).toContain('pat@example.invalid');
     await dlg.getByRole('button', { name: 'Open in mail client' }).click();
     await dlg.getByTestId('mailto-status').waitFor();
     await expectNoAxeViolations();
