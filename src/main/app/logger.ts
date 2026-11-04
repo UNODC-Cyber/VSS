@@ -17,6 +17,8 @@ export const LOG_FIELDS: ReadonlySet<string> = new Set([
   'channel',
   'ok',
   'enabled',
+  // lane J: code locations of a fault ('index.js:15639:5 < ...'): file base names and line numbers only, never a message
+  'at',
 ]);
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';

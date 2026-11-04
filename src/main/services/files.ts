@@ -99,6 +99,7 @@ export class PathGrants {
   readonly #grants = new Map<string, Grant>();
   readonly #written = new Set<string>();
   readonly #now: () => number;
+  #epoch = 0;
 
   constructor(now: () => number = Date.now) {
     this.#now = now;
@@ -147,6 +148,12 @@ export class PathGrants {
   clear(): void {
     this.#grants.clear();
     this.#written.clear();
+    this.#epoch++;
+  }
+
+  /** Changes on every clear(): a dialog that was open across a lock must not issue a grant afterwards. */
+  get epoch(): number {
+    return this.#epoch;
   }
 
   get size(): number {
@@ -176,20 +183,51 @@ export interface FilesDeps {
   grants: PathGrants;
   /** Stored-file repo of the open DB; throws while locked. */
   storedFiles(): StoredFileRepo;
+  /**
+   * Wraps every pending native dialog (lane J): compose passes LockController.holdWhile so the idle lock does not
+   * reload the window under an open modal dialog.
+   */
+  holdWhile?<T>(p: Promise<T>): Promise<T>;
+  /** PII-free failure log (no message, no path). */
+  onDialogError?(kind: 'open' | 'save'): void;
 }
+
+const NONE: FilePickResult = { path: null, displayPath: null };
 
 export class FilesService {
   constructor(private readonly d: FilesDeps) {}
 
+  /** Runs a dialog; a throw becomes an INTERNAL Result and a lock during the dialog discards the choice. */
+  async #dialog<R>(
+    kind: 'open' | 'save',
+    show: () => Promise<R>,
+  ): Promise<{ ok: true; value: R; stale: boolean } | { ok: false; error: Result<never> }> {
+    const epoch = this.d.grants.epoch;
+    try {
+      const p = show();
+      const value = await (this.d.holdWhile ? this.d.holdWhile(p) : p);
+      return { ok: true, value, stale: this.d.grants.epoch !== epoch };
+    } catch {
+      this.d.onDialogError?.(kind);
+      return { ok: false, error: err('INTERNAL', 'The file dialog could not be opened. Try again.') };
+    }
+  }
+
   async pickOpen(req: FilePickOpenRequest): Promise<Result<FilePickResult>> {
     const directory = req.kind === 'directory';
-    const r = await this.d.port.showOpenDialog({
-      title: req.title ?? (directory ? 'Choose folder' : 'Open file'),
-      filters: FILE_FILTERS[req.kind],
-      ...(directory ? { directory: true } : {}),
-    });
+    const d = await this.#dialog('open', () =>
+      this.d.port.showOpenDialog({
+        title: req.title ?? (directory ? 'Choose folder' : 'Open file'),
+        filters: FILE_FILTERS[req.kind],
+        ...(directory ? { directory: true } : {}),
+      }),
+    );
+    if (!d.ok) return d.error;
+    const r = d.value;
+    // The vault locked while the dialog was open: the choice belongs to the previous session.
+    if (d.stale) return ok(NONE);
     const chosen = r.canceled ? null : (r.filePaths[0] ?? null);
-    if (chosen === null) return ok({ path: null, displayPath: null });
+    if (chosen === null) return ok(NONE);
     return withGrant(() =>
       ok({ path: this.d.grants.issue(chosen, req.kind, directory ? 'directory' : 'open'), displayPath: chosen }),
     );
@@ -197,13 +235,18 @@ export class FilesService {
 
   async pickSave(req: FilePickSaveRequest): Promise<Result<FilePickResult>> {
     if (req.kind === 'directory') return err('BAD_REQUEST', 'Use pickOpen to choose a folder');
-    const r = await this.d.port.showSaveDialog({
-      title: req.title ?? 'Save file',
-      defaultPath: req.suggestedName,
-      filters: FILE_FILTERS[req.kind],
-    });
+    const d = await this.#dialog('save', () =>
+      this.d.port.showSaveDialog({
+        title: req.title ?? 'Save file',
+        defaultPath: req.suggestedName,
+        filters: FILE_FILTERS[req.kind],
+      }),
+    );
+    if (!d.ok) return d.error;
+    if (d.stale) return ok(NONE);
+    const r = d.value;
     const chosen = r.canceled ? null : (r.filePath ?? null);
-    if (chosen === null) return ok({ path: null, displayPath: null });
+    if (chosen === null) return ok(NONE);
     if (!extOk(chosen, req.kind)) return err('BAD_REQUEST', 'That file type cannot be saved here');
     return withGrant(() => ok({ path: this.d.grants.issue(chosen, req.kind, 'save'), displayPath: chosen }));
   }

@@ -284,7 +284,14 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
   /** Dialog-issued path tokens (F-02); dropped on every lock. */
   const grants = new PathGrants(now);
   const lockHooks: (() => void)[] = [];
-  const files = new FilesService({ port: ports.files, grants, storedFiles: () => db.repos().files });
+  const files = new FilesService({
+    port: ports.files,
+    grants,
+    storedFiles: () => db.repos().files,
+    // lane J: an open native dialog defers the idle lock; a failing dialog is logged without message or path
+    holdWhile: (p) => lock.holdWhile(p),
+    onDialogError: (kind) => log.warn('dialog.failed', { kind }),
+  });
 
   // --- update service (NetGate stays closed unless updates are enabled; see update/service.ts) ---------------------
   try {

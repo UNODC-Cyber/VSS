@@ -1,11 +1,13 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, powerMonitor } from 'electron';
+import { app, BrowserWindow, dialog, powerMonitor } from 'electron';
 import { composeApp } from './app/compose';
 import type { ComposedApp } from './app/compose';
-import { createElectronPorts } from './app/electron-ports';
+import { createElectronPorts, dialogGate } from './app/electron-ports';
 import { createLogger } from './app/logger';
 import { resolveAppPaths } from './app/paths';
+import { installCrashGuard } from './bootstrap/crash-guard';
 import { DEBUG_REFUSED_MESSAGE, findDebugSwitch } from './bootstrap/debug-guard';
+import { checkedProfilePath } from './bootstrap/profile-path';
 import { installSecurity, registerAppScheme } from './bootstrap/security';
 import { createMainWindow } from './bootstrap/window';
 import { registerIpc } from './ipc/registry';
@@ -31,6 +33,36 @@ registerAppScheme();
 const APP_USER_MODEL_ID = 'org.unodc.cyber.vss';
 const log = createLogger({ level: app.isPackaged ? 'info' : 'debug' });
 
+let mainWindow: BrowserWindow | null = null;
+let composed: ComposedApp | null = null;
+
+// Lane J (R10): registered before anything else can throw, so Electron's raw main-process error box never shows.
+const crashGuard = installCrashGuard({
+  onProcess: (event, fn) => void process.on(event, fn),
+  onChildGone: (fn) => void app.on('child-process-gone', (_e, details) => fn(details)),
+  log,
+  isReady: () => app.isReady(),
+  lock: () => composed?.lock.lock('error'),
+  async showDialog(text) {
+    const win = mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() ? mainWindow : null;
+    const opts = {
+      type: 'error' as const,
+      title: text.title,
+      message: text.message,
+      detail: text.detail,
+      buttons: [text.continue, text.quit],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    };
+    const r = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
+    return r.response === 1 ? 'quit' : 'continue';
+  },
+  showStartupError: (text) => dialog.showErrorBox(text.title, `${text.startup}\n\n${text.startupDetail}`),
+  quit: () => app.quit(),
+  exit: (code) => app.exit(code),
+});
+
 // --- process hygiene (all before 'ready') ---------------------------------------------------------------------------
 // No telemetry: crashReporter is never started, Chromium's own breakpad/crashpad uploader is switched off, and the
 // crash-dump folder (never written without a started reporter) is pinned inside our own profile folder.
@@ -40,19 +72,25 @@ app.setAppUserModelId(APP_USER_MODEL_ID);
 
 const paths = resolveAppPaths(process.env, app.getPath('appData'));
 // Keep the Chromium profile (cache, storage) next to the vault, not in %APPDATA%. Must precede the instance lock.
-app.setPath('userData', paths.sessionDir);
-app.setPath('crashDumps', join(paths.sessionDir, 'crash-dumps-unused'));
+// Lane J: the owner's "conversion failure" at this call is turned into a coded startup fault with a friendly box.
+try {
+  const sessionDir = checkedProfilePath(paths.sessionDir);
+  app.setPath('userData', sessionDir);
+  app.setPath('crashDumps', checkedProfilePath(join(sessionDir, 'crash-dumps-unused')));
+} catch (e) {
+  crashGuard.fatalStartup('paths', e);
+}
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  let mainWindow: BrowserWindow | null = null;
-  let composed: ComposedApp | null = null;
   let quitting = false;
 
   app.on('second-instance', () => {
-    const win = BrowserWindow.getAllWindows()[0];
+    // Never restore / refocus the window under an open modal dialog (lane J, hypothesis f): the dialog keeps focus.
+    if (dialogGate.isOpen) return;
+    const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();

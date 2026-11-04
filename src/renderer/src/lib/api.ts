@@ -83,3 +83,32 @@ export function useAction(): <T>(p: Promise<Result<T>>, successMessage?: string)
     [toast],
   );
 }
+
+/**
+ * `useAction` plus a `busy` flag that is true while a call started through it is pending (lane J, R10): pick buttons
+ * pass it to `loading` / `disabled` so a double click cannot ask for a second native dialog. A call made while busy
+ * resolves to undefined without running (main's DialogGate refuses a second dialog as well).
+ */
+export function useBusyAction(): {
+  act: <T>(p: () => Promise<Result<T>>, successMessage?: string) => Promise<T | undefined>;
+  busy: boolean;
+} {
+  const run = useAction();
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+  const act = useCallback(
+    async <T>(p: () => Promise<Result<T>>, successMessage?: string): Promise<T | undefined> => {
+      if (pending.current) return undefined;
+      pending.current = true;
+      setBusy(true);
+      try {
+        return await run(p(), successMessage);
+      } finally {
+        pending.current = false;
+        setBusy(false);
+      }
+    },
+    [run],
+  );
+  return { act, busy };
+}

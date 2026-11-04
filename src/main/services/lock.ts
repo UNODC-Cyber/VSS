@@ -24,7 +24,11 @@ export interface LockControllerDeps {
   tickMs?: number;
   /** Warning lead time, default 30 s. */
   warnSeconds?: number;
+  /** Longest time an open native dialog may defer the idle lock (holdWhile), default 10 min. */
+  maxHoldMs?: number;
 }
+
+export const DEFAULT_MAX_HOLD_MS = 10 * 60_000;
 
 type PowerEvent = 'suspend' | 'lock-screen' | 'resume';
 /** The subset of Electron's powerMonitor used here. */
@@ -39,6 +43,8 @@ export class LockController {
   #lastActivity = 0;
   #locking: Promise<void> | null = null;
   #detach: (() => void) | null = null;
+  #holds = 0;
+  #holdSince = 0;
 
   constructor(deps: LockControllerDeps) {
     this.#d = deps;
@@ -87,11 +93,42 @@ export class LockController {
     }
     const remaining = this.remainingSeconds();
     if (remaining === null) return;
+    // A native dialog is open (the renderer cannot ping while it is modal): defer the idle lock, up to maxHoldMs.
+    if (this.#holds > 0 && !this.#holdExpired()) return;
     if (remaining <= 0) {
       void this.lock('idle');
       return;
     }
     if (remaining <= (this.#d.warnSeconds ?? 30)) this.#d.emitWarning(remaining);
+  }
+
+  /** true while at least one holdWhile() promise is pending. */
+  get held(): boolean {
+    return this.#holds > 0;
+  }
+
+  #holdExpired(): boolean {
+    return this.#now() - this.#holdSince >= (this.#d.maxHoldMs ?? DEFAULT_MAX_HOLD_MS);
+  }
+
+  /**
+   * Defer the IDLE lock while `p` is pending (an open native dialog). Suspend, screen lock, manual and error locks
+   * are never deferred. Once the hold lasted longer than maxHoldMs the idle lock runs anyway (the window port defers
+   * only the lock-screen reload until the dialog returns). When the last hold ends, answering the dialog counts as
+   * activity unless the cap was exceeded, in which case the vault locks at once. Returns `p` unchanged.
+   */
+  holdWhile<T>(p: Promise<T>): Promise<T> {
+    if (this.#holds === 0) this.#holdSince = this.#now();
+    this.#holds++;
+    const release = (): void => {
+      this.#holds = Math.max(0, this.#holds - 1);
+      if (this.#holds > 0) return;
+      if (!this.#timer) return;
+      if (this.#holdExpired()) void this.lock('idle');
+      else this.ping();
+    };
+    p.then(release, release);
+    return p;
   }
 
   /** Lock now. Idempotent while a lock is running. Never rejects. */
