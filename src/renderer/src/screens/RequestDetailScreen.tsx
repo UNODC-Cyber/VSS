@@ -94,12 +94,17 @@ export function requestActions(status: VettingRequest['status']): RequestActions
 }
 
 /** A value with its copy icon; the value is cut with an ellipsis (full text on hover) so the icon stays visible. */
-function CopyField({ value, label }: { value: string; label: string }) {
+function CopyField({ value, label, wrap }: { value: string; label: string; wrap?: boolean }) {
   const redact = useUi((s) => s.settings.redactionMode);
   const shown = redact ? mask(value) : value;
   return (
     <Group gap={4} wrap="nowrap">
-      <Text span truncate="end" title={shown} style={{ flex: '1 1 auto', minWidth: 0 }}>
+      <Text
+        span
+        {...(wrap ? {} : { truncate: 'end' as const })}
+        title={shown}
+        style={{ flex: '1 1 auto', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : {}) }}
+      >
         <Sensitive value={value} />
       </Text>
       <CopyButton text={value} label={label} />
@@ -201,7 +206,9 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
       </Card>
 
       <Group justify="space-between">
-        <Title order={3}>{t('request.itemsTitle', { count: req.items.length })}</Title>
+        <Title order={2} size="h3">
+          {t('request.itemsTitle', { count: req.items.length })}
+        </Title>
         <CopyIconButton
           text={req.items.map((i) => rowFields(i).join('\t')).join('\n')}
           label={t('ui.copyField.allTsv')}
@@ -216,10 +223,10 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
           col<RequestItem>(
             'name',
             t('import.name'),
-            (i) => <CopyField value={itemName(i)} label={t('items.fieldName')} />,
+            (i) => <CopyField wrap value={itemName(i)} label={t('items.fieldName')} />,
             {
               sticky: 'first',
-              minWidth: 190,
+              minWidth: 168,
               grow: true,
             },
           ),
@@ -245,7 +252,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 )}
               </Group>
             ),
-            { width: 140, nowrap: true },
+            { width: 156, nowrap: true },
           ),
           col<RequestItem>(
             'ids',
@@ -269,11 +276,11 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             tooltip: (i) => i.observed.unitName,
           }),
           col<RequestItem>('status', t('items.status'), (i) => <StatusBadge status={i.prior?.status ?? 'unknown'} />, {
-            minWidth: 130,
+            minWidth: 118,
             nowrap: true,
           }),
           col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt), {
-            width: 108,
+            width: 96,
             nowrap: true,
           }),
           col<RequestItem>(
@@ -299,7 +306,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 )}
               </Group>
             ),
-            { minWidth: 180, nowrap: true },
+            { minWidth: 226, nowrap: true },
           ),
           col<RequestItem>(
             'copy',

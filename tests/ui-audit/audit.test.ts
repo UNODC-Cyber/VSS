@@ -5,7 +5,8 @@
  * empty vault. Output (never in the repo): <out>/<timestamp>/<viewport>/<theme>__<screen>.png, one axe-core JSON per
  * screen and an index.json. A failing screen is logged and the run continues.
  *
- * Run: npm run ui-audit  (VSS_UI_AUDIT_OUT overrides the output root, VSS_UI_AUDIT_ONLY=<viewport id,...> limits it).
+ * Run: npm run ui-audit  (VSS_UI_AUDIT_OUT overrides the output root, VSS_UI_AUDIT_ONLY=<viewport id,...> and
+ * VSS_UI_AUDIT_SCREENS=<name part,...> limit it).
  * Windows are positioned off-screen and never focused; the harness only touches windows it launched itself.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -40,7 +41,11 @@ const VIEWPORTS = [
   { id: '1280x720', w: 1280, h: 720, dsf: 1 },
   { id: '1366x768', w: 1366, h: 768, dsf: 1 },
   { id: '1920x1080', w: 1920, h: 1080, dsf: 1 },
+  // CSS px = physical / Windows scale. 1920x1080 panel at 150 % (the owner's laptop) = 1280x720 CSS px rendered at 1.5x
+  // pixel density (PNGs are 1920x1080); 1920x1080 at 125 % = 1536x864 CSS px. A 1280x720 panel at 150 % would be
+  // 853x480 CSS px, below the app's minimum window size, so it is not a supported profile.
   { id: '1280x720@1.5', w: 1280, h: 720, dsf: 1.5 },
+  { id: '1536x864@1.25', w: 1536, h: 864, dsf: 1.25 },
 ] as const;
 const THEMES = ['light', 'dark'] as const;
 type Theme = (typeof THEMES)[number];
@@ -49,6 +54,8 @@ type Viewport = (typeof VIEWPORTS)[number];
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const OUT_ROOT = join(process.env['VSS_UI_AUDIT_OUT'] ?? join(process.env['TEMP'] ?? tmpdir(), 'vss-ui-audit'), stamp);
 const only = (process.env['VSS_UI_AUDIT_ONLY'] ?? '').split(',').filter(Boolean);
+// VSS_UI_AUDIT_SCREENS=<substring,...>: still drive every screen, but capture only those whose name contains one.
+const onlyScreens = (process.env['VSS_UI_AUDIT_SCREENS'] ?? '').split(',').filter(Boolean);
 const fx = (p: string) => resolve('fixtures', p);
 
 interface Entry {
@@ -208,8 +215,13 @@ class Run {
       pages: 1,
       status: 'ok',
     };
+    const skipCapture = onlyScreens.length > 0 && !onlyScreens.some((x) => name.includes(x));
     try {
       await fn?.();
+      if (skipCapture) {
+        await this.closeDialogs();
+        return;
+      }
       await this.page.waitForTimeout(350);
     } catch (err) {
       e.status = 'failed';
@@ -219,15 +231,43 @@ class Run {
       index.failures.push(`${this.vp.id} ${this.data} ${file}: ${e.error}`);
     }
     try {
+      // Park the pointer in the corner so no tooltip is open during the capture and the axe run (harness artifact).
+      await this.page.mouse.move(0, 0).catch(() => undefined);
+      await this.page.waitForTimeout(120);
       await this.page.screenshot({ path: join(this.dir, `${file}.png`) });
       e.png = `${file}.png`;
       const m = await this.page.evaluate(() => {
         const root = document.documentElement;
         const spill: string[] = [];
+        // Cells clip their content (overflow hidden), so test the geometry: any visible descendant (badge, button,
+        // secondary line) that reaches past the cell's right edge is cut. Ellipsised .vss-truncate-inner is intended.
         for (const c of document.querySelectorAll('.vss-table td, .vss-table th')) {
-          const el = c as HTMLElement;
-          if (getComputedStyle(el).overflow === 'visible' && el.scrollWidth > el.clientWidth + 1)
-            spill.push((el.textContent ?? '').slice(0, 30));
+          const cell = c as HTMLElement;
+          const box = cell.getBoundingClientRect();
+          for (const d of cell.querySelectorAll('*')) {
+            const el = d as HTMLElement;
+            if (el.closest('.vss-truncate-inner') || el.getAttribute('aria-hidden') === 'true') continue;
+            const b = el.getBoundingClientRect();
+            if (b.width < 2 || b.height < 2) continue;
+            const text = (el.textContent ?? '').trim();
+            if (!text && el.tagName !== 'BUTTON') continue;
+            // Text laid out past the edge of an ancestor that clips it (a Badge label cut with an ellipsis).
+            let textCut = false;
+            for (const n of el.childNodes) {
+              if (n.nodeType !== Node.TEXT_NODE || !(n.textContent ?? '').trim()) continue;
+              const range = document.createRange();
+              range.selectNodeContents(n);
+              const tr = range.getBoundingClientRect();
+              for (let a: HTMLElement | null = el; a && cell.contains(a); a = a.parentElement) {
+                if (getComputedStyle(a).overflowX !== 'visible' && tr.right > a.getBoundingClientRect().right + 1)
+                  textCut = true;
+              }
+            }
+            if (textCut || b.right > box.right + 1 || el.scrollWidth > el.clientWidth + 1) {
+              spill.push(`${el.tagName.toLowerCase()}: ${text.slice(0, 30)}`);
+              break;
+            }
+          }
         }
         const tables = [...document.querySelectorAll('.vss-table-wrap')].map((w) => {
           const sc = w.querySelector('.vss-table-scroll') as HTMLElement | null;

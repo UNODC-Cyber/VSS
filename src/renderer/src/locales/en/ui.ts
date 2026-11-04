@@ -24,6 +24,7 @@ export const ui = {
     },
     table: {
       chooseColumns: 'Choose columns',
+      hiddenColumns: 'Columns hidden to fit: {{count}} (use Choose columns)',
       scrollHint: 'More columns to the right',
       scrollLeft: 'Scroll table left',
       scrollRight: 'Scroll table right',

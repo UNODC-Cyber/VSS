@@ -86,7 +86,9 @@ a:not([class]):visited {
 .vss-table-scroll {
   overflow-x: auto;
   max-width: 100%;
-  /* Scroll shadows: a soft edge shows on the side that still has columns. */
+}
+/* Scroll shadows: a soft edge shows on the side that still has columns (only while the table overflows). */
+.vss-table-scroll[data-overflowing='true'] {
   background:
     linear-gradient(to right, var(--mantine-color-body) 30%, transparent) left center / 24px 100% no-repeat local,
     linear-gradient(to left, var(--mantine-color-body) 30%, transparent) right center / 24px 100% no-repeat local,

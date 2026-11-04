@@ -126,7 +126,9 @@ export function BackupCard() {
   const configured = info?.config ?? null;
   return (
     <Card withBorder>
-      <Title order={4}>{t('settings.backup')}</Title>
+      <Title order={2} size="h4">
+        {t('settings.backup')}
+      </Title>
       <Text size="sm" c="dimmed">
         {t('backup.help')}
       </Text>

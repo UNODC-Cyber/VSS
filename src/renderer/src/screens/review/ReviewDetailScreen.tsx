@@ -217,7 +217,9 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
               </Text>
             </Group>
           ))}
-          <Text size="xs">{t('identity.tierLegend')}</Text>
+          <Text size="sm" c="dimmed">
+            {t('identity.tierLegend')}
+          </Text>
         </Stack>
       )}
       {open && isIdentity && conflicts.length > 0 && (
@@ -323,7 +325,7 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
         </Group>
       )}
       {open && (
-        <List size="xs" spacing={2} data-testid="review-action-help">
+        <List size="sm" c="dimmed" spacing={2} data-testid="review-action-help">
           {showCompare && <List.Item>{t('reviewFlow.help.compare')}</List.Item>}
           {isLink && <List.Item>{t('reviewHelp.choose')}</List.Item>}
           {isLink && <List.Item>{t('reviewHelp.createNew')}</List.Item>}

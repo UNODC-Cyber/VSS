@@ -13,7 +13,9 @@ export function PasswordCard() {
   const ok = cur !== '' && next.length >= MIN_PASSWORD && next === conf;
   return (
     <Card withBorder>
-      <Title order={4}>{t('settings.changePassword')}</Title>
+      <Title order={2} size="h4">
+        {t('settings.changePassword')}
+      </Title>
       <Group align="flex-end" mt="sm">
         <PasswordInput
           label={t('settings.currentPassword')}

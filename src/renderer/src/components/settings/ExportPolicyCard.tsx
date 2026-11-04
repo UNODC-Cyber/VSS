@@ -11,7 +11,9 @@ export function ExportPolicyCard({ value: s, onChange: setS }: SettingsDraftProp
   return (
     <Card withBorder>
       <Stack>
-        <Title order={4}>{t('settings.exportPolicy')}</Title>
+        <Title order={2} size="h4">
+          {t('settings.exportPolicy')}
+        </Title>
         <NumberInput
           label={t('settings.expiringWithin')}
           min={1}

@@ -82,7 +82,9 @@ export function EmailTemplatesCard({ value, onChange }: SettingsDraftProps) {
   return (
     <Card withBorder id="card-email-templates">
       <Stack>
-        <Title order={4}>{t('emailTpl.title')}</Title>
+        <Title order={2} size="h4">
+          {t('emailTpl.title')}
+        </Title>
         <Text size="sm" c="dimmed">
           {t('emailTpl.help')}
         </Text>

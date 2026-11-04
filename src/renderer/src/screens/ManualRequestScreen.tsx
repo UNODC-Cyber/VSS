@@ -131,7 +131,9 @@ export function ManualRequestScreen() {
         onChange={(e) => setForm({ ...form, notes: e.currentTarget.value })}
       />
 
-      <Title order={3}>{t('manual.individuals')}</Title>
+      <Title order={2} size="h3">
+        {t('manual.individuals')}
+      </Title>
       {items.map((it, n) => (
         <Card key={n} withBorder role="group" aria-label={t('manual.individual', { n: n + 1 })}>
           <Group grow align="flex-start">

@@ -42,7 +42,12 @@ const base = {
   boot: { failed: 'The application backend is not available' },
   clipboard: { cleared: 'Clipboard cleared' },
   toast: { clearsIn: '(clipboard clears in {{count}} s)' },
-  topbar: { lock: 'Lock (Ctrl+L)', search: 'Search people, requests, units', themeSwitch: 'Switch theme to {{next}}' },
+  topbar: {
+    searchLandmark: 'Search everything',
+    lock: 'Lock (Ctrl+L)',
+    search: 'Search people, requests, units',
+    themeSwitch: '{{current}}: Switch theme to {{next}}',
+  },
   theme: { light: 'Light', dark: 'Dark', auto: 'System' },
   network: {
     label: 'Network: {{state}}',
@@ -505,6 +510,7 @@ const base = {
     evidence: 'Evidence: {{list}}',
   },
   people: {
+    filterLandmark: 'Filter people',
     title: 'People',
     searchLabel: 'Search',
     scan: 'Scan for duplicates',
@@ -607,6 +613,7 @@ const base = {
     dismissed: 'Dismissed',
   },
   search: {
+    landmark: 'Search page',
     title: 'Search',
     label: 'Search everything',
     prompt: 'Type a name, date, identifier, unit or event.',

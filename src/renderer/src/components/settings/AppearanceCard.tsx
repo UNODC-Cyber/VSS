@@ -11,7 +11,9 @@ export function AppearanceCard({ value: s, onChange: setS }: SettingsDraftProps)
   return (
     <Card withBorder>
       <Stack>
-        <Title order={4}>{t('ui.appearance.title')}</Title>
+        <Title order={2} size="h4">
+          {t('ui.appearance.title')}
+        </Title>
         <div>
           <Text size="sm" fw={500} id="vss-density-label">
             {t('ui.appearance.density')}

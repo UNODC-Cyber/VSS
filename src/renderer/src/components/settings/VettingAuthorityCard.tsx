@@ -98,7 +98,9 @@ export function VettingAuthorityCard({ value, onChange }: SettingsDraftProps) {
   return (
     <Card withBorder id="card-authority">
       <Stack>
-        <Title order={4}>{t('vettingAuth.title')}</Title>
+        <Title order={2} size="h4">
+          {t('vettingAuth.title')}
+        </Title>
         <Text size="sm" c="dimmed">
           {t('vettingAuth.help')}
         </Text>

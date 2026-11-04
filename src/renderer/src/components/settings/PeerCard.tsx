@@ -7,7 +7,9 @@ export function PeerCard({ value: s, onChange: setS }: SettingsDraftProps) {
   return (
     <Card withBorder>
       <Stack>
-        <Title order={4}>{t('settings.peer')}</Title>
+        <Title order={2} size="h4">
+          {t('settings.peer')}
+        </Title>
         <Switch
           label={t('settings.peerMode')}
           checked={s.peerModeEnabled}

@@ -251,7 +251,7 @@ export function ImportRequestScreen() {
               if (list.length === 0) return null;
               return (
                 <Card key={sev} withBorder padding="sm" aria-label={t(`severity.${sev}`)}>
-                  <Title order={4}>
+                  <Title order={2} size="h4">
                     {t(`severity.${sev}`)} ({list.length})
                   </Title>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
@@ -372,7 +372,7 @@ export function ImportRequestScreen() {
             />
 
             <Card withBorder maw={720}>
-              <Title order={4} mb="sm">
+              <Title order={2} size="h4" mb="sm">
                 {t('import.detailsTitle')}
               </Title>
               <RequestorField

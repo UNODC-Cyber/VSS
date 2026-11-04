@@ -39,6 +39,7 @@ export function SearchScreen({ initial }: { initial: string }) {
       <PageHeader title={t('search.title')} />
       <form
         role="search"
+        aria-label={t('search.landmark')}
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitted(text.trim());
@@ -60,11 +61,15 @@ export function SearchScreen({ initial }: { initial: string }) {
         <Text c="dimmed">{t('search.prompt')}</Text>
       ) : (
         <>
-          <Title order={3}>{t('search.people', { count: people.data?.total ?? 0 })}</Title>
+          <Title order={2} size="h3">
+            {t('search.people', { count: people.data?.total ?? 0 })}
+          </Title>
           <QueryBoundary loading={people.loading && !people.data} error={people.error}>
             {people.data && <PersonTable rows={people.data.items} caption={t('people.caption')} context="search" />}
           </QueryBoundary>
-          <Title order={3}>{t('search.requests', { count: requests.data?.total ?? 0 })}</Title>
+          <Title order={2} size="h3">
+            {t('search.requests', { count: requests.data?.total ?? 0 })}
+          </Title>
           <QueryBoundary loading={requests.loading && !requests.data} error={requests.error}>
             {requests.data && (
               <DataTable<RequestSummary>
@@ -89,7 +94,9 @@ export function SearchScreen({ initial }: { initial: string }) {
               />
             )}
           </QueryBoundary>
-          <Title order={3}>{t('search.units', { count: units.data?.total ?? 0 })}</Title>
+          <Title order={2} size="h3">
+            {t('search.units', { count: units.data?.total ?? 0 })}
+          </Title>
           <QueryBoundary loading={units.loading && !units.data} error={units.error}>
             {units.data && (
               <DataTable<UnitSummary>

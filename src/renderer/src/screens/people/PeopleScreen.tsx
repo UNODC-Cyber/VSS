@@ -129,6 +129,7 @@ export function PeopleScreen() {
       />
       <form
         role="search"
+        aria-label={t('people.filterLandmark')}
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitted(text);

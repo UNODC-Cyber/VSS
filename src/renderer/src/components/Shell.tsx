@@ -47,7 +47,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode; label: strin
     if (this.state.error) {
       return (
         <div role="alert">
-          <Title order={3}>{this.props.label}</Title>
+          <Title order={2} size="h3">
+            {this.props.label}
+          </Title>
           <Button mt="md" onClick={() => this.setState({ error: null })}>
             Retry
           </Button>
@@ -99,7 +101,7 @@ function ThemeToggle() {
       size="xs"
       variant="subtle"
       onClick={() => setColorScheme(next)}
-      aria-label={t('topbar.themeSwitch', { next: t(`theme.${next}`) })}
+      aria-label={t('topbar.themeSwitch', { current: t(`theme.${colorScheme}`), next: t(`theme.${next}`) })}
     >
       {t(`theme.${colorScheme}`)}
     </Button>
@@ -252,6 +254,7 @@ export function Shell() {
           <Title order={4}>{t('app.title')}</Title>
           <form
             role="search"
+            aria-label={t('topbar.searchLandmark')}
             onSubmit={(e) => {
               e.preventDefault();
               navigate(`/search?q=${encodeURIComponent(q)}`);
