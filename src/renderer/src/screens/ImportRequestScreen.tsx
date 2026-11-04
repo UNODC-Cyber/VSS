@@ -2,9 +2,18 @@ import { Alert, Badge, Button, Card, Checkbox, Group, Stack, Text, Textarea, Tex
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ExportDecision, ValidationIssue } from '@shared/domain/types';
+import type { RequestorRecord } from '@shared/domain/types';
 import type { ImportPreview, ImportPreviewItem } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
 import { LinkBadge, PageHeader, Sensitive, StatusBadge } from '../components/common';
+import {
+  affectedRequests,
+  EMPTY_REQUESTOR,
+  RequestorChoiceModal,
+  RequestorField,
+  toRequestor,
+} from '../components/RequestorField';
+import type { RequestorForm } from '../components/RequestorField';
 import { useAction, vss } from '../lib/api';
 import { navigate } from '../lib/router';
 import { useUi } from '../store';
@@ -28,10 +37,10 @@ export function ImportRequestScreen() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [focusRow, setFocusRow] = useState<string | null>(null);
+  const [requestor, setRequestor] = useState<RequestorForm>(EMPTY_REQUESTOR);
+  const [saved, setSaved] = useState<RequestorRecord | null>(null);
+  const [askCount, setAskCount] = useState<number | null>(null);
   const [form, setForm] = useState({
-    requestorName: '',
-    requestorEmail: '',
-    organisation: '',
     eventName: '',
     eventStart: '',
     eventEnd: '',
@@ -61,18 +70,20 @@ export function ImportRequestScreen() {
     el?.focus();
   };
 
-  const commit = async () => {
+  const commit = async (choice?: 'update' | 'only-this-request') => {
     if (!preview) return;
+    const affected = affectedRequests(requestor, saved);
+    if (affected !== null && !choice) {
+      setAskCount(affected);
+      return;
+    }
+    setAskCount(null);
     setBusy(true);
     try {
       const s = await act(
         vss().requests.importCommit({
           previewId: preview.previewId,
-          requestor: {
-            name: form.requestorName.trim(),
-            email: form.requestorEmail.trim() || null,
-            organisation: form.organisation.trim() || null,
-          },
+          requestor: toRequestor(requestor, choice),
           eventName: form.eventName.trim(),
           eventStart: form.eventStart || null,
           eventEnd: form.eventEnd || null,
@@ -127,7 +138,7 @@ export function ImportRequestScreen() {
     const d = decisions[i.rowRef];
     return d && d.include !== isIncluded(i.exportDecision) && d.reason.trim().length < 3;
   });
-  const formValid = form.requestorName.trim() !== '' && form.eventName.trim() !== '';
+  const formValid = requestor.name.trim() !== '' && form.eventName.trim() !== '';
   const bySeverity = (sev: ValidationIssue['severity']) => preview.issues.filter((i) => i.severity === sev);
 
   return (
@@ -249,24 +260,14 @@ export function ImportRequestScreen() {
         <Title order={4} mb="sm">
           {t('import.detailsTitle')}
         </Title>
-        <Group grow align="flex-start">
-          <TextInput
-            label={t('request.requestorName')}
-            required
-            value={form.requestorName}
-            onChange={(e) => setForm({ ...form, requestorName: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('request.requestorEmail')}
-            value={form.requestorEmail}
-            onChange={(e) => setForm({ ...form, requestorEmail: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('request.organisation')}
-            value={form.organisation}
-            onChange={(e) => setForm({ ...form, organisation: e.currentTarget.value })}
-          />
-        </Group>
+        <RequestorField
+          value={requestor}
+          saved={saved}
+          onChange={(next, rec) => {
+            setRequestor(next);
+            setSaved(rec);
+          }}
+        />
         <Group grow align="flex-start" mt="sm">
           <TextInput
             label={t('request.eventName')}
@@ -310,6 +311,7 @@ export function ImportRequestScreen() {
         </Button>
         {reasonMissing && <Text size="sm">{t('import.reasonNeeded')}</Text>}
       </Group>
+      <RequestorChoiceModal count={askCount} onChoose={(c) => void commit(c)} onCancel={() => setAskCount(null)} />
     </Stack>
   );
 }

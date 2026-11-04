@@ -1,9 +1,17 @@
 import { Button, Card, Checkbox, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Sex, UnitType } from '@shared/domain/types';
+import type { RequestorRecord, Sex, UnitType } from '@shared/domain/types';
 import type { ManualRequestItemInput } from '@shared/ipc/contract';
 import { PageHeader } from '../components/common';
+import {
+  affectedRequests,
+  EMPTY_REQUESTOR,
+  RequestorChoiceModal,
+  RequestorField,
+  toRequestor,
+} from '../components/RequestorField';
+import type { RequestorForm } from '../components/RequestorField';
 import { useAction, vss } from '../lib/api';
 import { navigate } from '../lib/router';
 
@@ -28,10 +36,10 @@ const blankItem = (): ManualRequestItemInput => ({
 export function ManualRequestScreen() {
   const { t } = useTranslation();
   const act = useAction();
+  const [requestor, setRequestor] = useState<RequestorForm>(EMPTY_REQUESTOR);
+  const [saved, setSaved] = useState<RequestorRecord | null>(null);
+  const [askCount, setAskCount] = useState<number | null>(null);
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    org: '',
     event: '',
     start: '',
     end: '',
@@ -44,15 +52,21 @@ export function ManualRequestScreen() {
   const set = (n: number, patch: Partial<ManualRequestItemInput>) =>
     setItems(items.map((it, k) => (k === n ? { ...it, ...patch } : it)));
   const valid =
-    form.name.trim() !== '' &&
+    requestor.name.trim() !== '' &&
     form.event.trim() !== '' &&
     items.length > 0 &&
     items.every((i) => i.surname.trim() && i.unitName.trim());
 
-  const submit = async () => {
+  const submit = async (choice?: 'update' | 'only-this-request') => {
+    const affected = affectedRequests(requestor, saved);
+    if (affected !== null && !choice) {
+      setAskCount(affected);
+      return;
+    }
+    setAskCount(null);
     const s = await act(
       vss().requests.createManual({
-        requestor: { name: form.name.trim(), email: form.email.trim() || null, organisation: form.org.trim() || null },
+        requestor: toRequestor(requestor, choice),
         eventName: form.event.trim(),
         eventStart: form.start || null,
         eventEnd: form.end || null,
@@ -70,24 +84,14 @@ export function ManualRequestScreen() {
     <Stack component="form" onSubmit={(e: React.FormEvent) => e.preventDefault()}>
       <PageHeader title={t('manual.title')} />
       <Text c="dimmed">{t('manual.intro')}</Text>
-      <Group grow align="flex-start">
-        <TextInput
-          label={t('request.requestorName')}
-          required
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
-        />
-        <TextInput
-          label={t('request.requestorEmail')}
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.currentTarget.value })}
-        />
-        <TextInput
-          label={t('request.organisation')}
-          value={form.org}
-          onChange={(e) => setForm({ ...form, org: e.currentTarget.value })}
-        />
-      </Group>
+      <RequestorField
+        value={requestor}
+        saved={saved}
+        onChange={(next, rec) => {
+          setRequestor(next);
+          setSaved(rec);
+        }}
+      />
       <Group grow align="flex-start">
         <TextInput
           label={t('request.eventName')}
@@ -222,6 +226,7 @@ export function ManualRequestScreen() {
           {t('manual.create')}
         </Button>
       </Group>
+      <RequestorChoiceModal count={askCount} onChoose={(c) => void submit(c)} onCancel={() => setAskCount(null)} />
     </Stack>
   );
 }
