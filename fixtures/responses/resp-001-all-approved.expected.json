@@ -3,8 +3,24 @@
   "batchId": "SYNTH-0000000001",
   "blocked": false,
   "description": "Every unit and individual of req-001 approved; names in Surname, Given form.",
+  "fileKindGuess": "dc-response",
   "id": "resp-001-all-approved",
-  "issues": [],
+  "issues": [
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!21",
+      "rule": "S-06",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!24",
+      "rule": "S-06",
+      "severity": "info"
+    }
+  ],
   "post": "Example City",
   "resultsAsOf": "2026-10-22",
   "rows": [
@@ -16,6 +32,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -28,9 +45,7 @@
         "parsed": null,
         "value": ""
       },
-      "given": [
-        "Bachop"
-      ],
+      "given": ["Bachop"],
       "nameRaw": "Siarorikpon, Bachop",
       "pob": {
         "city": "NOJAMMAT",
@@ -40,6 +55,7 @@
       "rowRef": "Final_Results!9",
       "script": "Latn",
       "section": "approved-unit",
+      "sectionSource": "label",
       "surname": "Siarorikpon",
       "unitName": "Example Highway Patrol Unit 1",
       "unitType": "Police",
@@ -53,6 +69,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "empty",
@@ -75,6 +92,7 @@
       "rowRef": "Final_Results!10",
       "script": "Latn",
       "section": "approved-unit",
+      "sectionSource": "label",
       "surname": "UNKNOWN",
       "unitName": "Example Highway Patrol Division 2",
       "unitType": "Military",
@@ -88,6 +106,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -100,9 +119,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Bachop"
-      ],
+      "given": ["Bachop"],
       "nameRaw": "Siarorikpon, Bachop",
       "pob": {
         "city": "NOJAMMAT",
@@ -112,6 +129,7 @@
       "rowRef": "Final_Results!14",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Siarorikpon",
       "unitName": "Example Highway Patrol Unit 1",
       "unitType": "Police",
@@ -125,6 +143,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -137,9 +156,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Moeta"
-      ],
+      "given": ["Moeta"],
       "nameRaw": "Buthasak, Moeta",
       "pob": {
         "city": "CHOETAI",
@@ -149,6 +166,7 @@
       "rowRef": "Final_Results!15",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Buthasak",
       "unitName": "Example Highway Patrol Unit 1",
       "unitType": "Police",
@@ -162,6 +180,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -174,9 +193,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "SILEEM"
-      ],
+      "given": ["SILEEM"],
       "nameRaw": "THAIKHAMUM, SILEEM",
       "pob": {
         "city": "JAOLAIWOEP",
@@ -186,6 +203,7 @@
       "rowRef": "Final_Results!16",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "THAIKHAMUM",
       "unitName": "Example Highway Patrol Unit 1",
       "unitType": "Police",
@@ -199,6 +217,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -211,9 +230,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Nyengia"
-      ],
+      "given": ["Nyengia"],
       "nameRaw": "Douanaon, Nyengia",
       "pob": {
         "city": "POUANPIVE",
@@ -223,6 +240,7 @@
       "rowRef": "Final_Results!17",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Douanaon",
       "unitName": "Example Highway Patrol Division 2",
       "unitType": "Military",
@@ -236,6 +254,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -248,9 +267,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Voksaong"
-      ],
+      "given": ["Voksaong"],
       "nameRaw": "Hokhom, Voksaong",
       "pob": {
         "city": "DAITHI",
@@ -260,6 +277,7 @@
       "rowRef": "Final_Results!18",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Hokhom",
       "unitName": "Example Highway Patrol Division 2",
       "unitType": "Military",
@@ -273,6 +291,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -285,9 +304,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "VAYSOUANG"
-      ],
+      "given": ["VAYSOUANG"],
       "nameRaw": "KHOUNKHIP, VAYSOUANG",
       "pob": {
         "city": "LUPPAYK",
@@ -297,6 +314,7 @@
       "rowRef": "Final_Results!19",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "KHOUNKHIP",
       "unitName": "Example Highway Patrol Division 2",
       "unitType": "Military",

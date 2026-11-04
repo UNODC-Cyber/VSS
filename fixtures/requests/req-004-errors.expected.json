@@ -493,44 +493,15 @@
     }
   ],
   "ruleMap": {
-    "R-06": [
-      "Data!9",
-      "Data!11",
-      "Data!17",
-      "Data!33"
-    ],
-    "R-07": [
-      "Data!8",
-      "Data!18",
-      "Data!19"
-    ],
-    "R-08": [
-      "Data!20",
-      "Data!21",
-      "Data!22",
-      "Data!23"
-    ],
-    "R-09": [
-      "Data!6",
-      "Data!7",
-      "Data!24"
-    ],
-    "R-10": [
-      "Data!5",
-      "Data!10"
-    ],
-    "R-11": [
-      "Data!26"
-    ],
-    "R-12": [
-      "Data!27"
-    ],
-    "R-13": [
-      "Data!28"
-    ],
-    "R-14": [
-      "Data!29"
-    ]
+    "R-06": ["Data!9", "Data!11", "Data!17", "Data!33"],
+    "R-07": ["Data!8", "Data!18", "Data!19"],
+    "R-08": ["Data!20", "Data!21", "Data!22", "Data!23"],
+    "R-09": ["Data!6", "Data!7", "Data!24"],
+    "R-10": ["Data!5", "Data!10"],
+    "R-11": ["Data!26"],
+    "R-12": ["Data!27"],
+    "R-13": ["Data!28"],
+    "R-14": ["Data!29"]
   },
   "templateVersion": "1.11.0",
   "units": [

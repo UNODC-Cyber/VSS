@@ -8,7 +8,7 @@ used anywhere in this repository. This is a public repository: keep it that way.
 | Path                        | What it is                                                                                                                                                                                                                       |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `requests/req-00N-*.xlsx`   | Synthetic request workbooks written from scratch by `tools/fixtures/investc-workbook.ts` (our own styles, short instruction text, validation ids and reference lists; only the format identifiers the parser matches are fixed). |
-| `responses/resp-00N-*.xlsx` | Synthetic DC "Final Results" workbooks (single `Final_Results` sheet, text cells, four sections).                                                                                                                                |
+| `responses/resp-0NN-*.xlsx` | Synthetic DC "Final Results" workbooks (`Final_Results` sheet, text cells, four sections) and the structural variants the parser must tolerate (resp-006..011).                                                                  |
 | `demo/`                     | Synthetic demo dataset (two requests, two DC responses, `manifest.json` of expected outcomes) from `tools/fixtures/demo-dataset.ts`; see `demo/README.md`.                                                                       |
 | `*.expected.json`           | Golden results derived from the fixture specs (not from the parsers).                                                                                                                                                            |
 | `purity-allowlist.json`     | The structural strings of the generated blank workbook (the only text allowed in a fixture besides generated values).                                                                                                            |
@@ -42,11 +42,18 @@ including blanks) · `req-006-large` (50 units, 1200 people) · `req-007-text-da
 
 Responses: `resp-001-all-approved` · `resp-002-reformatted` (surname moved, particle added, day/month swapped, blank POB
 parts, trailing spaces, `UNKNOWN,` commander, short unit expiry) · `resp-003-nonapproved` · `resp-004-thai` ·
-`resp-005-unknown-section` (must fail loudly).
+`resp-005-unknown-section` (warning naming the label; its `Pending` row becomes a disposition-unclear review item) ·
+`resp-006-no-first-label` (implicit first section) · `resp-007-disp-variants` (`Approve`, `Approved`, `APPROVED `,
+`Not Approved`, `Disapprove`, one `Pending`) · `resp-008-mixed-script-names` (Latin given names followed by Thai-script
+ones) · `resp-009-empty-sections` (one empty section with header, one without) · `resp-010-renamed-sheet-hidden-extra`
+(sheet `Results` between a `Notes` sheet and a hidden `Lists` sheet, metadata in column A, columns reordered plus
+`REMARKS`) · `resp-011-request-workbook` (a copy of `req-001-basic` given to the response importer: `LOOKS_LIKE_REQUEST`).
 
 ## VERIFY
 
-- `resp-003-nonapproved` uses the literal `NotApproved` in the `DISP` column of non-approved rows. That literal is a
-  **placeholder**: the real non-approved value has not been seen. Approved rows use `Approve`, which is the verbatim
-  value in real DC files. Replace the placeholder once a real non-approved response confirms the text.
+- `resp-003-nonapproved` uses the literal `NotApproved` in the `DISP` column of non-approved rows, and
+  `resp-007-disp-variants` the documented variants `Not Approved` and `Disapprove`. All three are **still unverified**:
+  the real non-approved value has not been seen. Approved rows use `Approve`, which is the verbatim value in real DC
+  files. Whatever the real text is, a spelling the classifier does not know becomes a review item, never a guess
+  (S-06); add it to `src/main/formats/dc/disposition.ts` once a real non-approved response confirms it.
 - Certificate and expiry cells of non-approved rows (blank expiry here) are an assumption.

@@ -33,12 +33,46 @@ import {
 } from './model.ts';
 import { blankStrings } from './investc-workbook.ts';
 import { buildRequestWorkbook } from './request-builder.ts';
-import { buildResponseWorkbook, type ResponseRowSpec, type ResponseSectionSpec } from './response-builder.ts';
+import {
+  buildResponseWorkbook,
+  type ResponseRowSpec,
+  type ResponseSectionSpec,
+  type ResponseWorkbookSpec,
+} from './response-builder.ts';
 
 export const FIXTURE_NOW_ISO = '2026-11-03';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const FIXTURES_DIR = resolve(here, '../../fixtures');
+
+/**
+ * canonicalJson, laid out the way Prettier prints JSON (printWidth 120): objects expanded, arrays of primitives on one
+ * line when they fit. The response goldens use it so `npm run format:check` and `generate.ts --check` agree.
+ */
+export function prettyCanonicalJson(value: unknown, width = 120): string {
+  const sorted = JSON.parse(canonicalJson(value, 0)) as unknown;
+  const prim = (v: unknown): boolean => v === null || typeof v !== 'object';
+  const print = (v: unknown, indent: string, prefix: string, comma: string): string => {
+    if (prim(v)) return `${indent}${prefix}${JSON.stringify(v)}${comma}`;
+    const inner = `${indent}  `;
+    if (Array.isArray(v)) {
+      if (v.length === 0) return `${indent}${prefix}[]${comma}`;
+      if (v.every(prim)) {
+        const one = `${indent}${prefix}[${v.map((x) => JSON.stringify(x)).join(', ')}]${comma}`;
+        if (one.length <= width) return one;
+      }
+      const items = v.map((x, i) => print(x, inner, '', i < v.length - 1 ? ',' : ''));
+      return `${indent}${prefix}[\n${items.join('\n')}\n${indent}]${comma}`;
+    }
+    const entries = Object.entries(v as Record<string, unknown>);
+    if (entries.length === 0) return `${indent}${prefix}{}${comma}`;
+    const items = entries.map(([k, x], i) =>
+      print(x, inner, `${JSON.stringify(k)}: `, i < entries.length - 1 ? ',' : ''),
+    );
+    return `${indent}${prefix}{\n${items.join('\n')}\n${indent}}${comma}`;
+  };
+  return `${print(sorted, '', '', '')}\n`;
+}
 
 /** Stable JSON: object keys sorted, 2-space indent. */
 export function canonicalJson(value: unknown, indent = 2): string {
@@ -427,7 +461,16 @@ interface RowBuild {
     certParsed: string | null;
     expiresParsed: string | null;
   };
+  /** Set when the spec states a disposition other than "DISP agrees with its section" (lane C variants). */
+  disp?: { cls: DispClassX; issue: 'DISP_UNRECOGNISED' | 'DISP_SECTION_CONFLICT' | null };
 }
+
+type DispClassX = 'approved' | 'non-approved' | 'unknown';
+const dispAs = (
+  rb: RowBuild,
+  cls: DispClassX,
+  issue: 'DISP_UNRECOGNISED' | 'DISP_SECTION_CONFLICT' | null = null,
+): RowBuild => ({ ...rb, disp: { cls, issue } });
 
 function personRow(
   p: PersonSpec,
@@ -522,15 +565,28 @@ function unitRow(
   };
 }
 
+interface SectionBuild {
+  /** null = no label row (implicit first section). */
+  label: string | null;
+  /** The section the label names; 'unknown' for an unknown label. */
+  section: string;
+  rows: RowBuild[];
+  noHeader?: boolean;
+}
+
 interface ResponseBuild {
   id: string;
   description: string;
   batchId: string;
   asOfIso: string;
-  sections: { label: string; section: string; rows: RowBuild[] }[];
+  sections: SectionBuild[];
   notes?: string[];
   expectedIssues: ExpectedIssue[];
   expectedUnknownSections: string[];
+  /** Workbook variants (lane C): sheet name, metadata column, column order, extra sheets. */
+  variant?: Pick<ResponseWorkbookSpec, 'sheetName' | 'metaColumn' | 'headers' | 'extraSheets'>;
+  /** Not a response at all: these request workbook bytes are fed to the response parser (resp-011). */
+  requestBytes?: () => { bytes: Uint8Array; strings: Set<string> };
 }
 
 const LABELS = {
@@ -690,14 +746,14 @@ function responseSpecs(requests: Map<string, RequestSpec>): ResponseBuild[] {
     });
   }
 
-  // resp-005: unknown section label, must fail loudly.
+  // resp-005: unknown section label: a warning that names the label; its rows are kept and classified by DISP.
   {
     const r = req('req-001-basic');
     const typeOf = (p: PersonSpec): string => (r.unitRows.find((u) => u?.name === p.unit) as UnitSpec).type;
     out.push({
       id: 'resp-005-unknown-section',
       description:
-        'Contains the section "Pending Review Individuals:": parsing must block the import and name the label.',
+        'Contains the section "Pending Review Individuals:": a warning names the label; its row (DISP "Pending") is kept as a disposition-unclear review item.',
       batchId: 'SYNTH-0000000005',
       asOfIso: asOf,
       sections: [
@@ -709,21 +765,221 @@ function responseSpecs(requests: Map<string, RequestSpec>): ResponseBuild[] {
         },
         {
           label: 'Pending Review Individuals:',
-          section: 'unknown',
-          rows: r.people.slice(3, 4).map((p) => personRow(p, typeOf(p), 'Pending', cert)),
+          section: 'unknown-individual',
+          rows: r.people
+            .slice(3, 4)
+            .map((p) => dispAs(personRow(p, typeOf(p), 'Pending', cert), 'unknown', 'DISP_UNRECOGNISED')),
         },
         { label: LABELS.nu[0], section: LABELS.nu[1], rows: [] },
         { label: LABELS.ni[0], section: LABELS.ni[1], rows: [] },
       ],
-      expectedIssues: [], // filled below once row numbers are known
+      expectedIssues: [],
       expectedUnknownSections: ['Pending Review Individuals:'],
     });
   }
+
+  // ---- Alpha 1 (lane C) structural variants, all aligned with req-001 --------------------------------------------
+  const r1 = req('req-001-basic');
+  const [ru1, ru2] = r1.unitRows as [UnitSpec, UnitSpec];
+  const typeOf1 = (p: PersonSpec): string => (r1.unitRows.find((u) => u?.name === p.unit) as UnitSpec).type;
+  const P1 = r1.people as PersonSpec[];
+  const approvedPerson = (p: PersonSpec): RowBuild => personRow(p, typeOf1(p), APPROVE, cert);
+
+  // resp-006 (a): the first section label is absent; header row straight after the metadata lines.
+  out.push({
+    id: 'resp-006-no-first-label',
+    description:
+      'Variant a: no "Approved Unit/Commander:" label; the first header row opens an implicit approved unit section.',
+    batchId: 'SYNTH-0000000006',
+    asOfIso: asOf,
+    sections: [
+      { label: null, section: LABELS.au[1], rows: [unitRow(ru1, APPROVE, cert), unitRow(ru2, APPROVE, cert)] },
+      { label: LABELS.ai[0], section: LABELS.ai[1], rows: P1.map(approvedPerson) },
+      { label: LABELS.nu[0], section: LABELS.nu[1], rows: [] },
+      { label: LABELS.ni[0], section: LABELS.ni[1], rows: [] },
+    ],
+    expectedIssues: [],
+    expectedUnknownSections: [],
+  });
+
+  // resp-007 (b): DISP spellings. "Pending" is not a disposition: a review item, never a guess.
+  out.push({
+    id: 'resp-007-disp-variants',
+    description:
+      'Variant b: DISP spelled Approve, Approved, "APPROVED ", Not Approved, Disapprove; one "Pending" row becomes a disposition-unclear review item.',
+    batchId: 'SYNTH-0000000007',
+    asOfIso: asOf,
+    sections: [
+      { label: LABELS.au[0], section: LABELS.au[1], rows: [unitRow(ru1, APPROVE, cert)] },
+      {
+        label: LABELS.ai[0],
+        section: LABELS.ai[1],
+        rows: [
+          personRow(P1[0] as PersonSpec, typeOf1(P1[0] as PersonSpec), 'Approve', cert),
+          personRow(P1[1] as PersonSpec, typeOf1(P1[1] as PersonSpec), 'Approved', cert),
+          personRow(P1[2] as PersonSpec, typeOf1(P1[2] as PersonSpec), 'APPROVED ', cert),
+          dispAs(
+            personRow(P1[3] as PersonSpec, typeOf1(P1[3] as PersonSpec), 'Pending', cert),
+            'unknown',
+            'DISP_UNRECOGNISED',
+          ),
+        ],
+      },
+      { label: LABELS.nu[0], section: LABELS.nu[1], rows: [unitRow(ru2, 'Not Approved', cert, { expires: '' })] },
+      {
+        label: LABELS.ni[0],
+        section: LABELS.ni[1],
+        rows: [
+          personRow(P1[4] as PersonSpec, typeOf1(P1[4] as PersonSpec), 'Not Approved', cert, { expires: '' }),
+          personRow(P1[5] as PersonSpec, typeOf1(P1[5] as PersonSpec), 'Disapprove', cert, { expires: '' }),
+        ],
+      },
+    ],
+    notes: ['VERIFY: "Not Approved" and "Disapprove" are documented variants not yet seen in a real DC file.'],
+    expectedIssues: [],
+    expectedUnknownSections: [],
+  });
+
+  // resp-008 (c): Latin given names followed by the same person's Thai-script given names; surname Latin.
+  {
+    const rng = createRng('vss-fixtures/resp-008-mixed-script-names');
+    const rows = P1.map((p) => {
+      const thai = [genWord(rng, 'thai-script', 2), genWord(rng, 'thai-script', 2)];
+      const b = approvedPerson({ ...p, names: [...p.names, ...thai] });
+      return b;
+    });
+    out.push({
+      id: 'resp-008-mixed-script-names',
+      description:
+        'Variant c: every NAME is "Surname, Latin given names" followed by two Thai-script given names (synthetic).',
+      batchId: 'SYNTH-0000000008',
+      asOfIso: asOf,
+      sections: [
+        { label: LABELS.au[0], section: LABELS.au[1], rows: [unitRow(ru1, APPROVE, cert)] },
+        { label: LABELS.ai[0], section: LABELS.ai[1], rows },
+        { label: LABELS.nu[0], section: LABELS.nu[1], rows: [] },
+        { label: LABELS.ni[0], section: LABELS.ni[1], rows: [] },
+      ],
+      expectedIssues: [],
+      expectedUnknownSections: [],
+    });
+  }
+
+  // resp-009 (d): empty sections, one of them even without its header row.
+  out.push({
+    id: 'resp-009-empty-sections',
+    description:
+      'Variant d: "Approved Individuals" has a header and no rows; "Non Approved Unit/Commander" has no header and no rows.',
+    batchId: 'SYNTH-0000000009',
+    asOfIso: asOf,
+    sections: [
+      { label: LABELS.au[0], section: LABELS.au[1], rows: [unitRow(ru1, APPROVE, cert)] },
+      { label: LABELS.ai[0], section: LABELS.ai[1], rows: [] },
+      { label: LABELS.nu[0], section: LABELS.nu[1], rows: [], noHeader: true },
+      {
+        label: LABELS.ni[0],
+        section: LABELS.ni[1],
+        rows: [personRow(P1[0] as PersonSpec, typeOf1(P1[0] as PersonSpec), NOT_APPROVED, cert, { expires: '' })],
+      },
+    ],
+    expectedIssues: [],
+    expectedUnknownSections: [],
+  });
+
+  // resp-010: renamed results sheet between two extra sheets (one hidden), metadata in column A, columns reordered
+  // with one extra column.
+  out.push({
+    id: 'resp-010-renamed-sheet-hidden-extra',
+    description:
+      'Results on sheet "Results" between a "Notes" sheet and a hidden "Lists" sheet; metadata labels in column A; columns reordered plus a REMARKS column.',
+    batchId: 'SYNTH-0000000010',
+    asOfIso: asOf,
+    variant: {
+      sheetName: 'Results',
+      metaColumn: 'A',
+      headers: ['NAME', 'DISP', 'DOB', 'POB', 'UNIT NAME', 'UNIT TYPE', 'REMARKS', 'CERT DATE', 'EXPIRES'],
+      extraSheets: [
+        { name: 'Notes', position: 'before', rows: ['Synthetic notes sheet', 'Nothing to import here'] },
+        { name: 'Lists', position: 'after', hidden: true, rows: ['Approve', 'Not Approved'] },
+      ],
+    },
+    sections: [
+      {
+        label: LABELS.au[0],
+        section: LABELS.au[1],
+        rows: [
+          { ...unitRow(ru1, APPROVE, cert), row: { ...unitRow(ru1, APPROVE, cert).row, extra: 'Synthetic remark' } },
+        ],
+      },
+      {
+        label: LABELS.ai[0],
+        section: LABELS.ai[1],
+        rows: P1.slice(0, 3).map((p, i) => {
+          const b = approvedPerson(p);
+          return { ...b, row: { ...b.row, extra: i === 1 ? 'Synthetic remark' : '' } };
+        }),
+      },
+      { label: LABELS.nu[0], section: LABELS.nu[1], rows: [] },
+      { label: LABELS.ni[0], section: LABELS.ni[1], rows: [] },
+    ],
+    expectedIssues: [],
+    expectedUnknownSections: [],
+  });
+
+  // resp-011: a request workbook (req-001) picked in the response importer: refused with LOOKS_LIKE_REQUEST.
+  out.push({
+    id: 'resp-011-request-workbook',
+    description: 'A vetting request workbook (copy of req-001-basic) given to the response importer: friendly refusal.',
+    batchId: '',
+    asOfIso: asOf,
+    sections: [],
+    expectedIssues: [issue('S-01', 'LOOKS_LIKE_REQUEST', 'error', null, null)],
+    expectedUnknownSections: [],
+    requestBytes: () => buildRequestWorkbook(req('req-001-basic')),
+  });
   return out;
 }
 
+/** Section that the spec names, split into kind and approval ('unknown-individual' = unknown label of individuals). */
+function sectionParts(section: string): { kind: 'unit' | 'individual'; approval: DispClassX } {
+  const kind = section.endsWith('-unit') ? 'unit' : 'individual';
+  if (section.startsWith('unknown')) return { kind, approval: 'unknown' };
+  return { kind, approval: section.startsWith('approved') ? 'approved' : 'non-approved' };
+}
+
+const KNOWN_SECTIONS = ['approved-unit', 'approved-individual', 'nonapproved-unit', 'nonapproved-individual'];
+
+/**
+ * Expected parse result, derived from the spec (never from the parser): rows with their stated disposition, and the
+ * issues the structure implies (implicit first section, empty sections, unknown labels, extra sheets / columns, mixed
+ * script names, unclear DISP).
+ */
 function buildResponse(b: ResponseBuild): { bytes: Uint8Array; strings: Set<string>; expected: unknown } {
-  const sections: ResponseSectionSpec[] = b.sections.map((s) => ({ label: s.label, rows: s.rows.map((r) => r.row) }));
+  if (b.requestBytes) {
+    const req = b.requestBytes();
+    return {
+      bytes: req.bytes,
+      strings: req.strings,
+      expected: {
+        id: b.id,
+        description: b.description,
+        fileKindGuess: 'investc-request',
+        batchId: null,
+        post: null,
+        resultsAsOf: null,
+        assistanceLine: null,
+        blocked: true,
+        unknownSections: [],
+        rows: [],
+        issues: b.expectedIssues,
+      },
+    };
+  }
+  const sections: ResponseSectionSpec[] = b.sections.map((s) => ({
+    label: s.label,
+    rows: s.rows.map((r) => r.row),
+    ...(s.noHeader ? { noHeader: true } : {}),
+  }));
   const asOfUs = us(b.asOfIso);
   const built = buildResponseWorkbook({
     line1: `Final Results as of ${asOfUs}`,
@@ -731,43 +987,68 @@ function buildResponse(b: ResponseBuild): { bytes: Uint8Array; strings: Set<stri
     line3: `Batch ID: ${b.batchId}`,
     line4: `Assistance: Example Workshop - Example City - 11/20/2026`,
     sections,
+    ...(b.variant ?? {}),
   });
+  const sheet = b.variant?.sheetName ?? 'Final_Results';
+  const ref = (row: number): string => `${sheet}!${row}`;
+  const colOf = (h: string): string => built.headerColumns[h] as string;
   const rows: unknown[] = [];
   const issues: ExpectedIssue[] = [...b.expectedIssues];
-  let r = 7;
-  for (const s of b.sections) {
-    const labelRow = r;
-    r += 2;
+  if ((b.variant?.extraSheets ?? []).length > 0) issues.push(issue('S-07', 'EXTRA_SHEETS', 'info', null, null));
+  const firstHeader = built.layout.find((l) => l.headerRow !== null)?.headerRow ?? null;
+  for (const h of b.variant?.headers ?? []) {
+    if (!['DISP', 'NAME', 'DOB', 'POB', 'UNIT TYPE', 'UNIT NAME', 'CERT DATE', 'EXPIRES'].includes(h))
+      issues.push(issue('S-07', 'HEADER_COLUMN_EXTRA', 'info', ref(firstHeader as number), colOf(h)));
+  }
+  const labelled = new Set<string>();
+  let implicitUnit = false;
+  b.sections.forEach((s, si) => {
+    const lay = built.layout[si]!;
+    const { kind, approval } = sectionParts(s.section);
+    const implicit = s.label === null && si === 0;
+    if (implicit) {
+      implicitUnit = true;
+      issues.push(issue('S-06', 'SECTION_IMPLICIT', 'info', ref(lay.headerRow as number), null));
+    } else if (approval === 'unknown') {
+      issues.push(issue('S-06', 'UNKNOWN_SECTION', 'warning', ref(lay.labelRow as number), 'A'));
+    } else labelled.add(s.section);
+    if (s.rows.length === 0 && s.label !== null) {
+      issues.push(issue('S-06', 'SECTION_EMPTY', 'info', ref(lay.labelRow as number), null));
+    }
     s.rows.forEach((rb, i) => {
-      const row = r + i;
+      const row = lay.dataRows[i] as number;
       const e = rb.expect;
       const dateOf = (text: string, parsed: string | null) =>
         text === ''
           ? { kind: 'empty', value: '', parsed: null, ambiguousDayMonth: false }
           : { kind: 'text', value: text, parsed, ambiguousDayMonth: false };
-      if (s.section !== 'unknown') {
-        rows.push({
-          rowRef: `Final_Results!${row}`,
-          section: s.section,
-          disp: rb.row.disp,
-          nameRaw: rb.row.name,
-          surname: e.surname,
-          given: e.given,
-          unknownCommander: e.unknownCommander,
-          script: /[฀-๿]/.test(rb.row.name) ? (/[A-Za-z]/.test(rb.row.name) ? 'Mixed' : 'Thai') : 'Latn',
-          dob: dateOf(rb.row.dob, e.dobParsed),
-          pob: e.pob,
-          unitType: rb.row.unitType,
-          unitName: rb.row.unitName,
-          certDate: dateOf(rb.row.cert, e.certParsed),
-          expires: dateOf(rb.row.expires, e.expiresParsed),
-        });
-      }
+      const cls: DispClassX = rb.disp?.cls ?? approval;
+      if (rb.disp?.issue) issues.push(issue('S-06', rb.disp.issue, 'warning', ref(row), colOf('DISP')));
+      const script = /[฀-๿]/.test(rb.row.name) ? (/[A-Za-z]/.test(rb.row.name) ? 'Mixed' : 'Thai') : 'Latn';
+      if (script === 'Mixed') issues.push(issue('S-04', 'NAME_MIXED_SCRIPT', 'info', ref(row), colOf('NAME')));
+      rows.push({
+        rowRef: ref(row),
+        section: `${cls === 'approved' ? 'approved' : 'nonapproved'}-${kind}`,
+        dispClass: cls,
+        sectionSource: implicit ? 'implicit' : 'label',
+        disp: rb.row.disp,
+        nameRaw: rb.row.name,
+        surname: e.surname,
+        given: e.given,
+        unknownCommander: e.unknownCommander,
+        script,
+        dob: dateOf(rb.row.dob, e.dobParsed),
+        pob: e.pob,
+        unitType: rb.row.unitType,
+        unitName: rb.row.unitName,
+        certDate: dateOf(rb.row.cert, e.certParsed),
+        expires: dateOf(rb.row.expires, e.expiresParsed),
+      });
     });
-    if (s.section === 'unknown') {
-      issues.push(issue('S-06', 'UNKNOWN_SECTION', 'error', `Final_Results!${labelRow}`, 'A'));
-    }
-    r += s.rows.length + 1;
+  });
+  for (const s of KNOWN_SECTIONS) {
+    if (!labelled.has(s) && !(implicitUnit && s === 'approved-unit'))
+      issues.push(issue('S-02', 'SECTION_MISSING', 'info', null, null));
   }
   const hasError = issues.some((i) => i.severity === 'error');
   return {
@@ -776,6 +1057,7 @@ function buildResponse(b: ResponseBuild): { bytes: Uint8Array; strings: Set<stri
     expected: {
       id: b.id,
       description: b.description,
+      fileKindGuess: 'dc-response',
       batchId: b.batchId,
       post: 'Example City',
       resultsAsOf: b.asOfIso,
@@ -851,14 +1133,14 @@ export function generateFixtures(): GeneratedFixtures {
     const path = `requests/${spec.id}.xlsx`;
     files.push({ path, data: built.bytes });
     xlsxStrings.set(path, built.strings);
-    files.push({ path: `requests/${spec.id}.expected.json`, data: canonicalJson(expectedForRequest(spec)) });
+    files.push({ path: `requests/${spec.id}.expected.json`, data: prettyCanonicalJson(expectedForRequest(spec)) });
   }
   for (const rb of responseSpecs(requests)) {
     const built = buildResponse(rb);
     const path = `responses/${rb.id}.xlsx`;
     files.push({ path, data: built.bytes });
     xlsxStrings.set(path, built.strings);
-    files.push({ path: `responses/${rb.id}.expected.json`, data: canonicalJson(built.expected) });
+    files.push({ path: `responses/${rb.id}.expected.json`, data: prettyCanonicalJson(built.expected) });
   }
   files.push({ path: 'purity-allowlist.json', data: allowlistJson() });
   return { files, xlsxStrings };
