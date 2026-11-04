@@ -1,0 +1,3 @@
+-- VSS schema slot 007 (lane C, docs/PLAN-ALPHA.md section 5). EMPTY PLACEHOLDER: comments only.
+-- migrations/index.ts registers this file only once it holds SQL (and every lower slot then runs as a no-op
+-- until filled). Planned content: response_row.disp_class, response_row.section_source (backfill from section).

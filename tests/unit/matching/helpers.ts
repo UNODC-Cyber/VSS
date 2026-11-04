@@ -7,6 +7,7 @@ import type {
   ResponseRow,
   ResponseSection,
 } from '../../../src/shared/domain/types';
+import { dispClassOfSection } from '../../../src/shared/domain/response-section';
 import { buildNameKey, personNameFromRequest, splitDcName } from '../../../src/shared/names';
 
 export const NOW = '2026-11-03T00:00:00.000Z';
@@ -84,6 +85,8 @@ export function row(
     certDate: rawDate('2026-10-01'),
     expires: rawDate('2027-10-01'),
     match: { candidates: [], decision: 'none', chosen: null, decidedBy: null, decidedAt: null },
+    dispClass: dispClassOfSection(over.section ?? 'approved-individual'),
+    sectionSource: 'label',
   };
 }
 

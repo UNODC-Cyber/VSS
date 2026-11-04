@@ -73,7 +73,13 @@ if (!gotLock) {
   void app.whenReady().then(async () => {
     installSecurity();
     const ports = createElectronPorts(() => mainWindow);
-    composed = await composeApp({ paths, ports, updates: createRealUpdateService, logger: log });
+    composed = await composeApp({
+      paths,
+      ports,
+      updates: createRealUpdateService,
+      logger: log,
+      appInfo: { version: app.getVersion() },
+    });
     registerIpc(composed.handlers);
     // OS shutdown / logoff: lock synchronously, nothing else can be relied on.
     powerMonitor.on('shutdown', () => composed?.vault.forceLock());

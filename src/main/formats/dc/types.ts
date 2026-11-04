@@ -17,7 +17,18 @@ export type ResponseIssueCode =
   | 'NAME_EMPTY'
   | 'POB_TOO_MANY_PARTS'
   | 'UNKNOWN_SECTION'
-  | 'EXTRA_SHEETS';
+  | 'EXTRA_SHEETS'
+  // Alpha 1 (lane C, structure-based parser; names reserved by A0, same spelling in ValidationCode):
+  | 'LOOKS_LIKE_REQUEST'
+  | 'RESULTS_SHEET_NOT_FOUND'
+  | 'META_LABEL_MISSING'
+  | 'HEADER_COLUMN_MISSING'
+  | 'HEADER_COLUMN_EXTRA'
+  | 'SECTION_IMPLICIT'
+  | 'SECTION_EMPTY'
+  | 'DISP_UNRECOGNISED'
+  | 'DISP_SECTION_CONFLICT'
+  | 'NAME_MIXED_SCRIPT';
 
 /** Issue raised while parsing a DC response workbook. The domain ValidationCode union has no response codes. */
 export interface ResponseIssue {

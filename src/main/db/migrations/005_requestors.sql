@@ -1,0 +1,3 @@
+-- VSS schema slot 005 (lane B, docs/PLAN-ALPHA.md section 4). EMPTY PLACEHOLDER: comments only.
+-- migrations/index.ts registers this file only once it holds SQL (and every lower slot then runs as a no-op
+-- until filled). Planned content: requestor(id, name, name_folded, email, email_folded UNIQUE, organisation, phone, notes, created_at, updated_at, last_used_at); request.requestor_id REFERENCES requestor(id); backfill one requestor per distinct folded e-mail, else per folded name + organisation.

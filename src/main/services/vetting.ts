@@ -4,7 +4,7 @@
  * review count), the expiry watch list and its password-gated CSV export.
  */
 import { addDays, daysBetween } from '@shared/domain/status';
-import type { IsoDate, Ulid, VettingStatus, VettingStatusSnapshot } from '@shared/domain/types';
+import type { IsoDate, RequestStatus, Ulid, VettingStatus, VettingStatusSnapshot } from '@shared/domain/types';
 import type {
   Dashboard,
   DashboardQuery,
@@ -204,8 +204,24 @@ export function createVettingService(deps: ServiceDeps): VettingService {
         const expiringSoon = expiryWatch(ctx, { withinDays: ctx.settings().exportPolicy.expiringWithinDays })
           .slice(0, 50)
           .map((r) => ({ personId: r.personId, displayName: r.displayName, expiresAt: r.expiresAt }));
+        const requestsByStatus: Record<RequestStatus, number> = {
+          received: 0,
+          validated: 0,
+          exported: 0,
+          'sent-to-dc': 0,
+          responded: 0,
+          finished: 0,
+          closed: 0,
+          withdrawn: 0,
+        };
+        for (const r of ctx.db.prepare('SELECT status, count(*) AS n FROM request GROUP BY status').all() as {
+          status: string;
+          n: number;
+        }[])
+          if (r.status in requestsByStatus) requestsByStatus[r.status as RequestStatus] = r.n;
         return {
           asOf,
+          requestsByStatus,
           counts,
           totalPersons: ids.length,
           openReviewItems: ctx.repos.reviews.counts().open,

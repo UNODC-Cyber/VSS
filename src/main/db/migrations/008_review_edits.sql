@@ -1,0 +1,3 @@
+-- VSS schema slot 008 (lane K, docs/PLAN-ALPHA.md section 14). EMPTY PLACEHOLDER: comments only.
+-- migrations/index.ts registers this file only once it holds SQL (and every lower slot then runs as a no-op
+-- until filled). Planned content: response_row.original_json, response_row_edit(id, row_id, at, actor, reason, diff_json), review_item.resolution_note (and person_edit if provenance does not cover persons).

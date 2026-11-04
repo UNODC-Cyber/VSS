@@ -11,6 +11,7 @@ import type {
   StoredFile,
   Ulid,
 } from '@shared/domain/types';
+import { dispClassOfSection } from '@shared/domain/response-section';
 import { DbError } from '../errors';
 import type { Db } from '../open';
 import { reindexResponse } from '../search';
@@ -19,13 +20,15 @@ import { fromJson, newId, toJson } from './util';
 
 export type ResponseHeader = Omit<DcResponse, 'rows'>;
 export type ResponseInput = Omit<DcResponse, 'id' | 'rows' | 'sourceFile'> & { sourceFileId: Ulid; id?: Ulid };
-export type ResponseRowInput = Omit<ResponseRow, 'id' | 'responseId'> & {
-  coreKey?: string | null;
-  /** Links derived from match.chosen + candidate targetKind when omitted. */
-  requestItemId?: Ulid | null;
-  personId?: Ulid | null;
-  id?: Ulid;
-};
+/** `dispClass` / `sectionSource` are stored from migration 007 (lane C); until then they derive from the section. */
+export type ResponseRowInput = Omit<ResponseRow, 'id' | 'responseId' | 'dispClass' | 'sectionSource'> &
+  Partial<Pick<ResponseRow, 'dispClass' | 'sectionSource'>> & {
+    coreKey?: string | null;
+    /** Links derived from match.chosen + candidate targetKind when omitted. */
+    requestItemId?: Ulid | null;
+    personId?: Ulid | null;
+    id?: Ulid;
+  };
 export interface RowLinks {
   requestItemId: Ulid | null;
   personId: Ulid | null;
@@ -310,5 +313,7 @@ function mapRow(r: RowRow): ResponseRow {
     certDate: d.certDate ?? rawFrom(r.cert_date, null),
     expires: d.expires ?? rawFrom(r.expires, null),
     match: fromJson<RowMatch>(r.match_json, NO_MATCH),
+    dispClass: dispClassOfSection((r.section ?? 'approved-individual') as ResponseSection),
+    sectionSource: 'label',
   };
 }

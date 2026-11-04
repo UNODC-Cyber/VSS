@@ -216,6 +216,8 @@ describe('Export, Response, Vetting, Review, NegativePair, MergeLog, Settings, M
       rowRef: 'Final_Results!A9',
       section: 'approved-individual',
       disp: 'APPROVED',
+      dispClass: 'approved',
+      sectionSource: 'label',
       nameRaw: 'TESTSURNAME, Synthetic',
       name: { surname: 'Testsurname', given: ['Synthetic'], raw: 'TESTSURNAME, Synthetic', script: 'Latn' },
       nameKey: { ...KEY0, coreTokens: ['synthetic', 'testsurname'] },

@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { RequestDetailScreen } from '../../../src/renderer/src/screens/RequestDetailScreen';
-import { ImportRequestScreen } from '../../../src/renderer/src/screens/RequestsScreens';
+import { ImportRequestScreen } from '../../../src/renderer/src/screens/ImportRequestScreen';
 import { SettingsScreen } from '../../../src/renderer/src/screens/SettingsScreen';
 
 describe('Settings > Templates', () => {

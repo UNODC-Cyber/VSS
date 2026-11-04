@@ -1,5 +1,20 @@
-/** English strings. Every user-visible string in the renderer is looked up here via t(). */
-export const en = {
+/**
+ * English strings. Every user-visible string in the renderer is looked up here via t().
+ * `base` is the 0.1 catalogue; each Alpha 1 lane adds its strings only in its own `en/<ns>.ts` file, spread in below
+ * (docs/PLAN-ALPHA.md section 16). Top-level keys must be unique across all parts (i18n-keys test).
+ */
+import { alpha } from './en/alpha';
+import { authority } from './en/authority';
+import { crash } from './en/crash';
+import { danger } from './en/danger';
+import { emailTemplates } from './en/emailTemplates';
+import { lifecycle } from './en/lifecycle';
+import { picker } from './en/picker';
+import { requestors } from './en/requestors';
+import { ui } from './en/ui';
+import { wizard } from './en/wizard';
+
+const base = {
   app: { title: 'Vetting Support System', tagline: 'Offline encrypted tracker for vetting requests and responses.' },
   common: {
     cancel: 'Cancel',
@@ -128,6 +143,7 @@ export const en = {
     exported: 'Exported',
     'sent-to-dc': 'Sent',
     responded: 'Responded',
+    finished: 'Finished',
     closed: 'Closed',
     withdrawn: 'Withdrawn',
   },
@@ -166,6 +182,7 @@ export const en = {
     'dob-conflict': 'Date of birth conflict',
     'unmatched-response-row': 'Unmatched response row',
     'unanswered-request-item': 'Unanswered request item',
+    'disposition-unclear': 'Unclear disposition',
   },
   flagged: { include: 'Include them', exclude: 'Exclude them', block: 'Block the export' },
   updphase: {
@@ -666,4 +683,33 @@ export const en = {
     download: 'Download update',
     install: 'Install update',
   },
+};
+
+/** Every part of the catalogue, by owner (base = 0.1 strings). */
+export const enParts = {
+  base,
+  requestors,
+  lifecycle,
+  emailTemplates,
+  authority,
+  wizard,
+  ui,
+  picker,
+  alpha,
+  crash,
+  danger,
+} as const;
+
+export const en = {
+  ...base,
+  ...requestors,
+  ...lifecycle,
+  ...emailTemplates,
+  ...authority,
+  ...wizard,
+  ...ui,
+  ...picker,
+  ...alpha,
+  ...crash,
+  ...danger,
 };

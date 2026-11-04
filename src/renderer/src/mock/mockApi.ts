@@ -38,6 +38,7 @@ import type {
   ResponseSummary,
   Result,
   ReviewCounts,
+  ReviewItemSummary,
   ReviewSubject,
   UnitDetail,
   UnitSummary,
@@ -64,6 +65,8 @@ import {
 } from './db';
 import type { MockDb } from './db';
 import { mockTemplate } from './db';
+import { applyMockExtensions } from './ext';
+import type { MockBaseApi } from './ext/types';
 
 export interface MockOptions {
   /** Initial vault state. Default 'no-vault'. */
@@ -257,6 +260,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           ? r.items.length
           : r.items.filter((i) => answered.has(i.id)).length || (r.respondedAt ? r.items.length : 0),
       agingDays: sentOpen ? Math.max(0, daysBetween(r.sentToDcAt!.slice(0, 10), today())) : null,
+      finishedAt: r.finishedAt,
+      closedAt: r.closedAt,
+      closeNote: r.closeNote,
+      reopenCount: r.reopenCount,
     };
   }
   function reviewCounts(): ReviewCounts {
@@ -451,6 +458,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         expires: isoDay(364),
         unitName: o.unitName,
         chosenPersonId: null,
+        dispClass: 'approved' as const,
+        sectionSource: 'label' as const,
       };
       const evidence = (e: MatchCandidate['evidence']): MatchCandidate => ({
         targetKind: 'request-item',
@@ -480,6 +489,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           ...base,
           section: 'nonapproved-individual',
           disp: 'NOT APPROVED',
+          dispClass: 'non-approved',
           dobRaw: o.dob.parsed ?? '',
           candidates: [{ ...evidence(['NAME_SURNAME_EQUAL', 'DOB_EQUAL']), tier: 'T3', score: 0.6 }],
           decision: 'pending',
@@ -503,6 +513,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       decision: 'none',
       chosenRequestItemId: null,
       chosenPersonId: null,
+      dispClass: 'approved',
+      sectionSource: 'label',
     });
     const pending = rows.filter((r) => r.decision === 'pending').length;
     return {
@@ -510,6 +522,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       fileName: path.split('/').pop() ?? 'response.xlsx',
       sha256: 'c'.repeat(64),
       batchId: req?.batchId ?? 'BATCH-NEW',
+      fileKindGuess: 'dc-response',
       post: 'Example Post',
       resultsAsOf: today(),
       assistanceLine: 'Synthetic assistance line for demonstration only.',
@@ -605,6 +618,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         unitName: db.units.find((u) => u.id === s.unitId)?.name ?? null,
         identifiers: p.identifiers.map((i) => i.value),
         source: 'Known person',
+        edited: false,
       };
     }
     const f = findItem(id);
@@ -621,7 +635,29 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         unitName: o.unitName,
         identifiers: [o.passport, o.nationalId].filter(Boolean),
         source: `Request ${f.req.eventName}, row ${o.rowRef}`,
+        edited: false,
       };
+    }
+    return null;
+  }
+
+  function rowSubject(id: string): ReviewSubject | null {
+    for (const resp of db.responses) {
+      const row = resp.rows.find((x) => x.id === id);
+      if (row)
+        return {
+          id,
+          kind: 'response-row',
+          displayName: row.nameRaw,
+          dob: row.dob.parsed,
+          dobRaw: row.dob.value,
+          sex: null,
+          pobCountry: row.pob.country,
+          unitName: row.unitName,
+          identifiers: [],
+          source: `Response ${resp.batchId}, row ${row.rowRef}`,
+          edited: false,
+        };
     }
     return null;
   }
@@ -725,6 +761,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
     | 'lastBackupAt'
     | 'lastBackupAgeDays'
     | 'inactivePersons'
+    | 'requestsByStatus'
   > {
     const agingBuckets = { '0-7': 0, '8-14': 0, '15-30': 0, '>30': 0 };
     for (const o of outstanding) {
@@ -776,6 +813,20 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           .slice(0, 20)
           .map((p) => ({ personId: p.id, displayName: personName(p), lastActivityAt: p.updatedAt.slice(0, 10) })),
       },
+      requestsByStatus: (() => {
+        const by: Dashboard['requestsByStatus'] = {
+          received: 0,
+          validated: 0,
+          exported: 0,
+          'sent-to-dc': 0,
+          responded: 0,
+          finished: 0,
+          closed: 0,
+          withdrawn: 0,
+        };
+        for (const r of db.requests) by[r.status]++;
+        return by;
+      })(),
     };
   }
 
@@ -785,7 +836,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
   }
 
   // ---- the API --------------------------------------------------------------------------------------------
-  const api: VssApi = {
+  const base: MockBaseApi = {
     vault: {
       status: () => Promise.resolve(ok(status())),
       create: (req) => {
@@ -971,6 +1022,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
             responseKind: null,
             batchId: null,
             notes: req.notes,
+            finishedAt: null,
+            closedAt: null,
+            closeNote: '',
+            reopenCount: 0,
           };
           db.requests.push(r);
           for (const it of items) {
@@ -1040,6 +1095,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
             responseKind: null,
             batchId: null,
             notes: req.notes,
+            finishedAt: null,
+            closedAt: null,
+            closeNote: '',
+            reopenCount: 0,
           };
           db.requests.push(r);
           appendAudit(db, 'request.created', 'request', id);
@@ -1174,7 +1233,13 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           appendAudit(db, 'request.removed', 'request', req.id);
           return ok(ACK);
         }),
+      discardPreview: (req) => {
+        previews.delete(req.previewId);
+        return Promise.resolve(ok(ACK));
+      },
     },
+    // Lane B fills this namespace in mock/ext/requestors.ts.
+    requestors: {},
     responses: {
       list: (q) =>
         gate(() => {
@@ -1204,7 +1269,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           const p = e.preview;
           const resp: DcResponse = {
             id: newId(),
-            batchId: p.batchId,
+            batchId: req.batchIdOverride ?? p.batchId ?? '',
             post: p.post,
             resultsAsOf: p.resultsAsOf ?? today(),
             assistanceLine: p.assistanceLine,
@@ -1255,6 +1320,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
                 decidedBy: pr.decision === 'auto' ? 'auto' : null,
                 decidedAt: pr.decision === 'auto' ? new Date().toISOString() : null,
               },
+              dispClass: pr.dispClass,
+              sectionSource: pr.sectionSource,
             };
             if (pr.decision === 'auto' || (pr.decision === 'confirmed' && pr.chosenRequestItemId)) {
               applyRowDecision(resp, row, pr.chosenRequestItemId);
@@ -1367,6 +1434,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           );
           return ok({ recordIds: [rec.id] });
         }),
+      discardPreview: (req) => {
+        respPreviews.delete(req.previewId);
+        return Promise.resolve(ok(ACK));
+      },
     },
     persons: {
       list: (q) =>
@@ -1530,7 +1601,19 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
           const rows = db.reviews
             .filter((r) => (!q.state || r.state === q.state) && (!q.kinds?.length || q.kinds.includes(r.kind)))
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-            .map((r) => structuredClone(r));
+            .map((r): ReviewItemSummary => {
+              const first = r.subjectIds[0];
+              const s = first ? (subjectFor(first) ?? rowSubject(first)) : null;
+              const tiers = r.candidates.map((c) => c.tier).sort();
+              return {
+                ...structuredClone(r),
+                subjectName: s?.displayName ?? '',
+                subjectDob: s?.dob ?? null,
+                unitName: s?.unitName ?? null,
+                context: null,
+                bestTier: tiers[0] ?? null,
+              };
+            });
           return ok(page(rows, q.offset, q.limit));
         }),
       get: (req) =>
@@ -1542,22 +1625,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
             const s = subjectFor(id);
             if (s) subjects.push(s);
             else {
-              for (const resp of db.responses) {
-                const row = resp.rows.find((x) => x.id === id);
-                if (row)
-                  subjects.push({
-                    id,
-                    kind: 'response-row',
-                    displayName: row.nameRaw,
-                    dob: row.dob.parsed,
-                    dobRaw: row.dob.value,
-                    sex: null,
-                    pobCountry: row.pob.country,
-                    unitName: row.unitName,
-                    identifiers: [],
-                    source: `Response ${resp.batchId}, row ${row.rowRef}`,
-                  });
-              }
+              const rs = rowSubject(id);
+              if (rs) subjects.push(rs);
               // Candidate request items for a response row
               for (const c of item.candidates)
                 if (c.targetKind === 'request-item' && !subjects.some((x) => x.id === c.targetId)) {
@@ -1877,6 +1946,10 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       reveal: () => Promise.resolve(ok(ACK)),
       saveStored: () => Promise.resolve(ok(ACK)),
     },
+    app: {
+      info: () =>
+        Promise.resolve(ok({ version: update.currentVersion, channel: 'dev', platform: 'mock', schemaVersion: 4 })),
+    },
     on: (event, listener) => {
       let set = listeners.get(event);
       if (!set) {
@@ -1889,6 +1962,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       };
     },
   };
+  // The one extension hook: lane modules in mock/ext/* add their methods (docs/PLAN-ALPHA.md section 16).
+  const api: VssApi = applyMockExtensions(base, db, emit);
 
   if (initial === 'unlocked') {
     db.vault.locked = false;

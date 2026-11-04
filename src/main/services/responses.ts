@@ -4,6 +4,7 @@
  * (matchResponseRows). On commit only matcher 'auto' rows (single T1, one-to-one) are pre-confirmed; everything else
  * needs an explicit decision or becomes a ReviewItem. Certificate and expiry dates are stored exactly as stated.
  */
+import { dispClassOfSection } from '@shared/domain/response-section';
 import { daysBetween } from '@shared/domain/status';
 import type {
   DcResponse,
@@ -17,6 +18,8 @@ import type {
   VettingRequest,
 } from '@shared/domain/types';
 import type {
+  Ack,
+  DiscardPreviewRequest,
   IdRef,
   ImportResponsePreviewRequest,
   ManualRecordRequest,
@@ -82,6 +85,8 @@ export interface ResponsesService {
   importFile(fileName: string, bytes: Uint8Array, requestId?: Ulid): Promise<Result<ResponsePreviewEx>>;
   /** Drop all pending import previews (vault lock; F-14). */
   clearPreviews(): void;
+  /** Drop one preview at once (wizard Cancel); unknown ids are fine. */
+  discardPreview(req: DiscardPreviewRequest): Promise<Result<Ack>>;
   importCommit(req: ResponseCommitInput): Promise<Result<ResponseCommitOutcome>>;
   setRowMatch(req: ResponseSetRowMatchRequest): Promise<Result<ResponseRow>>;
   recordEmailClearance(req: EmailClearanceInput): Promise<Result<EmailClearanceResult>>;
@@ -273,6 +278,8 @@ function planResponse(ctx: Ctx, fileName: string, bytes: Uint8Array, requestId: 
     certDate: r.certDate,
     expires: r.expires,
     match: NO_MATCH,
+    dispClass: dispClassOfSection(r.section),
+    sectionSource: 'label' as const,
   }));
   if (requestId !== null) {
     if (!ctx.repos.requests.exists(requestId)) return fail('NOT_FOUND', 'Request not found');
@@ -346,6 +353,7 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
     fileName: p.fileName,
     sha256: p.sha256,
     batchId: p.draft.batchId ?? '',
+    fileKindGuess: 'dc-response',
     post: p.draft.post ?? '',
     resultsAsOf: p.draft.resultsAsOf,
     assistanceLine: p.draft.assistanceLine ?? '',
@@ -365,6 +373,8 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
       chosenRequestItemId: r.match.decision === 'auto' ? r.match.chosen : null,
       chosenPersonId:
         r.match.decision === 'auto' && r.match.chosen ? (byId.get(r.match.chosen)?.personId ?? null) : null,
+      dispClass: r.dispClass,
+      sectionSource: r.sectionSource,
     })),
     issues: p.issues,
     errorCount: p.issues.filter((i) => i.severity === 'error').length,
@@ -465,6 +475,11 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
     },
     importFile,
     clearPreviews: () => previews.clear(),
+    discardPreview: ({ previewId }) =>
+      run((): Ack => {
+        previews.delete(previewId);
+        return { ok: true };
+      }),
 
     importCommit: (req) =>
       run((): ResponseCommitOutcome => {
@@ -629,6 +644,7 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
             responseDays =
               h.sentToDcAt && h.respondedAt ? daysBetween(h.sentToDcAt.slice(0, 10), h.respondedAt.slice(0, 10)) : null;
           }
+          if (request) ctx.hooks.onRequestAnswered(request.id);
           const header = ctx.repos.responses.getHeader(plan.responseId)!;
           const indiv = rows.filter((r) => isIndividualSection(r.section));
           ctx.audit('response.import', 'response', plan.responseId, {
@@ -656,9 +672,11 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
           for (const rec of ctx.repos.vetting.listByResponseRow(rowId)) ctx.repos.vetting.delete(rec.id);
           const at = ctx.nowIso();
           let out: ResponseRow;
+          let answered: Ulid | null = resp.requestId;
           if (decision === 'confirmed') {
             if (!chosen) return fail('BAD_REQUEST', 'A confirmed match needs a target');
             const item = ctx.repos.requests.getItem(chosen);
+            if (item) answered = item.requestId;
             let personId: Ulid | null;
             if (item) {
               if (resp.requestId && item.requestId !== resp.requestId)
@@ -707,6 +725,7 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
             decision,
             section: row.section,
           });
+          if (answered) ctx.hooks.onRequestAnswered(answered);
           return out;
         }),
       ),

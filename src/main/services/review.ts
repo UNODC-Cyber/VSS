@@ -3,17 +3,21 @@
  * link (confirm the proposed candidate or choose another), new-person, not-same (adds negative pairs), merge,
  * keep-dob, dismiss (skip).
  */
-import type { ReviewItem, Ulid } from '@shared/domain/types';
+import type { MatchTier, ReviewItem, Ulid } from '@shared/domain/types';
 import type {
   IdRef,
   Page,
   ReviewCounts,
+  ReviewEditSubjectRequest,
   ReviewItemDetail,
+  ReviewItemSummary,
   ReviewListQuery,
+  ReviewManualValidateRequest,
   ReviewResolveRequest,
   ReviewSubject,
   Result,
 } from '@shared/ipc/contract';
+import { requestIdsOfSubjects } from './hooks';
 import { observedName, parseSex } from '../matching/records';
 import {
   addAliasIfNew,
@@ -24,14 +28,42 @@ import {
   recordFromRow,
 } from './people-ops';
 import { mergePersons } from './people';
-import { displayName, fail, makeCtx, run } from './vetting-common';
+import { displayName, fail, makeCtx, notSupported, run } from './vetting-common';
 import type { Ctx, ServiceDeps } from './vetting-common';
 
 export interface ReviewService {
-  list(req: ReviewListQuery): Promise<Result<Page<ReviewItem>>>;
+  list(req: ReviewListQuery): Promise<Result<Page<ReviewItemSummary>>>;
   get(req: IdRef): Promise<Result<ReviewItemDetail>>;
   resolve(req: ReviewResolveRequest): Promise<Result<ReviewCounts>>;
   counts(): Promise<Result<ReviewCounts>>;
+  /** LANE K SLOT (docs/PLAN-ALPHA.md section 14); NOT_SUPPORTED until lane K lands. */
+  manualValidate(req: ReviewManualValidateRequest): Promise<Result<ReviewCounts>>;
+  /** LANE K SLOT; NOT_SUPPORTED until lane K lands. */
+  editSubject(req: ReviewEditSubjectRequest): Promise<Result<ReviewItemDetail>>;
+}
+
+const TIER_ORDER: readonly MatchTier[] = ['T1', 'T2', 'T3', 'T4'];
+function bestTierOf(item: ReviewItem): MatchTier | null {
+  let best: number | null = null;
+  for (const c of item.candidates) {
+    const i = TIER_ORDER.indexOf(c.tier);
+    if (best === null || i < best) best = i;
+  }
+  return best === null ? null : TIER_ORDER[best]!;
+}
+
+/** List row: the item plus its first subject (lane K refines name order and adds the request/response context). */
+function summaryOf(ctx: Ctx, item: ReviewItem): ReviewItemSummary {
+  const first = item.subjectIds[0];
+  const s = first ? subjectOf(ctx, first) : null;
+  return {
+    ...item,
+    subjectName: s?.displayName ?? '',
+    subjectDob: s?.dob ?? null,
+    unitName: s?.unitName ?? null,
+    context: null,
+    bestTier: bestTierOf(item),
+  };
 }
 
 function subjectOf(ctx: Ctx, id: Ulid): ReviewSubject | null {
@@ -50,6 +82,7 @@ function subjectOf(ctx: Ctx, id: Ulid): ReviewSubject | null {
       unitName: unitId ? (ctx.repos.units.get(unitId)?.name ?? null) : null,
       identifiers: p.identifiers.map((i) => i.value),
       source: 'person',
+      edited: false,
     };
   }
   const it = ctx.repos.requests.getItem(id);
@@ -66,6 +99,7 @@ function subjectOf(ctx: Ctx, id: Ulid): ReviewSubject | null {
       unitName: o.unitName || null,
       identifiers: [o.passport, o.nationalId].map((s) => s.trim()).filter(Boolean),
       source: `request ${o.rowRef}`,
+      edited: false,
     };
   }
   const r = ctx.repos.responses.getRow(id);
@@ -81,6 +115,7 @@ function subjectOf(ctx: Ctx, id: Ulid): ReviewSubject | null {
       unitName: r.unitName || null,
       identifiers: [],
       source: `response ${r.rowRef}`,
+      edited: false,
     };
   return null;
 }
@@ -242,6 +277,10 @@ function resolveOne(ctx: Ctx, req: ReviewResolveRequest): ReviewItem {
       if (!ctx.repos.persons.get(res.subjectId)) return fail('NOT_FOUND', 'Subject not found');
       return close('keep-dob:person');
     }
+
+    case 'set-disposition':
+      // LANE C/K SLOT: disposition-unclear items are created by lane C and resolved here by lane K.
+      return fail('NOT_SUPPORTED', 'Setting a disposition is not available in this version');
   }
 }
 
@@ -259,7 +298,7 @@ export function createReviewService(deps: ServiceDeps): ReviewService {
         return {
           items: r.items.map(({ resolvedAt: _x, ...it }) => {
             void _x;
-            return it;
+            return summaryOf(ctx, it);
           }),
           total: r.total,
           offset: q.offset,
@@ -277,7 +316,9 @@ export function createReviewService(deps: ServiceDeps): ReviewService {
     resolve: (req) =>
       run(() => {
         ctx.tx('review.resolve', () => {
+          const subjects = ctx.repos.reviews.get(req.id)?.subjectIds ?? [];
           const done = resolveOne(ctx, req);
+          for (const requestId of requestIdsOfSubjects(ctx.repos, subjects)) ctx.hooks.onRequestAnswered(requestId);
           ctx.audit('review.resolve', 'review', req.id, {
             reviewItemId: req.id,
             kind: done.kind,
@@ -288,5 +329,7 @@ export function createReviewService(deps: ServiceDeps): ReviewService {
         return ctx.repos.reviews.counts();
       }),
     counts: () => run(() => ctx.repos.reviews.counts()),
+    manualValidate: () => notSupported('Manual validation'),
+    editSubject: () => notSupported('Editing a review subject'),
   };
 }
