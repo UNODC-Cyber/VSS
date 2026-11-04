@@ -293,6 +293,28 @@ describe('real app journey (no mock)', () => {
       call(page, 'review', 'resolve', { id: rowReview.id, resolution: { action: 'link', targetId: tahusItem.id } }),
     );
 
+    // ---- 6b. lane C: structure variants through the real IPC (previews only, discarded so later counts hold)
+    const implicitPv = await v(
+      call(page, 'responses', 'importPreview', {
+        path: await pick(app, page, 'response-xlsx', fx('responses/resp-006-no-first-label.xlsx')),
+        requestId: req.id,
+      }),
+    );
+    expect(implicitPv.canCommit).toBe(true);
+    expect(implicitPv.errorCount).toBe(0);
+    expect(
+      implicitPv.rows.filter((r: { sectionSource: string }) => r.sectionSource === 'implicit').length,
+    ).toBeGreaterThan(0);
+    await v(call(page, 'responses', 'discardPreview', { previewId: implicitPv.previewId }));
+    const wrongPv = await v(
+      call(page, 'responses', 'importPreview', {
+        path: await pick(app, page, 'response-xlsx', fx('responses/resp-011-request-workbook.xlsx')),
+      }),
+    );
+    expect(wrongPv).toMatchObject({ fileKindGuess: 'investc-request', canCommit: false });
+    expect(wrongPv.issues.map((i: { code: string }) => i.code)).toEqual(['LOOKS_LIKE_REQUEST']);
+    await v(call(page, 'responses', 'discardPreview', { previewId: wrongPv.previewId }));
+
     // ---- 7. statuses and expiry as stated by the DC
     const tahus = await v(call(page, 'persons', 'get', { id: tahusItem.personId }));
     expect(tahus.status).toBe('approved');
