@@ -1,0 +1,3 @@
+-- VSS schema slot 006 (lane D, docs/PLAN-ALPHA.md section 6). EMPTY PLACEHOLDER: comments only.
+-- migrations/index.ts registers this file only once it holds SQL (and every lower slot then runs as a no-op
+-- until filled). Planned content: request.finished_at, request.closed_at, request.close_notes_json, request.reopen_count; backfill: closed rows stay closed, responded rows that satisfy isFinished become finished.
