@@ -49,6 +49,7 @@ describe('i18n catalogue parts', () => {
         'crash',
         'danger',
         'emailTemplates',
+        'flow',
         'lifecycle',
         'picker',
         'requestors',

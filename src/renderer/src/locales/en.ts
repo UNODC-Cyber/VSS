@@ -8,6 +8,7 @@ import { authority } from './en/authority';
 import { crash } from './en/crash';
 import { danger } from './en/danger';
 import { emailTemplates } from './en/emailTemplates';
+import { flow } from './en/flow';
 import { lifecycle } from './en/lifecycle';
 import { picker } from './en/picker';
 import { requestors } from './en/requestors';
@@ -79,14 +80,27 @@ const base = {
     confirm: 'Confirm password',
     mismatch: 'The passwords do not match.',
     strength: 'Password strength',
+    strengthLabel: 'Strength: {{level}}',
+    strengthLevel: {
+      none: 'enter a password',
+      tooShort: 'too short',
+      weak: 'weak',
+      fair: 'fair',
+      strong: 'strong',
+    },
     guidanceTitle: 'Choose a strong password',
     guidanceLength: 'Use at least {{min}} characters.',
     guidancePassphrase: 'A passphrase of four or more unrelated words is easy to remember and hard to guess.',
     guidanceReuse: 'Do not reuse a password from another system.',
-    noRecovery: 'There is no password recovery. If you lose the password, the data cannot be opened. Keep backups.',
+    noRecoveryTitle: 'Your password cannot be recovered',
+    noRecovery:
+      'Nobody can reset or recover this password, and VSS keeps no copy of it. If you forget it, the vault cannot be opened. Write it down or keep it in a password manager.',
+    noRecoveryBackup:
+      'After creating the vault, set up backups in Settings. VSS then shows you a backup recovery passphrase once. That passphrase decrypts your backup files only: it lets you restore a backup on this or another computer, and you still need the vault password to open the restored vault. It does not reset or replace your password.',
     create: 'Create vault',
     restoreHeading: 'Moving to this computer?',
-    restoreIntro: 'Restore a VSS backup instead of creating a new vault. You need the backup recovery passphrase.',
+    restoreIntro:
+      'Restore a VSS backup instead of creating a new vault. You need the backup recovery passphrase to decrypt the backup file, and then the vault password that was in use when the backup was made.',
     restorePass: 'Backup recovery passphrase',
     restoreTitle: 'Choose a VSS backup',
     restore: 'Restore from backup',
@@ -114,9 +128,9 @@ const base = {
     size: 'Size',
     passphraseTitle: 'Your backup recovery passphrase',
     passphraseIntro:
-      'VSS generated this passphrase. Every backup is encrypted with it, and you need it to restore a backup on another computer.',
+      'VSS generated this passphrase. Every backup file is encrypted with it. It decrypts backup files only: to restore a backup (on this or another computer) you need this passphrase, and then your vault password to open the restored vault. It does not unlock the vault and cannot reset your password.',
     passphraseWarning:
-      'This is the only time it is shown. Write it down or store it in your password manager now. Without it, backups cannot be restored.',
+      'This is the only time it is shown. Store it in your password manager or write it down now, and keep it apart from the backup folder. Without it, your backups cannot be restored. If you forget your vault password, this passphrase does not reset it: the password cannot be recovered.',
     copyPassphrase: 'Copy passphrase',
     passphraseCopied: 'Passphrase copied',
     passphraseSaved: 'I have saved the recovery passphrase',
@@ -209,7 +223,7 @@ const base = {
     outstandingCaption: 'Requests sent and not yet answered',
     noOutstanding: 'Nothing is waiting for an answer.',
     aging: 'Outstanding requests by age',
-    bucket: '{{bucket}} d: {{count}}',
+    bucket: '{{bucket}} days: {{count}}',
     turnaround: 'Response time (days from sent to answered)',
     viaFile: 'Answered by response file',
     viaEmail: 'Answered by email',
@@ -451,7 +465,7 @@ const base = {
     noRequest: 'No request (record only)',
     suggested: 'suggested',
     summary: 'Response summary',
-    auto: '{{count}} matched automatically',
+    auto: '{{count}} exact matches (linked on import; listed in the next step)',
     review: '{{count}} need your decision',
     unmatched: '{{count}} with no match',
     duplicate: 'A file with identical content was imported before.',
@@ -698,6 +712,7 @@ export const enParts = {
   alpha,
   crash,
   danger,
+  flow,
 } as const;
 
 export const en = {
@@ -712,4 +727,5 @@ export const en = {
   ...alpha,
   ...crash,
   ...danger,
+  ...flow,
 };
