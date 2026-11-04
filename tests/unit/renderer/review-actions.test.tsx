@@ -16,12 +16,17 @@ describe('manual validation', () => {
     ui(<ReviewDetailScreen id={reviewId} />);
     await user.click(await screen.findByRole('button', { name: 'Manually validate...' }));
     const dlg = await screen.findByRole('dialog', { name: 'Manually validate this response row' });
-    expect(within(dlg).getByLabelText('A new person created from this row')).toBeChecked();
+    // UI review O-18: no target is pre-selected; the reviewer chooses every time.
+    expect(within(dlg).getByLabelText('A new person created from this row')).not.toBeChecked();
     expect(await within(dlg).findByText('2026-10-20')).toBeInTheDocument();
     expect(within(dlg).getByText('2027-10-20')).toBeInTheDocument();
     expect(within(dlg).getByText('Approved')).toBeInTheDocument();
     const go = within(dlg).getByRole('button', { name: 'Validate and record' });
     expect(go).toBeDisabled();
+    await user.type(within(dlg).getByLabelText(/Reason/), 'ok by phone');
+    expect(go).toBeDisabled(); // a reason alone is not enough: no target chosen yet
+    await user.clear(within(dlg).getByLabelText(/Reason/));
+    await user.click(within(dlg).getByLabelText('A new person created from this row'));
     await user.type(within(dlg).getByLabelText(/Reason/), 'ok');
     expect(go).toBeDisabled();
     await user.type(within(dlg).getByLabelText(/Reason/), ' by phone');
@@ -42,7 +47,7 @@ describe('edit in place', () => {
     const { reviewId, row } = addUnmatchedRow(ctl, 'UNLISTED, Person');
     const spy = vi.spyOn(window.vss.review, 'editSubject');
     ui(<ReviewDetailScreen id={reviewId} />);
-    const edit = await screen.findByRole('button', { name: 'Edit record...' });
+    const edit = await screen.findByRole('button', { name: 'Correct response row...' });
     await waitFor(() => expect(edit).toBeEnabled());
     await user.click(edit);
     const dlg = await screen.findByRole('dialog', { name: 'Correct the response row' });

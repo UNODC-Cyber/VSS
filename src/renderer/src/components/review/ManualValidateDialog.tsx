@@ -9,6 +9,7 @@ import type { ResponseRow } from '@shared/domain/types';
 import type { PersonSummary, ReviewItemDetail, ReviewManualValidateRequest, ReviewSubject } from '@shared/ipc/contract';
 import { useAction, vss } from '../../lib/api';
 import { KeyValue, Sensitive } from '../common';
+import { conflictLabels } from '../IdentityConfirm';
 import { PersonPicker } from '../PersonPicker';
 
 type Target = ReviewManualValidateRequest['target'];
@@ -38,12 +39,39 @@ export function ManualValidateDialog({
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // No target is pre-selected (UI review O-18): the reviewer picks whom the row is about every time.
   useEffect(() => {
     if (!opened) return;
-    setChoice(cands[0] ? `c:${cands[0].id}` : 'new');
+    setChoice('');
     setOther(null);
     setReason('');
   }, [opened, item.id]);
+  const chosenCand = cands.find((x) => `c:${x.id}` === choice);
+  const conflicts =
+    source && chosenCand
+      ? conflictLabels([
+          { key: 'name', label: t('import.name'), kind: 'name', values: [source.displayName, chosenCand.displayName] },
+          {
+            key: 'dob',
+            label: t('import.dob'),
+            kind: 'dob',
+            values: [source.dob ?? source.dobRaw, chosenCand.dob ?? chosenCand.dobRaw],
+          },
+          { key: 'sex', label: t('person.sex'), kind: 'text', values: [source.sex ?? '', chosenCand.sex ?? ''] },
+          {
+            key: 'pob',
+            label: t('person.pob'),
+            kind: 'text',
+            values: [source.pobCountry ?? '', chosenCand.pobCountry ?? ''],
+          },
+          {
+            key: 'unit',
+            label: t('import.unit'),
+            kind: 'text',
+            values: [source.unitName ?? '', chosenCand.unitName ?? ''],
+          },
+        ])
+      : [];
 
   const target = (): Target | null => {
     if (choice === 'new') return { kind: 'new-person' };
@@ -92,6 +120,11 @@ export function ManualValidateDialog({
               <Radio value="new" label={t('reviewAct.targetNew')} />
             </Stack>
           </Radio.Group>
+          {conflicts.length > 0 && (
+            <Alert color="orange" title={t('identity.conflictTitle')} data-testid="validate-conflicts">
+              {t('identity.conflictBody', { fields: conflicts.join(', ') })}
+            </Alert>
+          )}
           {unknownDisp && <Alert color="orange">{t('reviewAct.setDispFirst')}</Alert>}
           {row && (
             <KeyValue

@@ -1,10 +1,11 @@
-import { Alert, Badge, Button, Group, Stack } from '@mantine/core';
+import { Alert, Button, Group, List, Modal, Stack, Text } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ResponseRow } from '@shared/domain/types';
+import type { MatchEvidence, ResponseRow, ReviewKind } from '@shared/domain/types';
 import type { ReviewItemDetail, ReviewResolution } from '@shared/ipc/contract';
 import { DiffGrid } from '../../components/Diff';
 import type { DiffField } from '../../components/Diff';
+import { conflictLabels, IdentityConfirmDialog } from '../../components/IdentityConfirm';
 import { PageHeader, QueryBoundary, ReasonDialog, TierBadge } from '../../components/common';
 import { PersonPicker } from '../../components/PersonPicker';
 import { EditPersonDialog } from '../../components/review/EditPersonDialog';
@@ -19,6 +20,41 @@ const LINK_KINDS = new Set(['request-item-link', 'response-row-match', 'unmatche
 /** Kinds whose response-row subject may be manually validated. */
 const VALIDATE_KINDS = new Set(['response-row-match', 'unmatched-response-row', 'request-item-link']);
 
+/** Matcher evidence that contradicts an identity, by the field it is about (label key). */
+const CONFLICT_FIELD: Partial<Record<MatchEvidence, string>> = {
+  DOB_CONFLICT: 'import.dob',
+  SEX_CONFLICT: 'person.sex',
+  ID_CONFLICT: 'items.ids',
+  FATHER_CONFLICT: 'identity.fatherName',
+  POB_CONFLICT: 'person.pob',
+  POB_PLACE_CONFLICT: 'person.pob',
+  UNIT_CONFLICT: 'import.unit',
+  NAME_SCRIPT_CONFLICT: 'import.name',
+};
+function evidenceConflictLabels(t: (k: string) => string, evidence: readonly MatchEvidence[]): string[] {
+  return evidence.flatMap((e) => (CONFLICT_FIELD[e] ? [t(CONFLICT_FIELD[e])] : []));
+}
+
+/** "response Final_Results!13" -> "Response file, sheet Final_Results, row 13" (UI review O-38); others unchanged. */
+export function sourceLabel(t: (k: string, o?: Record<string, string>) => string, source: string): string {
+  const m = /^(response|request) (.+)$/.exec(source);
+  if (!m) return source;
+  const kind = m[1] as 'response' | 'request';
+  const ref = /^(.+)!(\d+)$/.exec(m[2]!);
+  return ref
+    ? t(`reviewFlow.source.${kind}`, { sheet: ref[1]!, row: ref[2]! })
+    : t(`reviewFlow.source.${kind}Ref`, { ref: m[2]! });
+}
+
+type Comparing = { kind: 'link'; index: number } | { kind: 'merge'; keepSource: boolean };
+
+/** Which dismiss explanation applies: dismissing a row or an unanswered person can hide a vetting gap. */
+function dismissKind(kind: ReviewKind): 'row' | 'unanswered' | 'other' {
+  if (kind === 'response-row-match' || kind === 'unmatched-response-row' || kind === 'disposition-unclear')
+    return 'row';
+  return kind === 'unanswered-request-item' ? 'unanswered' : 'other';
+}
+
 function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged: () => void }) {
   const { t } = useTranslation();
   const act = useAction();
@@ -28,6 +64,8 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
   const [editingPerson, setEditingPerson] = useState<string | null>(null);
   const [reverting, setReverting] = useState(false);
   const [row, setRow] = useState<ResponseRow | null>(null);
+  const [comparing, setComparing] = useState<Comparing | null>(null);
+  const [dismissing, setDismissing] = useState(false);
   const { item, subjects } = detail;
   const [source, ...cands] = subjects;
   const open = item.state === 'open';
@@ -119,11 +157,24 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
     },
   ];
   const headers = withOrig(
-    subjects.map((s) => (s.edited ? `${s.source} (${t('reviewAct.edited')})` : s.source)),
+    subjects.map((s) =>
+      s.edited ? `${sourceLabel(t, s.source)} (${t('reviewAct.edited')})` : sourceLabel(t, s.source),
+    ),
     t('reviewAct.dcOriginal'),
   );
 
   const isLink = LINK_KINDS.has(item.kind);
+  const isIdentity = isLink || item.kind === 'duplicate-persons';
+  /** Conflict evidence: fields that state different values, plus the matcher's own conflict codes. */
+  const conflicts = [
+    ...new Set([...conflictLabels(fields), ...item.candidates.flatMap((c) => evidenceConflictLabels(t, c.evidence))]),
+  ];
+  /** Two-column comparison of the source with subject `k` (1-based), for the explicit compare step. */
+  const pairFields = (k: number): DiffField[] =>
+    fields.map((f) => ({ ...f, values: [f.values[0] ?? '', f.values[k] ?? ''] }));
+  const pairHeaders = (k: number): string[] => [headers[0] ?? '', headers[k] ?? ''];
+  const evidenceConflicts = (k: number): string[] =>
+    evidenceConflictLabels(t, item.candidates.find((x) => x.targetId === subjects[k]?.id)?.evidence ?? []);
   const canValidate = open && rowSubject !== null && VALIDATE_KINDS.has(item.kind);
   const rowLinked = row !== null && (row.match.decision === 'confirmed' || row.match.decision === 'auto');
   const persons = subjects.filter((s) => s.kind === 'person');
@@ -152,22 +203,32 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
           </Button>
         }
       />
+      <Text size="sm">{t(`reviewFlow.intro.${item.kind}`)}</Text>
       {item.candidates.length > 0 && (
-        <Group gap="xs">
+        <Stack gap={4}>
           {item.candidates.map((c) => (
-            <Badge key={c.targetId} variant="outline" leftSection={<TierBadge tier={c.tier} />}>
-              {c.evidence.join(', ')}
-            </Badge>
+            <Group key={c.targetId} gap="xs" wrap="nowrap" align="flex-start" data-testid="match-evidence">
+              <TierBadge tier={c.tier} />
+              <Text size="sm" title={c.evidence.join(', ')}>
+                {c.evidence.map((e) => t(`evidence.${e}`, { defaultValue: e })).join('; ')}
+              </Text>
+            </Group>
           ))}
-        </Group>
+          <Text size="xs">{t('identity.tierLegend')}</Text>
+        </Stack>
       )}
-      <DiffGrid caption={t('review.diffCaption')} headers={headers} fields={fields} />
+      {open && isIdentity && conflicts.length > 0 && (
+        <Alert color="orange" title={t('identity.conflictTitle')} data-testid="review-conflicts">
+          {t('identity.conflictBody', { fields: conflicts.join(', ') })}
+        </Alert>
+      )}
+      <DiffGrid caption={t(`reviewFlow.caption.${item.kind}`)} headers={headers} fields={fields} />
       {open && (
         <Group role="group" aria-label={t('review.actions')}>
           {isLink &&
-            cands.map((c) => (
-              <Button key={c.id} onClick={() => void resolve({ action: 'link', targetId: c.id }, t('review.linked'))}>
-                {t('review.confirmCandidate', { name: c.displayName })}
+            cands.map((c, k) => (
+              <Button key={c.id} variant="default" onClick={() => setComparing({ kind: 'link', index: k + 1 })}>
+                {t('identity.compareWith', { name: c.displayName })}
               </Button>
             ))}
           {isLink && (
@@ -187,18 +248,10 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
           )}
           {item.kind === 'duplicate-persons' && subjects.length >= 2 && source && cands[0] && (
             <>
-              <Button
-                onClick={() =>
-                  void resolve({ action: 'merge', survivorId: source.id, mergedId: cands[0]!.id }, t('review.merged'))
-                }
-              >
+              <Button variant="default" onClick={() => setComparing({ kind: 'merge', keepSource: true })}>
                 {t('review.mergeKeep', { name: source.displayName })}
               </Button>
-              <Button
-                onClick={() =>
-                  void resolve({ action: 'merge', survivorId: cands[0]!.id, mergedId: source.id }, t('review.merged'))
-                }
-              >
+              <Button variant="default" onClick={() => setComparing({ kind: 'merge', keepSource: false })}>
                 {t('review.mergeKeep', { name: cands[0].displayName })}
               </Button>
             </>
@@ -234,25 +287,25 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
             </>
           )}
           {(isLink || item.kind === 'duplicate-persons') && (
-            <Button
-              color="orange"
-              variant="light"
-              onClick={() => void resolve({ action: 'not-same' }, t('review.notSame'))}
-            >
+            <Button variant="default" onClick={() => void resolve({ action: 'not-same' }, t('review.notSame'))}>
               {t('review.notSamePerson')}
             </Button>
           )}
           <Button variant="subtle" onClick={() => navigate('/review')}>
             {t('review.skip')}
           </Button>
-          <Button
-            variant="subtle"
-            color="gray"
-            onClick={() => void resolve({ action: 'dismiss' }, t('review.dismissed'))}
-          >
+          <Button variant="subtle" color="gray" onClick={() => setDismissing(true)}>
             {t('review.dismiss')}
           </Button>
         </Group>
+      )}
+      {open && (
+        <List size="xs" spacing={2} data-testid="review-action-help">
+          {isIdentity && <List.Item>{t('reviewFlow.help.compare')}</List.Item>}
+          {isIdentity && <List.Item>{t('reviewFlow.help.notSame')}</List.Item>}
+          <List.Item>{t('reviewFlow.help.skip')}</List.Item>
+          <List.Item>{t('reviewFlow.help.dismiss')}</List.Item>
+        </List>
       )}
       {(rowSubject || persons.length > 0) && (
         <Group gap="xs">
@@ -292,6 +345,62 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
           void resolve({ action: 'link', targetId: p.id }, t('review.linked'));
         }}
       />
+      {comparing && (
+        <IdentityConfirmDialog
+          opened
+          title={
+            comparing.kind === 'link'
+              ? t('identity.compareTitle', { name: subjects[comparing.index]?.displayName ?? '' })
+              : t('identity.mergeTitle')
+          }
+          caption={t('identity.compareCaption')}
+          headers={pairHeaders(comparing.kind === 'link' ? comparing.index : 1)}
+          fields={pairFields(comparing.kind === 'link' ? comparing.index : 1)}
+          extraConflicts={evidenceConflicts(comparing.kind === 'link' ? comparing.index : 1)}
+          confirmLabel={
+            comparing.kind === 'link'
+              ? t('review.confirmCandidate', { name: subjects[comparing.index]?.displayName ?? '' })
+              : t('review.mergeKeep', {
+                  name: (comparing.keepSource ? source : cands[0])?.displayName ?? '',
+                })
+          }
+          onBack={() => setComparing(null)}
+          onConfirm={() => {
+            const c = comparing;
+            setComparing(null);
+            if (c.kind === 'link') {
+              const target = subjects[c.index];
+              if (target) void resolve({ action: 'link', targetId: target.id }, t('review.linked'));
+            } else if (source && cands[0]) {
+              const [survivorId, mergedId] = c.keepSource ? [source.id, cands[0].id] : [cands[0].id, source.id];
+              void resolve({ action: 'merge', survivorId, mergedId }, t('review.merged'));
+            }
+          }}
+        />
+      )}
+      <Modal
+        opened={dismissing}
+        onClose={() => setDismissing(false)}
+        title={t('reviewFlow.dismissTitle')}
+        trapFocus
+        returnFocus
+      >
+        <Text size="sm">{t(`reviewFlow.dismissBody.${dismissKind(item.kind)}`)}</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" data-autofocus onClick={() => setDismissing(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            color="gray"
+            onClick={() => {
+              setDismissing(false);
+              void resolve({ action: 'dismiss' }, t('review.dismissed'));
+            }}
+          >
+            {t('reviewFlow.dismissConfirm')}
+          </Button>
+        </Group>
+      </Modal>
       <ManualValidateDialog
         opened={validating}
         onClose={() => setValidating(false)}
