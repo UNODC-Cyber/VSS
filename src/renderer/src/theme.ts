@@ -8,7 +8,7 @@ import { i18n } from './i18n';
 export const theme = createTheme({
   fontFamily: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
   headings: { fontFamily: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" },
-  primaryShade: { light: 8, dark: 5 },
+  primaryShade: { light: 8, dark: 8 },
   autoContrast: true,
   components: {
     Badge: Badge.extend({ defaultProps: { variant: 'light' } }),

@@ -219,14 +219,14 @@ export function PersonPicker({
                     </Text>
                   </div>
                   {s.tier && <TierBadge tier={s.tier} />}
-                  <Badge variant="light" color="blue.9" size="sm">
+                  <Badge variant="light" color="blue" size="sm">
                     {t(`picker.why.${s.why}`)}
                   </Badge>
                   <Button
                     component="span"
                     size="compact-sm"
                     variant="light"
-                    color="blue.9"
+                    color="blue"
                     aria-hidden="true"
                     tabIndex={-1}
                   >

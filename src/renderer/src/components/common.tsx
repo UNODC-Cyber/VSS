@@ -11,8 +11,12 @@ import { useUi } from '../store';
 export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
     <Group justify="space-between" mb="md" wrap="wrap">
-      <Title order={2}>{title}</Title>
-      <Group gap="xs">{actions}</Group>
+      <Title order={1} size="h2">
+        {title}
+      </Title>
+      <Group gap="xs" justify="flex-end">
+        {actions}
+      </Group>
     </Group>
   );
 }

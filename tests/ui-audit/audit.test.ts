@@ -19,12 +19,18 @@ import { describe, it } from 'vitest';
 // AxeBuilder needs browserContext.newPage(), which Electron does not support: inject axe-core and run it in-page.
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 type AxeViolation = { id: string; impact?: string | null; nodes: unknown[] };
-async function runAxe(page: Page): Promise<AxeViolation[]> {
+async function runAxe(page: Page): Promise<{ violations: AxeViolation[]; incompleteContrast: number }> {
   const has = await page.evaluate(() => 'axe' in window);
   if (!has) await page.evaluate(AXE_SOURCE);
   return page.evaluate(async () => {
-    const a = (window as unknown as { axe: { run(): Promise<{ violations: AxeViolation[] }> } }).axe;
-    return (await a.run()).violations;
+    const a = (
+      window as unknown as {
+        axe: { run(): Promise<{ violations: AxeViolation[]; incomplete: AxeViolation[] }> };
+      }
+    ).axe;
+    const r = await a.run();
+    const inc = r.incomplete.find((v) => v.id === 'color-contrast');
+    return { violations: r.violations, incompleteContrast: inc ? inc.nodes.length : 0 };
   });
 }
 
@@ -55,6 +61,13 @@ interface Entry {
   axeViolations: { id: string; impact: string | null; nodes: number }[];
   pageScroll: number | null;
   spill: string[];
+  /** Tables whose scroll box is wider than the view (`clipped`), with the columns the table dropped on its own. */
+  tables: { id: string; scrollWidth: number; clientWidth: number; clipped: boolean; dropped: string[] }[];
+  /** Header cells whose text is cut. */
+  cutHeaders: string[];
+  /** axe colour-contrast nodes it could not decide (text on images, gradients): review by eye. */
+  incompleteContrast: number;
+  pages: number;
   status: 'ok' | 'failed';
   error?: string;
 }
@@ -173,7 +186,11 @@ class Run {
   }
 
   /** Run `fn` (navigate / open a dialog), then capture. A throw is logged; the screen is still captured. */
-  async screen(name: string, fn?: () => Promise<void>, opts: { scrolled?: boolean } = {}): Promise<void> {
+  async screen(
+    name: string,
+    fn?: () => Promise<void>,
+    opts: { scrolled?: boolean; axe?: boolean } = {},
+  ): Promise<void> {
     const file = `${this.theme}__${name}`;
     const e: Entry = {
       viewport: this.vp.id,
@@ -185,6 +202,10 @@ class Run {
       axeViolations: [],
       pageScroll: null,
       spill: [],
+      tables: [],
+      cutHeaders: [],
+      incompleteContrast: 0,
+      pages: 1,
       status: 'ok',
     };
     try {
@@ -208,31 +229,88 @@ class Run {
           if (getComputedStyle(el).overflow === 'visible' && el.scrollWidth > el.clientWidth + 1)
             spill.push((el.textContent ?? '').slice(0, 30));
         }
-        return { pageScroll: root.scrollWidth - root.clientWidth, spill: spill.slice(0, 10) };
+        const tables = [...document.querySelectorAll('.vss-table-wrap')].map((w) => {
+          const sc = w.querySelector('.vss-table-scroll') as HTMLElement | null;
+          const sw = sc?.scrollWidth ?? 0;
+          const cw = sc?.clientWidth ?? 0;
+          return {
+            id: w.getAttribute('data-table-id') ?? w.getAttribute('aria-label') ?? '(table)',
+            scrollWidth: sw,
+            clientWidth: cw,
+            clipped: sw > cw + 1,
+            dropped: (w.getAttribute('data-dropped') ?? '').split(',').filter(Boolean),
+          };
+        });
+        const cutHeaders = [...document.querySelectorAll('.vss-table thead th')]
+          .filter((th) => th.scrollWidth > th.clientWidth + 1 || th.scrollHeight > th.clientHeight + 1)
+          .map((th) => (th.textContent ?? '').slice(0, 30));
+        return {
+          pageScroll: root.scrollWidth - root.clientWidth,
+          spill: spill.slice(0, 10),
+          tables,
+          cutHeaders: cutHeaders.slice(0, 10),
+        };
       });
       e.pageScroll = m.pageScroll;
       e.spill = m.spill;
-      const violations = await runAxe(this.page);
-      writeFileSync(join(this.dir, `${file}.axe.json`), JSON.stringify(violations, null, 2));
-      e.axe = `${file}.axe.json`;
-      e.axeViolations = violations.map((v) => ({ id: v.id, impact: v.impact ?? null, nodes: v.nodes.length }));
+      e.tables = m.tables;
+      e.cutHeaders = m.cutHeaders;
+      if (opts.axe !== false) {
+        const { violations, incompleteContrast } = await runAxe(this.page);
+        writeFileSync(join(this.dir, `${file}.axe.json`), JSON.stringify(violations, null, 2));
+        e.axe = `${file}.axe.json`;
+        e.axeViolations = violations.map((v) => ({ id: v.id, impact: v.impact ?? null, nodes: v.nodes.length }));
+        e.incompleteContrast = incompleteContrast;
+      }
       if (opts.scrolled !== false) {
-        const moved = await this.page.evaluate(() => {
-          let did = false;
-          for (const el of document.querySelectorAll('*')) {
-            const s = getComputedStyle(el);
-            if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 40 && el.clientHeight > 200) {
-              el.scrollTop = el.scrollHeight;
-              did = true;
+        // Below-the-fold pages: scroll the page and every tall scroll box (not table boxes) by 80 % of a view.
+        const plan = await this.page.evaluate(() => {
+          const scrollers = () => {
+            const out: HTMLElement[] = [document.scrollingElement as HTMLElement];
+            for (const el of document.querySelectorAll('*')) {
+              if (el.classList.contains('vss-table-scroll')) continue;
+              const st = getComputedStyle(el);
+              if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 40 && el.clientHeight > 200)
+                out.push(el as HTMLElement);
+            }
+            return out;
+          };
+          const need = Math.max(
+            ...scrollers().map((el) => Math.ceil((el.scrollHeight - el.clientHeight) / (el.clientHeight * 0.8))),
+          );
+          (window as unknown as { __vssScrollers: () => HTMLElement[] }).__vssScrollers = scrollers;
+          return Math.min(need, 7);
+        });
+        for (let k = 1; k <= plan; k++) {
+          await this.page.evaluate((step) => {
+            for (const el of (window as unknown as { __vssScrollers: () => HTMLElement[] }).__vssScrollers())
+              el.scrollTop = Math.min(step * el.clientHeight * 0.8, el.scrollHeight - el.clientHeight);
+          }, k);
+          await this.page.waitForTimeout(180);
+          await this.page.screenshot({ path: join(this.dir, `${file}--p${k + 1}.png`) });
+          e.pages = k + 1;
+        }
+        await this.page.evaluate(() => {
+          for (const el of (window as unknown as { __vssScrollers?: () => HTMLElement[] }).__vssScrollers?.() ?? [])
+            el.scrollTop = 0;
+        });
+        // Tables that still scroll sideways: show their right-hand end.
+        const wide = await this.page.evaluate(() => {
+          const boxes = [...document.querySelectorAll('.vss-table-scroll')] as HTMLElement[];
+          let n = 0;
+          for (const b of boxes) {
+            if (b.scrollWidth > b.clientWidth + 1) {
+              b.scrollLeft = b.scrollWidth;
+              n++;
             }
           }
-          return did;
+          return n;
         });
-        if (moved) {
-          await this.page.waitForTimeout(200);
-          await this.page.screenshot({ path: join(this.dir, `${file}--scrolled.png`) });
+        if (wide) {
+          await this.page.waitForTimeout(150);
+          await this.page.screenshot({ path: join(this.dir, `${file}--tableright.png`) });
           await this.page.evaluate(() => {
-            for (const el of document.querySelectorAll('*')) (el as HTMLElement).scrollTop = 0;
+            for (const b of document.querySelectorAll('.vss-table-scroll')) (b as HTMLElement).scrollLeft = 0;
           });
         }
       }
@@ -249,6 +327,17 @@ class Run {
     await this.page.waitForTimeout(100);
   }
 
+  /** Leave a wizard the way a user does: Cancel, then confirm the discard dialog (a no-op when no wizard is open). */
+  async resetWizard(): Promise<void> {
+    const cancel = this.page.getByRole('button', { name: /^cancel$/i }).first();
+    if (!(await cancel.isVisible().catch(() => false))) return;
+    await cancel.click({ timeout: 3000 }).catch(() => undefined);
+    await this.page.waitForTimeout(400);
+    const discard = this.page.getByRole('button', { name: /discard/i }).first();
+    if (await discard.isVisible().catch(() => false)) await discard.click({ timeout: 3000 }).catch(() => undefined);
+    await this.page.waitForTimeout(500);
+  }
+
   async click(name: RegExp): Promise<void> {
     await this.page.getByRole('button', { name }).first().click({ timeout: 6000 });
     await this.page.waitForTimeout(350);
@@ -263,6 +352,61 @@ async function unlockViaUi(run: Run, password: string): Promise<void> {
   await run.page.getByRole('button', { name: /^unlock$/i }).click();
   await run.page.waitForSelector('html[data-vault-state="unlocked"]', { state: 'attached', timeout: 30_000 });
   await run.page.waitForTimeout(600);
+}
+
+/**
+ * The link-item dialog needs an item in `pending-review`. The demo data has none, so the harness (synthetic data
+ * only) creates a manual request whose person is a near copy of an existing one (same name, day and month of birth
+ * swapped) and keeps the first request that ends up with a pending-review or unlinked item.
+ */
+async function ensurePendingItemRequest(page: Page, requests: { id: string }[]): Promise<string | null> {
+  const pendingOf = async (id: string): Promise<boolean> => {
+    const r = await api(page, 'requests', 'get', { id });
+    const items = (r.value?.items ?? []) as { linkState: string }[];
+    return items.some((i) => i.linkState === 'pending-review' || i.linkState === 'unlinked');
+  };
+  for (const r of requests) if (await pendingOf(r.id)) return r.id;
+  const persons = (await val(api(page, 'persons', 'list', { offset: 0, limit: 1 }))).items as {
+    id: string;
+    displayName: string;
+    dob: string | null;
+  }[];
+  const p = persons[0];
+  if (!p) return null;
+  const detail = await val(api(page, 'persons', 'get', { id: p.id })).catch(() => null);
+  const [surname, given] = p.displayName.split(',').map((x: string) => x.trim());
+  const dob = (p.dob ?? '1980-02-03').split('-');
+  const swapped = dob.length === 3 ? `${dob[0]}-${dob[2]}-${dob[1]}` : '1980-03-02';
+  const person = (d: string) => ({
+    surname: surname ?? 'Example',
+    givenNames: [given ?? 'Person'],
+    dob: d,
+    dobPrecision: 'exact',
+    sex: 'M',
+    unitName: detail?.currentUnitName ?? 'Example Cyber Unit',
+    unitType: 'Police',
+    unitCountry: 'MALAYSIA',
+    pobCountry: 'MALAYSIA',
+    pobCity: 'Examplton',
+    nationality: 'MALAYSIA',
+    isHeadOfUnit: false,
+  });
+  for (const d of [swapped, p.dob ?? '1980-02-03', '1980-01-01']) {
+    const created = await val(
+      api(page, 'requests', 'createManual', {
+        requestor: { name: 'Example Requestor', email: 'requestor@example.invalid', organisation: 'Example Org' },
+        eventName: 'Example Link Item Request',
+        eventStart: null,
+        eventEnd: null,
+        eventLocation: null,
+        sentToDcAt: null,
+        notes: '',
+        items: [person(d)],
+      }),
+    ).catch(() => null);
+    if (created && (await pendingOf(created.id))) return created.id as string;
+  }
+  return null;
 }
 
 async function seededScreens(app: ElectronApplication, run: Run): Promise<void> {
@@ -289,6 +433,20 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
   await run.screen('review', () => run.go('#/review'));
   await run.screen('search', () => run.go('#/search?q=Example'));
   await run.screen('settings', () => run.go('#/settings'));
+  const cardCount = await page.evaluate(() => document.querySelectorAll('main .mantine-Card-root').length);
+  for (let c = 0; c < cardCount; c++) {
+    await run.screen(
+      `settings-card-${String(c + 1).padStart(2, '0')}`,
+      async () => {
+        await run.go('#/settings');
+        await page.evaluate((idx) => {
+          const card = document.querySelectorAll('main .mantine-Card-root')[idx] as HTMLElement | undefined;
+          card?.scrollIntoView({ block: 'start' });
+        }, c);
+      },
+      { scrolled: false, axe: false },
+    );
+  }
   await run.screen('audit', () => run.go('#/audit'));
   await run.screen('request-manual', () => run.go('#/requests/new'));
 
@@ -310,6 +468,14 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
       await run.go(`#/review/${rv.id}`);
       await run.click(/choose|pick|other person|someone/i);
     });
+    await run.screen('dialog-review-compare', async () => {
+      await run.go(`#/review/${rv.id}`);
+      await page
+        .getByRole('button', { name: /same person|compare and decide/i })
+        .first()
+        .click({ timeout: 6000 });
+      await page.getByRole('dialog').first().waitFor({ timeout: 6000 });
+    });
     await run.screen('dialog-review-validate', async () => {
       await run.go(`#/review/${rv.id}`);
       await run.click(/validate/i);
@@ -329,9 +495,14 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
     await dlg('compose-email', /e-?mail (the )?requestor/i);
     await dlg('edit-request', /^edit/i);
     await dlg('delete-request', /^delete/i);
+    const pendingId = await ensurePendingItemRequest(page, requests);
     await run.screen('dialog-link-item', async () => {
-      await run.go(`#/requests/${target.id}`);
-      await run.click(/resolve|link/i);
+      if (!pendingId) throw new Error('no request with a pending-review item could be made');
+      await run.go(`#/requests/${pendingId}`);
+      await page
+        .getByRole('button', { name: /^resolve/i })
+        .first()
+        .click({ timeout: 6000 });
       await page.getByRole('dialog').first().waitFor({ timeout: 6000 });
     });
   }
@@ -377,6 +548,19 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
     await run.click(/choose file/i);
     await page.waitForTimeout(800);
   });
+  // The wizard no longer preselects a weak match: choose the first candidate request, and tick the "no row matches"
+  // confirmation when it is asked for, as a user must.
+  await run.screen('wizard-response-2-request-chosen', async () => {
+    const select = page.getByLabel(/matching request/i).first();
+    await select.click({ timeout: 6000 });
+    const options = page.getByRole('option');
+    const n = await options.count();
+    await options.nth(n > 1 ? 1 : 0).click({ timeout: 6000 });
+    await page.waitForTimeout(900);
+    const ack = page.getByTestId('match-zero').getByRole('checkbox').first();
+    if (await ack.isVisible().catch(() => false)) await ack.check();
+    await page.waitForTimeout(300);
+  });
   for (let i = 3; i <= 5; i++) {
     const next = page.getByRole('button', { name: /^next$/i });
     if (!(await next.isVisible().catch(() => false)) || !(await next.isEnabled().catch(() => false))) break;
@@ -387,10 +571,13 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
   }
   await stubDialog(app, fx('responses/resp-011-request-workbook.xlsx'));
   await run.screen('error-wrong-response-file', async () => {
-    await run.go('#/'); // the wizard keeps its state when the hash does not change route
+    await run.resetWizard();
     await run.go('#/responses/import');
-    await run.click(/choose file|choose another/i);
-    await page.waitForTimeout(800);
+    await page
+      .getByRole('button', { name: /choose file|choose another/i })
+      .first()
+      .click({ timeout: 8000 });
+    await page.waitForTimeout(1000);
   });
   await stubDialog(app, null);
 

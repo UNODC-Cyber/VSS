@@ -78,7 +78,7 @@ export function AuditScreen() {
               rowId={(e) => String(e.seq)}
               tableId="audit"
               columns={[
-                col<AuditEvent>('seq', '#', (e) => e.seq, { width: 72, nowrap: true }),
+                col<AuditEvent>('seq', '#', (e) => e.seq, { width: 72, nowrap: true, drop: 3 }),
                 col<AuditEvent>('at', t('audit.time'), (e) => fmtDateTime(e.at), { width: 170, nowrap: true }),
                 col<AuditEvent>('type', t('audit.type'), (e) => e.type, {
                   minWidth: 200,
@@ -89,7 +89,7 @@ export function AuditScreen() {
                   'subj',
                   t('audit.subject'),
                   (e) => `${e.subjectType}${e.subjectId ? ` ${e.subjectId.slice(-6)}` : ''}`,
-                  { width: 170, truncate: true },
+                  { width: 170, truncate: true, drop: 2 },
                 ),
                 col<AuditEvent>(
                   'det',
@@ -111,6 +111,7 @@ export function AuditScreen() {
                 col<AuditEvent>('hash', t('audit.hash'), (e) => <code>{e.hash.slice(0, 10)}</code>, {
                   width: 130,
                   nowrap: true,
+                  drop: 1,
                 }),
               ]}
             />

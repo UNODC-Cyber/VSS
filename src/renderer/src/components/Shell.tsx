@@ -261,6 +261,7 @@ export function Shell() {
                 <Badge
                   size="sm"
                   color="red"
+                  variant="filled"
                   circle
                   aria-label={t('nav.reviewOpen', { count: reviewOpen })}
                   data-testid="review-badge"

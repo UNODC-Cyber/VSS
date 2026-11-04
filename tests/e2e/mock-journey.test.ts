@@ -228,6 +228,7 @@ describe('mock journey', () => {
       .getByRole('status')
       .filter({ hasText: /possible person/ })
       .waitFor();
+    await page.waitForTimeout(500); // let the dialog's fade-in finish: axe samples blended colours mid-transition
     await expectNoAxeViolations();
     await input.fill('indigo, HAZEL');
     await dlg.getByRole('option', { name: /Hazel, Indigo/ }).waitFor();
@@ -308,7 +309,7 @@ describe('mock journey', () => {
     await warning.waitFor();
     await expectNoAxeViolations();
     await warning.getByRole('link', { name: 'Settings' }).click();
-    await page.getByRole('heading', { name: 'Settings', level: 2 }).waitFor();
+    await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor();
     await page.waitForFunction(() => document.activeElement?.textContent === 'Backup and restore');
     expect(await page.evaluate(() => window.location.hash)).toBe('#/settings');
   });
@@ -333,7 +334,7 @@ describe('mock journey', () => {
       ['Audit', 'Audit log'],
     ] as const) {
       await nav(name).click();
-      await page.getByRole('heading', { name: heading, level: 2 }).waitFor();
+      await page.getByRole('heading', { name: heading, level: 1 }).waitFor();
       await page.waitForTimeout(250);
       await expectNoAxeViolations();
     }

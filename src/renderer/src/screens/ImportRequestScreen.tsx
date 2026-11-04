@@ -290,51 +290,6 @@ export function ImportRequestScreen() {
                   truncate: true,
                   tooltip: (i) => i.displayName,
                 }),
-                col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef, { width: 72, nowrap: true }),
-                col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName, {
-                  maxWidth: 200,
-                  truncate: true,
-                  tooltip: (i) => i.unitName,
-                }),
-                // The parsed date (ISO), as it will be saved; an Excel serial is never shown raw (UI review O-05).
-                col<ImportPreviewItem>(
-                  'dob',
-                  t('import.dob'),
-                  (i) =>
-                    i.dob ? (
-                      <Sensitive value={i.dob} />
-                    ) : i.dobRaw.trim() ? (
-                      <Stack gap={0}>
-                        <Sensitive value={i.dobRaw} />
-                        <Text size="xs" data-testid="dob-unreadable">
-                          {t('importFlow.dobUnreadable')}
-                        </Text>
-                      </Stack>
-                    ) : (
-                      '-'
-                    ),
-                  { width: 120, nowrap: true },
-                ),
-                col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
-                  minWidth: 150,
-                  nowrap: true,
-                }),
-                col<ImportPreviewItem>(
-                  'prior',
-                  t('import.prior'),
-                  (i) => (i.prior ? <StatusBadge status={i.prior.status} /> : '-'),
-                  { minWidth: 150, nowrap: true },
-                ),
-                col<ImportPreviewItem>(
-                  'issues',
-                  t('import.issues'),
-                  (i) => (i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-'),
-                  {
-                    minWidth: 160,
-                    truncate: true,
-                    tooltip: (i) => i.issues.map((x) => x.code).join(', '),
-                  },
-                ),
                 col<ImportPreviewItem>(
                   'export',
                   t('import.export'),
@@ -375,6 +330,54 @@ export function ImportRequestScreen() {
                     );
                   },
                   { minWidth: 240 },
+                ),
+                col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef, { width: 80, nowrap: true, drop: 1 }),
+                col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName, {
+                  minWidth: 140,
+                  grow: true,
+                  drop: 3,
+                  truncate: true,
+                  tooltip: (i) => i.unitName,
+                }),
+                // The parsed date (ISO), as it will be saved; an Excel serial is never shown raw (UI review O-05).
+                col<ImportPreviewItem>(
+                  'dob',
+                  t('import.dob'),
+                  (i) =>
+                    i.dob ? (
+                      <Sensitive value={i.dob} />
+                    ) : i.dobRaw.trim() ? (
+                      <Stack gap={0}>
+                        <Sensitive value={i.dobRaw} />
+                        <Text size="xs" data-testid="dob-unreadable">
+                          {t('importFlow.dobUnreadable')}
+                        </Text>
+                      </Stack>
+                    ) : (
+                      '-'
+                    ),
+                  { width: 120, nowrap: true },
+                ),
+                col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
+                  minWidth: 140,
+                  nowrap: true,
+                }),
+                col<ImportPreviewItem>(
+                  'prior',
+                  t('import.prior'),
+                  (i) => (i.prior ? <StatusBadge status={i.prior.status} /> : '-'),
+                  { minWidth: 140, nowrap: true, drop: 2 },
+                ),
+                col<ImportPreviewItem>(
+                  'issues',
+                  t('import.issues'),
+                  (i) => (i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-'),
+                  {
+                    minWidth: 160,
+                    drop: 4,
+                    truncate: true,
+                    tooltip: (i) => i.issues.map((x) => x.code).join(', '),
+                  },
                 ),
               ]}
             />
