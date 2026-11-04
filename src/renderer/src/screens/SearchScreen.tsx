@@ -6,7 +6,7 @@ import { col, DataTable } from '../components/DataTable';
 import { PageHeader, QueryBoundary } from '../components/common';
 import { useQuery, vss } from '../lib/api';
 import { fmtDate } from '../lib/format';
-import { PersonTable } from './PeopleScreens';
+import { PersonTable } from './people/PeopleScreen';
 
 /** Global search: people (any field), requests and units for one query. */
 export function SearchScreen({ initial }: { initial: string }) {

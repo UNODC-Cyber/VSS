@@ -4,11 +4,9 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { RequestDetailScreen } from '../../../src/renderer/src/screens/RequestDetailScreen';
-import {
-  ImportRequestScreen,
-  ManualRequestScreen,
-  RequestsScreen,
-} from '../../../src/renderer/src/screens/RequestsScreens';
+import { ImportRequestScreen } from '../../../src/renderer/src/screens/ImportRequestScreen';
+import { ManualRequestScreen } from '../../../src/renderer/src/screens/ManualRequestScreen';
+import { RequestsScreen } from '../../../src/renderer/src/screens/RequestsScreen';
 import { useUi } from '../../../src/renderer/src/store';
 
 describe('requests list', () => {
