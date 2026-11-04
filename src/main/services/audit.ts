@@ -34,6 +34,7 @@ export const AUDIT_DETAIL_KEYS: ReadonlySet<string> = new Set([
   'warningCount',
   'bytes',
   'durationMs',
+  'reasonLength',
   'personsDeleted',
   'unitsDeleted',
   'itemsDeleted',
@@ -59,6 +60,8 @@ export const AUDIT_DETAIL_KEYS: ReadonlySet<string> = new Set([
   'slotKind',
   'template',
   'phase',
+  'targetKind',
+  'subjectKind',
   // versions / hashes / flags
   'schemaVersion',
   'fromVersion',

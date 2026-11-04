@@ -119,6 +119,15 @@ export const isApprovedSection = (s: ResponseRow['section']): boolean =>
   s === 'approved-individual' || s === 'approved-unit';
 export const isLinkedDecision = (m: RowMatch): boolean => m.decision === 'auto' || m.decision === 'confirmed';
 
+/**
+ * Disposition a row states: its disposition class when known (a reviewer may have corrected it, lane K), else the
+ * section it sits in.
+ */
+export function rowDisposition(row: ResponseRow): 'approved' | 'non-approved' {
+  if (row.dispClass === 'approved' || row.dispClass === 'non-approved') return row.dispClass;
+  return isApprovedSection(row.section) ? 'approved' : 'non-approved';
+}
+
 /** Vetting record exactly as stated by a DC row: cert date and expiry from the file, never computed. */
 export function recordFromRow(
   ctx: Ctx,
@@ -132,7 +141,7 @@ export function recordFromRow(
     unitId,
     requestId,
     responseRowId: row.id,
-    disposition: isApprovedSection(row.section) ? 'approved' : 'non-approved',
+    disposition: rowDisposition(row),
     certDate: row.certDate.parsed,
     expiresAt: row.expires.parsed,
     expiryAssumed: false,

@@ -282,6 +282,7 @@ export class PersonRepo {
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM person_alias WHERE person_id = ?').run(id);
       this.db.prepare('DELETE FROM identifier WHERE person_id = ?').run(id);
+      this.db.prepare('DELETE FROM person_edit WHERE person_id = ?').run(id); // migration 008 (lane K)
       this.db.prepare('DELETE FROM person WHERE id = ?').run(id);
       removeFromSearch(this.db, 'person', id);
     });

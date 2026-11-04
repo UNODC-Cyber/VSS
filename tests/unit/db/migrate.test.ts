@@ -48,7 +48,9 @@ describe('runMigrations', () => {
     db.prepare("INSERT INTO setting(key, value_json, updated_at) VALUES ('autoLockMinutes', '7', 'x')").run();
     const r = runMigrations(db, { backupDir: s.backupDir, now: () => new Date('2026-01-02T03:04:05Z') });
     expect(r.from).toBe(1);
-    expect(r.backupPath).toMatch(/vss-pre-migration-v1-to-v4-2026-01-02T03-04-05-000Z\.db$/);
+    expect(r.backupPath).toMatch(
+      new RegExp(`vss-pre-migration-v1-to-v${APP_SCHEMA_VERSION}-2026-01-02T03-04-05-000Z\\.db$`),
+    );
     expect(readdirSync(s.backupDir)).toHaveLength(1);
     db.close();
     const b = openDatabase(r.backupPath!, s.key);
@@ -94,6 +96,27 @@ describe('runMigrations', () => {
     runMigrations(db, { migrations: MIGRATIONS.slice(0, 1) });
     expect(() => runMigrations(db)).toThrow(expect.objectContaining({ code: 'BACKUP_FAILED' }));
     expect(readSchemaVersion(db)).toBe(1);
+    db.close();
+  });
+
+  it('008 (lane K) adds the review-edit columns and tables to a vault created at v4, keeping its rows', () => {
+    const s = setup();
+    const db = openDatabase(s.path, s.key);
+    runMigrations(db, { migrations: MIGRATIONS.slice(0, 4) });
+    db.prepare(
+      "INSERT INTO review_item(id, kind, created_at, state) VALUES ('R1', 'unmatched-response-row', 'x', 'open')",
+    ).run();
+    runMigrations(db, { backupDir: s.backupDir });
+    expect(readSchemaVersion(db)).toBeGreaterThanOrEqual(8);
+    const cols = (t: string) => (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+    expect(cols('response_row')).toContain('original_json');
+    expect(cols('review_item')).toContain('resolution_note');
+    expect(cols('response_row_edit')).toEqual(['id', 'row_id', 'at', 'actor', 'reason', 'diff_json']);
+    expect(cols('person_edit')).toEqual(['id', 'person_id', 'at', 'actor', 'reason', 'diff_json']);
+    expect(db.prepare("SELECT state, resolution_note FROM review_item WHERE id = 'R1'").get()).toEqual({
+      state: 'open',
+      resolution_note: null,
+    });
     db.close();
   });
 });
