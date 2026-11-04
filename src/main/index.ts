@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, powerMonitor, screen } from 'electron';
 import { composeApp } from './app/compose';
 import type { ComposedApp } from './app/compose';
+import { CHANNEL, updatesAllowed } from './app/channel';
 import { createElectronPorts, dialogGate } from './app/electron-ports';
 import { createLogger } from './app/logger';
 import { resolveAppPaths } from './app/paths';
@@ -12,6 +13,7 @@ import { checkedProfilePath } from './bootstrap/profile-path';
 import { installSecurity, registerAppScheme } from './bootstrap/security';
 import { createMainWindow } from './bootstrap/window';
 import { registerIpc } from './ipc/registry';
+import { createDisabledUpdateService } from './services/alpha-updates';
 import { createRealUpdateService } from './services/updates-wiring';
 import { vaultExists } from './crypto/vault';
 import { isDemoSeedAllowed, seedDemo } from '../../tools/demo/seed';
@@ -127,9 +129,9 @@ if (!gotLock) {
     composed = await composeApp({
       paths,
       ports,
-      updates: createRealUpdateService,
+      updates: updatesAllowed(CHANNEL) ? createRealUpdateService : createDisabledUpdateService(app.getVersion()),
       logger: log,
-      appInfo: { version: app.getVersion() },
+      appInfo: { version: app.getVersion(), channel: CHANNEL },
       resetWindowState: () => windowState.reset(),
     });
     registerIpc(composed.handlers);

@@ -4,6 +4,10 @@ name: Release (draft)
 # the maintainer downloads the draft assets, signs release-manifest.json OFFLINE (tools/release/sign-manifest.ts),
 # uploads the manifest + two signatures, re-verifies and only then publishes. See docs/RELEASE-RUNBOOK.md.
 # No signing key is available to CI, by design.
+#
+# Tags with a SemVer prerelease part (v0.2.0-alpha.1) take the ALPHA path: channel `alpha` build (updater replaced by a
+# stub), no latest.yml / blockmap upload (no installed app can ever see the alpha as an update), SHA256SUMS + SHA512SUMS,
+# draft prerelease. The placeholder-key gate applies to stable tags only.
 
 on:
   push:
@@ -51,6 +55,9 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write # create the draft release only
+    env:
+      # true for v0.2.0-alpha.1 style tags (a '-' in the tag name = SemVer prerelease)
+      PRERELEASE: ${{ contains(github.ref_name, '-') }}
     defaults:
       run:
         shell: bash
@@ -74,6 +81,7 @@ jobs:
           echo "VSS_VERSION=${V}" >> "$GITHUB_ENV"
 
       - name: Refuse placeholder update-signing keys
+        if: env.PRERELEASE != 'true'
         run: |
           if grep -n "placeholder: true" src/main/update/keys.ts; then
             echo "::error::src/main/update/keys.ts still contains TEST/PLACEHOLDER keys. Run the key ceremony first (docs/RELEASE-RUNBOOK.md)."
@@ -90,7 +98,14 @@ jobs:
       - run: npm test
 
       - name: Build NSIS + portable (unsigned, never published by electron-builder)
+        if: env.PRERELEASE != 'true'
         run: npm run dist
+
+      - name: Build ALPHA NSIS + portable (channel alpha, unsigned, updater disabled)
+        if: env.PRERELEASE == 'true'
+        run: |
+          npm run dist:alpha
+          node tools/verify-channel.mjs out/main/index.js alpha
 
       - name: Electron fuses are flipped in the packaged exe (F-11)
         run: npm run verify:fuses -- "dist/win-unpacked/Vetting Support System.exe"
@@ -101,7 +116,18 @@ jobs:
           name: sbom
           path: dist
 
+      - name: Collect assets + SHA256SUMS + SHA512SUMS (alpha, no latest.yml, no blockmap)
+        if: env.PRERELEASE == 'true'
+        run: |
+          mkdir -p release-assets
+          cp dist/*.exe "dist/vss-${VSS_VERSION}.cdx.json" release-assets/
+          cd release-assets
+          sha256sum -- *.exe *.json | sed 's/ \*/  /' > SHA256SUMS
+          sha512sum -- *.exe *.json | sed 's/ \*/  /' > SHA512SUMS
+          cat SHA256SUMS SHA512SUMS
+
       - name: Collect assets + SHA512SUMS
+        if: env.PRERELEASE != 'true'
         run: |
           mkdir -p release-assets
           cp dist/*.exe dist/latest.yml "dist/vss-${VSS_VERSION}.cdx.json" release-assets/
@@ -110,7 +136,19 @@ jobs:
           sha512sum -- * | sed 's/ \*/  /' > SHA512SUMS
           cat SHA512SUMS
 
+      - name: Upload as DRAFT PRERELEASE (alpha)
+        if: env.PRERELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --draft --prerelease --verify-tag \
+            --title "VSS ${VSS_VERSION}" \
+            --notes "DRAFT ALPHA - unsigned build for testing with synthetic data. No automatic updates. Verify SHA256SUMS before installing (README, Alpha testing). Do not publish until the owner has inspected the assets." \
+            release-assets/*
+
       - name: Upload as DRAFT release
+        if: env.PRERELEASE != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

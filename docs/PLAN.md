@@ -7,7 +7,7 @@ Next: Alpha 1 (0.2.0-alpha.1) lanes, file ownership and contract slots are plann
 
 ## Decisions (maintainer, 2026-11-03)
 - App name **Vetting Support System (VSS)**, repo `UNODC-Cyber/vss`, public, Apache-2.0.
-- Unsigned pilot builds (SmartScreen "Run anyway"); apply to SignPath Foundation (free OSS signing) later. Updates are verified by our own hybrid post-quantum signed manifest, independent of TLS and Authenticode.
+- Unsigned builds (SmartScreen "Run anyway") until an organisational code-signing certificate is available. Updates are verified by our own hybrid post-quantum signed manifest, independent of TLS and Authenticode.
 - Hardware key: **FIDO2 is DEFERRED (post-MVP)**. MVP uses a single password only (Argon2id). The vault header keeps a versioned `slots` array so a FIDO2 PRF slot can be added later; WP-06 spike is parked. YubiKey OTP challenge-response is dropped.
 - Email-only "all clear": default expiry = clearance date + **30 days** (`emailClearanceDefaultDays`), stored with `expiryAssumed=true`, overridable per clearance.
 - Auto-update ON by default, user-toggleable; every other network feature OFF by default. LAN peer mode experimental, OFF.

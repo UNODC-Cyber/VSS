@@ -1,6 +1,6 @@
 {
   "name": "vss",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.1",
   "description": "Vetting Support System: offline encrypted tracker for vetting requests and responses",
   "license": "Apache-2.0",
   "private": false,
@@ -29,7 +29,9 @@
     "probe:sqlite": "node tools/sqlite-probe.cjs",
     "fixtures:demo": "node tools/fixtures/demo-dataset.ts",
     "fixtures:demo:check": "node tools/fixtures/demo-dataset.ts --check",
-    "dist": "node tools/install-electron.mjs && npm run build && electron-builder --config electron-builder.yml --win nsis portable --publish never",
+    "dist": "node tools/install-electron.mjs && node tools/dist.mjs release",
+    "dist:alpha": "node tools/install-electron.mjs && node tools/dist.mjs alpha",
+    "verify:channel": "node tools/verify-channel.mjs",
     "verify:fuses": "node tools/verify-fuses.mjs",
     "ui-audit": "npm run build && vitest run --config vitest.ui.config.ts"
   },

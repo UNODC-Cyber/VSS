@@ -1,12 +1,23 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
+import { channelVersionProblem, parseChannel } from './src/main/app/channel';
+
 const alias = { '@shared': resolve('src/shared') };
+
+// Build channel (docs/PLAN-ALPHA.md section 12): VSS_CHANNEL=alpha|release, unset = dev. A prerelease version is only
+// ever built as alpha (and an alpha only from a prerelease version), so a wrong tag/script pairing fails the build.
+const channel = parseChannel(process.env.VSS_CHANNEL);
+const pkgVersion = (JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }).version;
+const problem = channelVersionProblem(channel, pkgVersion);
+if (problem) throw new Error(`VSS channel/version mismatch: ${problem}`);
 
 export default defineConfig({
   main: {
     resolve: { alias },
+    define: { __VSS_CHANNEL__: JSON.stringify(channel) },
     build: {
       outDir: 'out/main',
       lib: { entry: resolve('src/main/index.ts'), formats: ['es'] },

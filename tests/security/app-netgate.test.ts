@@ -58,7 +58,7 @@ function setup() {
   const factory: UpdateServiceFactory = async (deps) =>
     new UpdateService({
       ...deps,
-      currentVersion: '0.1.0',
+      currentVersion: '0.2.0-alpha.1',
       updater,
       net,
       fs: { hashFile: async () => ({ sha512Hex: '', size: 0 }), remove: async () => undefined },
