@@ -1,6 +1,7 @@
 /** Evidence computation: names (compareNames) and whole records (compareRecords). Pure. */
 import type { MatchEvidence, MatchTier, NameKey } from '../../shared/domain/types';
 import { DEFAULT_NAME_CONFIG, type NameConfig } from '../../shared/names/config';
+import { scriptTokensOf } from '../../shared/names/key';
 import { tokenSetJaroWinkler } from '../../shared/names/jaroWinkler';
 import { doubleMetaphone } from '../../shared/names/metaphone';
 import { detectScript } from '../../shared/names/normalize';
@@ -163,6 +164,13 @@ export function compareNames(aIn: NameSide, bIn: NameSide, opts: CompareNamesOpt
   if (surnameEqual) evidence.push('NAME_SURNAME_EQUAL');
   if (!coreEqual && jw >= threshold) evidence.push('NAME_JW_HIGH');
   if (phoneticEqual) evidence.push('NAME_PHONETIC_EQUAL');
+  // Mixed-script names (lane C): the Latin part above matched on its own; the non-Latin tokens are compared here.
+  const xa = scriptTokensOf(a.key);
+  const xb = scriptTokensOf(b.key);
+  if (xa.length > 0 && xb.length > 0) {
+    const d = diffSorted(sorted(xa), sorted(xb));
+    if (d.onlyA.length > 0 || d.onlyB.length > 0) evidence.push('NAME_SCRIPT_CONFLICT');
+  } else if (xa.length > 0 || xb.length > 0) evidence.push('NAME_SCRIPT_IGNORED');
   return { evidence, coreEqual, fullEqual, particleDistance: pDist, subsetOne, surnameEqual, phoneticEqual, jw };
 }
 

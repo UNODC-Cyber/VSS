@@ -3,8 +3,31 @@
   "batchId": "SYNTH-0000000004",
   "blocked": false,
   "description": "Thai-script and mixed-script names kept as written by the DC.",
+  "fileKindGuess": "dc-response",
   "id": "resp-004-thai",
-  "issues": [],
+  "issues": [
+    {
+      "code": "NAME_MIXED_SCRIPT",
+      "field": "B",
+      "rowRef": "Final_Results!16",
+      "rule": "S-04",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!21",
+      "rule": "S-06",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!24",
+      "rule": "S-06",
+      "severity": "info"
+    }
+  ],
   "post": "Example City",
   "resultsAsOf": "2026-10-22",
   "rows": [
@@ -16,6 +39,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "empty",
@@ -38,6 +62,7 @@
       "rowRef": "Final_Results!9",
       "script": "Latn",
       "section": "approved-unit",
+      "sectionSource": "label",
       "surname": "UNKNOWN",
       "unitName": "Example Digital Evidence Directorate 1",
       "unitType": "Police",
@@ -51,6 +76,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "empty",
@@ -73,6 +99,7 @@
       "rowRef": "Final_Results!10",
       "script": "Latn",
       "section": "approved-unit",
+      "sectionSource": "label",
       "surname": "UNKNOWN",
       "unitName": "Example Provincial Police Directorate 2",
       "unitType": "Police",
@@ -86,6 +113,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -98,9 +126,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "นะโพ"
-      ],
+      "given": ["นะโพ"],
       "nameRaw": "อัดขิทาแห, นะโพ",
       "pob": {
         "city": "KOETSI",
@@ -110,6 +136,7 @@
       "rowRef": "Final_Results!14",
       "script": "Thai",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "อัดขิทาแห",
       "unitName": "Example Digital Evidence Directorate 1",
       "unitType": "Police",
@@ -123,6 +150,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -135,9 +163,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "อาบพัม"
-      ],
+      "given": ["อาบพัม"],
       "nameRaw": "เวฟาซู, อาบพัม",
       "pob": {
         "city": "POTHAOTTOP",
@@ -147,6 +173,7 @@
       "rowRef": "Final_Results!15",
       "script": "Thai",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "เวฟาซู",
       "unitName": "Example Digital Evidence Directorate 1",
       "unitType": "Police",
@@ -160,6 +187,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -172,9 +200,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Naakhaot"
-      ],
+      "given": ["Naakhaot"],
       "nameRaw": "อามพูนี, Naakhaot",
       "pob": {
         "city": "PAMTJIKHAA",
@@ -184,6 +210,7 @@
       "rowRef": "Final_Results!16",
       "script": "Mixed",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "อามพูนี",
       "unitName": "Example Digital Evidence Directorate 1",
       "unitType": "Police",
@@ -197,6 +224,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -209,9 +237,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Thoesiang"
-      ],
+      "given": ["Thoesiang"],
       "nameRaw": "Yeephaipuam, Thoesiang",
       "pob": {
         "city": "BOCHAIKI",
@@ -221,6 +247,7 @@
       "rowRef": "Final_Results!17",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Yeephaipuam",
       "unitName": "Example Provincial Police Directorate 2",
       "unitType": "Police",
@@ -234,6 +261,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -246,9 +274,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "คุซา"
-      ],
+      "given": ["คุซา"],
       "nameRaw": "ดะม้ามาวนา, คุซา",
       "pob": {
         "city": "TAITTHEE",
@@ -258,6 +284,7 @@
       "rowRef": "Final_Results!18",
       "script": "Thai",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "ดะม้ามาวนา",
       "unitName": "Example Provincial Police Directorate 2",
       "unitType": "Police",
@@ -271,6 +298,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -283,9 +311,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Choebian"
-      ],
+      "given": ["Choebian"],
       "nameRaw": "Waiyoetiak, Choebian",
       "pob": {
         "city": "TAMTUN",
@@ -295,6 +321,7 @@
       "rowRef": "Final_Results!19",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Waiyoetiak",
       "unitName": "Example Provincial Police Directorate 2",
       "unitType": "Police",

@@ -1,6 +1,15 @@
-import type { IsoDate, PersonName, PlaceOfBirth, RawDate, ResponseSection } from '../../../shared/domain/types.ts';
+import type {
+  DispClass,
+  IsoDate,
+  PersonName,
+  PlaceOfBirth,
+  RawDate,
+  ResponseSection,
+  SectionSource,
+} from '../../../shared/domain/types.ts';
 
-export type ResponseRuleId = 'S-01' | 'S-02' | 'S-03' | 'S-04' | 'S-05' | 'S-06' | 'S-07';
+export type ResponseRuleId = 'S-01' | 'S-02' | 'S-03' | 'S-04' | 'S-05' | 'S-06' | 'S-07' | 'S-08';
+export type FileKindGuess = 'dc-response' | 'investc-request' | 'unknown';
 
 export type ResponseIssueCode =
   | 'PKG_NOT_XLSX'
@@ -45,7 +54,12 @@ export interface ResponseIssue {
 /** A response row before ids and matching exist: everything the file says, nothing the app decided. */
 export interface DcResponseDraftRow {
   rowRef: string;
+  /** Unit or individual section; its approval half follows dispClass ('unknown' is stored as non-approved). */
   section: ResponseSection;
+  /** S-06: DISP classified against the section; 'unknown' = unrecognised or contradicting (a review item). */
+  dispClass: DispClass;
+  /** 'implicit' when the rows came before any section label (first label absent). */
+  sectionSource: SectionSource;
   /** DISP cell, verbatim. */
   disp: string;
   /** NAME cell, verbatim (trailing spaces and all). */
@@ -73,8 +87,12 @@ export interface DcResponseDraft {
 export interface ParsedFinalResults {
   draft: DcResponseDraft;
   issues: ResponseIssue[];
-  /** True when any error issue exists: the import must not proceed (S-06 fail loudly). */
+  /** True when any error issue exists: the import must not proceed (no readable row, no NAME column, wrong file). */
   blocked: boolean;
-  /** Raw labels of sections that could not be mapped (also reported as UNKNOWN_SECTION issues). */
+  /** Raw labels of sections that could not be mapped (also reported as UNKNOWN_SECTION warnings). */
   unknownSections: string[];
+  /** What the file looks like: a request workbook in the response importer is refused plainly (S-01). */
+  fileKindGuess: FileKindGuess;
+  /** Name of the sheet the results were read from, or null. */
+  resultsSheet: string | null;
 }

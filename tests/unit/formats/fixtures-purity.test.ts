@@ -22,7 +22,7 @@ describe('fixture purity gate', () => {
 
   it('committed fixtures are exactly what the generator produces (deterministic, seeded)', () => {
     const { files } = generateFixtures();
-    expect(files.length).toBe(27);
+    expect(files.length).toBe(39);
     for (const f of files) {
       const onDisk = readFileSync(`${FIXTURES_DIR}/${f.path}`);
       const want = typeof f.data === 'string' ? Buffer.from(f.data, 'utf8') : Buffer.from(f.data);

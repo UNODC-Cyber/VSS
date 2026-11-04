@@ -3,8 +3,24 @@
   "batchId": "SYNTH-0000000002",
   "blocked": false,
   "description": "DC reformatting: surname moved, particle added, day/month swapped, blank POB parts, trailing spaces, UNKNOWN commander, short unit expiry.",
+  "fileKindGuess": "dc-response",
   "id": "resp-002-reformatted",
-  "issues": [],
+  "issues": [
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!20",
+      "rule": "S-06",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Final_Results!23",
+      "rule": "S-06",
+      "severity": "info"
+    }
+  ],
   "post": "Example City",
   "resultsAsOf": "2026-10-22",
   "rows": [
@@ -16,6 +32,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "empty",
@@ -38,6 +55,7 @@
       "rowRef": "Final_Results!9",
       "script": "Latn",
       "section": "approved-unit",
+      "sectionSource": "label",
       "surname": "UNKNOWN",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -51,6 +69,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -63,10 +82,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "bin",
-        "Kimal"
-      ],
+      "given": ["bin", "Kimal"],
       "nameRaw": "Mated, bin Kimal   ",
       "pob": {
         "city": "BINUL",
@@ -76,6 +92,7 @@
       "rowRef": "Final_Results!13",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Mated",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -89,6 +106,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -101,10 +119,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Dadu",
-        "binti"
-      ],
+      "given": ["Dadu", "binti"],
       "nameRaw": "Yokkhai, Dadu binti   ",
       "pob": {
         "city": null,
@@ -114,6 +129,7 @@
       "rowRef": "Final_Results!14",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Yokkhai",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -127,6 +143,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -139,10 +156,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Nubod",
-        "bin"
-      ],
+      "given": ["Nubod", "bin"],
       "nameRaw": "Tahus, Nubod bin   ",
       "pob": {
         "city": "TOKHA",
@@ -152,6 +166,7 @@
       "rowRef": "Final_Results!15",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Tahus",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -165,6 +180,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -177,10 +193,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Tashul",
-        "a/l"
-      ],
+      "given": ["Tashul", "a/l"],
       "nameRaw": "Pibaageth, Tashul a/l   ",
       "pob": {
         "city": null,
@@ -190,6 +203,7 @@
       "rowRef": "Final_Results!16",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Pibaageth",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -203,6 +217,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -215,10 +230,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Paashal",
-        "a/p"
-      ],
+      "given": ["Paashal", "a/p"],
       "nameRaw": "Vemebeesh, Paashal a/p   ",
       "pob": {
         "city": "SHUKIBI",
@@ -228,6 +240,7 @@
       "rowRef": "Final_Results!17",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Vemebeesh",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",
@@ -241,6 +254,7 @@
         "value": "10/20/2026"
       },
       "disp": "Approve",
+      "dispClass": "approved",
       "dob": {
         "ambiguousDayMonth": false,
         "kind": "text",
@@ -253,11 +267,7 @@
         "parsed": "2027-10-20",
         "value": "10/20/2027"
       },
-      "given": [
-        "Bafer",
-        "Defe",
-        "bin"
-      ],
+      "given": ["Bafer", "Defe", "bin"],
       "nameRaw": "Lishair, Bafer Defe bin   ",
       "pob": {
         "city": "WISHAL",
@@ -267,6 +277,7 @@
       "rowRef": "Final_Results!18",
       "script": "Latn",
       "section": "approved-individual",
+      "sectionSource": "label",
       "surname": "Lishair",
       "unitName": "Example Cyber Crime Unit 1",
       "unitType": "Police",

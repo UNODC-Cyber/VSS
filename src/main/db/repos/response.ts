@@ -1,5 +1,6 @@
 import type {
   DcResponse,
+  DispClass,
   IsoDate,
   IsoDateTime,
   NameKey,
@@ -20,7 +21,7 @@ import { fromJson, newId, toJson } from './util';
 
 export type ResponseHeader = Omit<DcResponse, 'rows'>;
 export type ResponseInput = Omit<DcResponse, 'id' | 'rows' | 'sourceFile'> & { sourceFileId: Ulid; id?: Ulid };
-/** `dispClass` / `sectionSource` are stored from migration 007 (lane C); until then they derive from the section. */
+/** `dispClass` / `sectionSource` are stored from migration 007 (lane C); when omitted they derive from the section. */
 export type ResponseRowInput = Omit<ResponseRow, 'id' | 'responseId' | 'dispClass' | 'sectionSource'> &
   Partial<Pick<ResponseRow, 'dispClass' | 'sectionSource'>> & {
     coreKey?: string | null;
@@ -67,6 +68,8 @@ interface RowRow {
   request_item_id: string | null;
   person_id: string | null;
   detail_json: string | null;
+  disp_class?: string | null;
+  section_source?: string | null;
 }
 interface Detail {
   script: Script;
@@ -136,8 +139,9 @@ export class ResponseRepo {
     this.db
       .prepare(
         `INSERT INTO response_row(id, response_id, row_ref, section, disp, name_raw, surname, given_json, core_key, dob, dob_raw,
-           pob_city, pob_state, pob_country, unit_type, unit_name, cert_date, expires, match_json, request_item_id, person_id, detail_json)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+           pob_city, pob_state, pob_country, unit_type, unit_name, cert_date, expires, match_json, request_item_id, person_id, detail_json,
+           disp_class, section_source)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         id,
@@ -162,6 +166,8 @@ export class ResponseRepo {
         r.requestItemId !== undefined ? r.requestItemId : derived.requestItemId,
         r.personId !== undefined ? r.personId : derived.personId,
         toJson(detail),
+        r.dispClass ?? dispClassOfSection(r.section),
+        r.sectionSource ?? 'label',
       );
     return id;
   }
@@ -290,6 +296,9 @@ export class ResponseRepo {
   }
 }
 
+const isDispClass = (v: string | null | undefined): v is DispClass =>
+  v === 'approved' || v === 'non-approved' || v === 'unknown';
+
 function mapRow(r: RowRow): ResponseRow {
   const d = fromJson<Partial<Detail>>(r.detail_json, {});
   return {
@@ -313,7 +322,9 @@ function mapRow(r: RowRow): ResponseRow {
     certDate: d.certDate ?? rawFrom(r.cert_date, null),
     expires: d.expires ?? rawFrom(r.expires, null),
     match: fromJson<RowMatch>(r.match_json, NO_MATCH),
-    dispClass: dispClassOfSection((r.section ?? 'approved-individual') as ResponseSection),
-    sectionSource: 'label',
+    dispClass: isDispClass(r.disp_class)
+      ? r.disp_class
+      : dispClassOfSection((r.section ?? 'approved-individual') as ResponseSection),
+    sectionSource: r.section_source === 'implicit' ? 'implicit' : 'label',
   };
 }

@@ -28,6 +28,7 @@ import {
   recordFromRow,
 } from './people-ops';
 import { mergePersons } from './people';
+import { resolveRowDisposition } from './responses';
 import { displayName, fail, makeCtx, notSupported, run } from './vetting-common';
 import type { Ctx, ServiceDeps } from './vetting-common';
 
@@ -150,7 +151,12 @@ function linkRow(ctx: Ctx, rowId: Ulid, targetId: Ulid): void {
     { ...row.match, decision: 'confirmed', chosen: targetId, decidedBy: ctx.actor(), decidedAt: at },
     { requestItemId: item?.id ?? null, personId },
   );
-  if (personId && isIndividualSection(row.section) && ctx.repos.vetting.listByResponseRow(rowId).length === 0) {
+  if (
+    personId &&
+    isIndividualSection(row.section) &&
+    row.dispClass !== 'unknown' && // lane C: no record until the disposition is set
+    ctx.repos.vetting.listByResponseRow(rowId).length === 0
+  ) {
     ctx.repos.vetting.insert(recordFromRow(ctx, out, personId, item?.unitId ?? null, resp.requestId));
     addAliasIfNew(ctx, personId, row.name, `response:${resp.id}`, item?.id ?? rowId);
   }
@@ -215,7 +221,7 @@ function resolveOne(ctx: Ctx, req: ReviewResolveRequest): ReviewItem {
           { ...row.match, decision: 'confirmed', chosen: null, decidedBy: ctx.actor(), decidedAt: at },
           { requestItemId: null, personId: p.id },
         );
-        if (isIndividualSection(row.section))
+        if (isIndividualSection(row.section) && row.dispClass !== 'unknown')
           ctx.repos.vetting.insert(recordFromRow(ctx, out, p.id, null, resp.requestId));
         return close('new-person');
       }
@@ -279,8 +285,11 @@ function resolveOne(ctx: Ctx, req: ReviewResolveRequest): ReviewItem {
     }
 
     case 'set-disposition':
-      // LANE C/K SLOT: disposition-unclear items are created by lane C and resolved here by lane K.
-      return fail('NOT_SUPPORTED', 'Setting a disposition is not available in this version');
+      // Lane C: disposition-unclear items (created at import) resolve through responses.resolveRowDisposition.
+      if (item.kind !== 'disposition-unclear')
+        return fail('BAD_REQUEST', 'set-disposition applies to unclear dispositions');
+      resolveRowDisposition(ctx, subject, res.disposition);
+      return close(`disposition:${res.disposition}`);
   }
 }
 

@@ -75,6 +75,42 @@ export function detectNameScript(tokens: readonly string[]): Script {
   return found ?? 'Other';
 }
 
+/**
+ * Split one word where its letters change between Latin and non-Latin script ("Arkanสมปอง" -> ["Arkan", "สมปอง"]).
+ * Marks, digits and punctuation stay with the run they follow, so Thai vowel signs never detach from their consonant.
+ * A single-script word comes back unchanged. Total: never throws.
+ */
+export function splitByScript(word: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let curLatin: boolean | null = null;
+  for (const ch of word) {
+    if (RE_LETTER.test(ch)) {
+      const latin = RE_LATIN.test(ch);
+      if (curLatin !== null && latin !== curLatin && cur !== '') {
+        out.push(cur);
+        cur = '';
+      }
+      curLatin = latin;
+    }
+    cur += ch;
+  }
+  if (cur !== '') out.push(cur);
+  return out;
+}
+
+/** 'latin' / 'non-latin' by the letters of a token; 'none' when it has no letter (digits, punctuation). */
+export function tokenScriptClass(token: string): 'latin' | 'non-latin' | 'none' {
+  let latin = false;
+  let other = false;
+  for (const ch of token) {
+    if (!RE_LETTER.test(ch)) continue;
+    if (RE_LATIN.test(ch)) latin = true;
+    else other = true;
+  }
+  return latin ? 'latin' : other ? 'non-latin' : 'none';
+}
+
 /** Step 1-2: Unicode clean-up of a raw string (does not fold case or split). */
 export function cleanRaw(raw: string): string {
   return raw

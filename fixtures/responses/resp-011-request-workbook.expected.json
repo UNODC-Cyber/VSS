@@ -1,0 +1,21 @@
+{
+  "assistanceLine": null,
+  "batchId": null,
+  "blocked": true,
+  "description": "A vetting request workbook (copy of req-001-basic) given to the response importer: friendly refusal.",
+  "fileKindGuess": "investc-request",
+  "id": "resp-011-request-workbook",
+  "issues": [
+    {
+      "code": "LOOKS_LIKE_REQUEST",
+      "field": null,
+      "rowRef": null,
+      "rule": "S-01",
+      "severity": "error"
+    }
+  ],
+  "post": null,
+  "resultsAsOf": null,
+  "rows": [],
+  "unknownSections": []
+}

@@ -1,6 +1,9 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { buildNameKey, normalizeName } from '../../src/shared/names';
+import { compareNames } from '../../src/main/matching/compare';
+import { buildNameKey, normalizeName, splitDcName } from '../../src/shared/names';
+import { scriptTokensOf } from '../../src/shared/names/key';
+import { splitByScript } from '../../src/shared/names/normalize';
 
 const LATIN_BASE = 'abcdefghijklmnopqrstuvwxyz'.split('');
 const COMBINING = [0x0300, 0x0301, 0x0302, 0x0303, 0x0308, 0x0323, 0x0327, 0x031b].map((c) => String.fromCodePoint(c));
@@ -161,10 +164,73 @@ describe('name normalisation properties', { timeout: 60_000 }, () => {
     fc.assert(
       fc.property(anyText, (s) => {
         const k = buildNameKey(s);
-        for (const arr of [k.fullTokens, k.coreTokens, k.particles, k.phonetic]) expect([...arr].sort()).toEqual(arr);
+        for (const arr of [k.fullTokens, k.coreTokens, k.particles, k.phonetic, [...scriptTokensOf(k)]])
+          expect([...arr].sort()).toEqual(arr);
         if (normalizeName(s) !== '') expect(k.coreTokens.length).toBeGreaterThan(0);
       }),
       { numRuns: 1000 },
+    );
+  });
+});
+
+/** Thai, Lao, Khmer and Myanmar letters, combining marks and zero-width characters (lane C, plan section 5.7). */
+const SEA_SCRIPT = fc
+  .array(
+    fc.oneof(
+      fc.integer({ min: 0x0e00, max: 0x0e7f }),
+      fc.integer({ min: 0x0e80, max: 0x0eff }),
+      fc.integer({ min: 0x1780, max: 0x17ff }),
+      fc.integer({ min: 0x1000, max: 0x109f }),
+      fc.integer({ min: 0x0300, max: 0x036f }),
+      fc.constantFrom(0x200b, 0x200c, 0x200d, 0xfeff, 0x20, 0x2c),
+    ),
+    { maxLength: 20 },
+  )
+  .map((cs) => String.fromCodePoint(...cs));
+const mixedText = fc.array(fc.oneof(SEA_SCRIPT, latinWord, thaiWord), { maxLength: 6 }).map((xs) => xs.join(' '));
+
+describe('mixed-script names (lane C)', { timeout: 60_000 }, () => {
+  it('no name path throws on Thai / Lao / Khmer / Myanmar text with marks and zero-width characters', () => {
+    fc.assert(
+      fc.property(fc.oneof(SEA_SCRIPT, mixedText, fc.string({ unit: 'grapheme', maxLength: 30 })), (s) => {
+        const a = buildNameKey(s);
+        const b = buildNameKey(splitDcName(`${s}, ${s}`));
+        expect(splitByScript(s).join('')).toBe(s);
+        expect(() => compareNames(a, b)).not.toThrow();
+        expect(() => compareNames(b, a)).not.toThrow();
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it('a mixed name keeps its non-Latin tokens out of the core: the Latin part decides on its own', () => {
+    fc.assert(
+      fc.property(
+        fc.array(plainWord, { minLength: 1, maxLength: 3 }),
+        fc.array(thaiWord, { minLength: 1, maxLength: 3 }),
+        (lat, th) => {
+          const k = buildNameKey([...lat, ...th].join(' '));
+          expect(k.coreTokens).toEqual(buildNameKey(lat.join(' ')).coreTokens);
+          expect(scriptTokensOf(k).length).toBe(th.length);
+          expect(k.fullTokens.some((t) => /\p{Script=Thai}/u.test(t))).toBe(false);
+        },
+      ),
+      { numRuns: 500 },
+    );
+  });
+
+  it('compareNames is symmetric for script evidence: different Thai parts conflict, equal ones never', () => {
+    fc.assert(
+      fc.property(fc.array(plainWord, { minLength: 1, maxLength: 3 }), thaiWord, thaiWord, (lat, x, y) => {
+        const a = buildNameKey([...lat, x].join(' '));
+        const b = buildNameKey([...lat, y].join(' '));
+        const ab = compareNames(a, b).evidence.includes('NAME_SCRIPT_CONFLICT');
+        const ba = compareNames(b, a).evidence.includes('NAME_SCRIPT_CONFLICT');
+        expect(ab).toBe(ba);
+        expect(ab).toBe(normalizeName(x) !== normalizeName(y));
+        expect(compareNames(a, a).evidence).not.toContain('NAME_SCRIPT_CONFLICT');
+      }),
+      { numRuns: 500 },
     );
   });
 });

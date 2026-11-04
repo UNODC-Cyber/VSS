@@ -132,7 +132,8 @@ export function recordFromRow(
     unitId,
     requestId,
     responseRowId: row.id,
-    disposition: isApprovedSection(row.section) ? 'approved' : 'non-approved',
+    // S-06 (lane C): the classified DISP; callers never write a record for a row whose dispClass is 'unknown'.
+    disposition: row.dispClass === 'approved' ? 'approved' : 'non-approved',
     certDate: row.certDate.parsed,
     expiresAt: row.expires.parsed,
     expiryAssumed: false,
@@ -150,7 +151,7 @@ export function materializeRecordsForItem(ctx: Ctx, item: RequestItem): number {
   for (const row of ctx.repos.responses.rowsByRequestItem(item.id)) {
     if (!isIndividualSection(row.section) || !isLinkedDecision(row.match)) continue;
     ctx.repos.responses.setRowMatch(row.id, row.match, { requestItemId: item.id, personId: item.personId });
-    if (ctx.repos.vetting.listByResponseRow(row.id).length > 0) continue;
+    if (row.dispClass === 'unknown' || ctx.repos.vetting.listByResponseRow(row.id).length > 0) continue;
     ctx.repos.vetting.insert(recordFromRow(ctx, row, item.personId, item.unitId, item.requestId));
     const resp = ctx.repos.responses.getHeader(row.responseId);
     if (resp) addAliasIfNew(ctx, item.personId, row.name, `response:${resp.id}`, item.id);

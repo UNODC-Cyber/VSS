@@ -2,9 +2,39 @@
 import type { NameKey, PersonName } from '../domain/types';
 import { DEFAULT_NAME_CONFIG, type NameConfig } from './config';
 import { doubleMetaphone } from './metaphone';
-import { detectScript, tokenize } from './normalize';
+import { detectScript, foldToken, splitByScript, tokenize, tokenScriptClass } from './normalize';
 
 export type NameInput = string | PersonName | readonly string[];
+
+/**
+ * Non-Latin tokens of a mixed-script name (Latin and non-Latin tokens together, e.g. Latin given names followed by the
+ * same names in Thai script). They are folded (NFC, Thai tone marks stripped) and sorted, and kept OUT of coreTokens /
+ * fullTokens / particles / phonetic, so the Latin part has to match on its own. The field is present only on
+ * mixed-script names, so every other key is unchanged. Compared by the matcher as NAME_SCRIPT_CONFLICT / _IGNORED.
+ */
+export interface MixedNameKey extends NameKey {
+  scriptTokens?: string[];
+}
+
+/** The non-Latin tokens of a mixed-script key ([] for every other key, incl. keys stored before Alpha 1). */
+export function scriptTokensOf(key: NameKey): readonly string[] {
+  const s = (key as MixedNameKey).scriptTokens;
+  return Array.isArray(s) ? s : [];
+}
+
+/** Folded tokens split at Latin / non-Latin boundaries; separates the non-Latin ones when both kinds occur. */
+function splitScripts(tokens: readonly string[]): { main: string[]; script: string[] } {
+  const parts = tokens.flatMap((t) => {
+    const p = splitByScript(t);
+    return p.length === 1 ? p : p.map(foldToken).filter((x) => x !== '');
+  });
+  const cls = parts.map(tokenScriptClass);
+  if (!cls.includes('latin') || !cls.includes('non-latin')) return { main: parts, script: [] };
+  return {
+    main: parts.filter((_, i) => cls[i] !== 'non-latin'),
+    script: parts.filter((_, i) => cls[i] === 'non-latin'),
+  };
+}
 
 function rawTokens(input: NameInput): string[] {
   if (typeof input === 'string') return tokenize(input);
@@ -22,9 +52,10 @@ const byCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0
  *   strip-honorific (dropped), particle or ambiguous honorific (-> particles), else core.
  * - hyphenated tokens are split into their parts; the joined form (without hyphen) is added to fullTokens only.
  * - if nothing is left in core, particles (then stripped honorifics) are used as core so a name never has an empty key.
+ * - mixed Latin + non-Latin names: the non-Latin tokens go to `scriptTokens` only (see MixedNameKey).
  */
-export function buildNameKey(input: NameInput, config: NameConfig = DEFAULT_NAME_CONFIG): NameKey {
-  const tokens = rawTokens(input);
+export function buildNameKey(input: NameInput, config: NameConfig = DEFAULT_NAME_CONFIG): MixedNameKey {
+  const { main: tokens, script } = splitScripts(rawTokens(input));
   const core: string[] = [];
   const particles: string[] = [];
   const stripped: string[] = [];
@@ -64,13 +95,16 @@ export function buildNameKey(input: NameInput, config: NameConfig = DEFAULT_NAME
     if (p !== '') phonetic.push(p);
   }
   phonetic.sort(byCodeUnit);
-  return {
+  for (const s of script) searchable.add(s);
+  const key: MixedNameKey = {
     fullTokens,
     coreTokens: core,
     particles,
     phonetic,
     folded: [...searchable].sort(byCodeUnit).join(' '),
   };
+  if (script.length > 0) key.scriptTokens = [...script].sort(byCodeUnit);
+  return key;
 }
 
 /** Canonical string of the core multiset; the core_key blocking key. */

@@ -86,10 +86,11 @@ describe('request fixtures', () => {
 });
 
 interface ResponseExpected {
-  batchId: string;
-  post: string;
-  resultsAsOf: string;
-  assistanceLine: string;
+  fileKindGuess: string;
+  batchId: string | null;
+  post: string | null;
+  resultsAsOf: string | null;
+  assistanceLine: string | null;
   blocked: boolean;
   unknownSections: string[];
   rows: Record<string, unknown>[];
@@ -98,19 +99,26 @@ interface ResponseExpected {
 
 describe('response fixtures', () => {
   const ids = listIds('responses', 'resp-');
-  it('all five response fixtures exist', () => {
+  it('all eleven response fixtures exist', () => {
     expect(ids).toEqual([
       'resp-001-all-approved',
       'resp-002-reformatted',
       'resp-003-nonapproved',
       'resp-004-thai',
       'resp-005-unknown-section',
+      'resp-006-no-first-label',
+      'resp-007-disp-variants',
+      'resp-008-mixed-script-names',
+      'resp-009-empty-sections',
+      'resp-010-renamed-sheet-hidden-extra',
+      'resp-011-request-workbook',
     ]);
   });
   for (const id of ids) {
     it(`${id} parses to its golden`, () => {
       const expected = fixtureJson<ResponseExpected>(`responses/${id}.expected.json`);
       const r = parseFinalResults(fixtureBytes(`responses/${id}.xlsx`));
+      expect(r.fileKindGuess).toBe(expected.fileKindGuess);
       expect(r.draft.batchId).toBe(expected.batchId);
       expect(r.draft.post).toBe(expected.post);
       expect(r.draft.resultsAsOf).toBe(expected.resultsAsOf);
@@ -121,6 +129,8 @@ describe('response fixtures', () => {
       const rows = r.draft.rows.map((x) => ({
         rowRef: x.rowRef,
         section: x.section,
+        dispClass: x.dispClass,
+        sectionSource: x.sectionSource,
         disp: x.disp,
         nameRaw: x.nameRaw,
         surname: x.name.surname,

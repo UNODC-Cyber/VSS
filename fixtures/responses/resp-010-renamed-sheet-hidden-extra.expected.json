@@ -1,0 +1,191 @@
+{
+  "assistanceLine": "Example Workshop - Example City - 11/20/2026",
+  "batchId": "SYNTH-0000000010",
+  "blocked": false,
+  "description": "Results on sheet \"Results\" between a \"Notes\" sheet and a hidden \"Lists\" sheet; metadata labels in column A; columns reordered plus a REMARKS column.",
+  "fileKindGuess": "dc-response",
+  "id": "resp-010-renamed-sheet-hidden-extra",
+  "issues": [
+    {
+      "code": "EXTRA_SHEETS",
+      "field": null,
+      "rowRef": null,
+      "rule": "S-07",
+      "severity": "info"
+    },
+    {
+      "code": "HEADER_COLUMN_EXTRA",
+      "field": "G",
+      "rowRef": "Results!8",
+      "rule": "S-07",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Results!17",
+      "rule": "S-06",
+      "severity": "info"
+    },
+    {
+      "code": "SECTION_EMPTY",
+      "field": null,
+      "rowRef": "Results!20",
+      "rule": "S-06",
+      "severity": "info"
+    }
+  ],
+  "post": "Example City",
+  "resultsAsOf": "2026-10-22",
+  "rows": [
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dispClass": "approved",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "empty",
+        "parsed": null,
+        "value": ""
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "empty",
+        "parsed": null,
+        "value": ""
+      },
+      "given": [],
+      "nameRaw": "UNKNOWN,    ",
+      "pob": {
+        "city": null,
+        "country": null,
+        "state": null
+      },
+      "rowRef": "Results!9",
+      "script": "Latn",
+      "section": "approved-unit",
+      "sectionSource": "label",
+      "surname": "UNKNOWN",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": true
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dispClass": "approved",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1996-12-11",
+        "value": "12/11/1996"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": ["Bachop"],
+      "nameRaw": "Siarorikpon, Bachop",
+      "pob": {
+        "city": "NOJAMMAT",
+        "country": "THAILAND",
+        "state": "BIMAK"
+      },
+      "rowRef": "Results!13",
+      "script": "Latn",
+      "section": "approved-individual",
+      "sectionSource": "label",
+      "surname": "Siarorikpon",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dispClass": "approved",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1989-08-03",
+        "value": "8/3/1989"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": ["Moeta"],
+      "nameRaw": "Buthasak, Moeta",
+      "pob": {
+        "city": "CHOETAI",
+        "country": "THAILAND",
+        "state": "WIAJAONG"
+      },
+      "rowRef": "Results!14",
+      "script": "Latn",
+      "section": "approved-individual",
+      "sectionSource": "label",
+      "surname": "Buthasak",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    },
+    {
+      "certDate": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2026-10-20",
+        "value": "10/20/2026"
+      },
+      "disp": "Approve",
+      "dispClass": "approved",
+      "dob": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "1977-07-28",
+        "value": "7/28/1977"
+      },
+      "expires": {
+        "ambiguousDayMonth": false,
+        "kind": "text",
+        "parsed": "2027-10-20",
+        "value": "10/20/2027"
+      },
+      "given": ["Sileem"],
+      "nameRaw": "Thaikhamum, Sileem",
+      "pob": {
+        "city": "JAOLAIWOEP",
+        "country": "THAILAND",
+        "state": "PAOTTANJANG"
+      },
+      "rowRef": "Results!15",
+      "script": "Latn",
+      "section": "approved-individual",
+      "sectionSource": "label",
+      "surname": "Thaikhamum",
+      "unitName": "Example Highway Patrol Unit 1",
+      "unitType": "Police",
+      "unknownCommander": false
+    }
+  ],
+  "unknownSections": []
+}

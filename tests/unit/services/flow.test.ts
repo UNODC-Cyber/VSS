@@ -355,7 +355,7 @@ describe('response flow', () => {
     for (const pid of personIdsOf(h, s.id)) expect(unwrap(await h.svc.vetting.statusOf(pid)).status).toBe('approved');
   });
 
-  it('non-approved section yields non-approved status; unknown section blocks loudly', async () => {
+  it('non-approved section yields non-approved status; unknown section warns and its row goes to review', async () => {
     h = harness();
     const s = await importRequest(h, 'req-001-basic');
     await exportAndSend(h, s.id, '2026-11-05T08:00:00.000Z');
@@ -367,10 +367,25 @@ describe('response flow', () => {
     const t = items.find((i) => i.observed.surname === 'Thaikhamum')!;
     expect(unwrap(await h.svc.vetting.statusOf(t.personId!)).status).toBe('non-approved');
     // R-15 then warns on a later request naming this person, and policy excludes them
-    const bad = unwrap(
+    // Owner decision (PLAN-ALPHA section 17.1): an unknown section label warns; rows are classified by DISP and an
+    // unclear one ("Pending") becomes a disposition-unclear review item with no vetting record.
+    const unk = unwrap(
       await h.svc.responses.importFile('r5.xlsx', fixtureBytes('responses/resp-005-unknown-section.xlsx'), s.id),
     );
+    expect(unk.canCommit).toBe(true);
+    expect(unk.issues.find((i) => i.message.includes('UNKNOWN_SECTION'))?.severity).toBe('warning');
+    const pending = unk.rows.find((r) => r.disp === 'Pending')!;
+    expect(pending.dispClass).toBe('unknown');
+    await once(h, () => h.svc.responses.importCommit({ previewId: unk.previewId, requestId: s.id }));
+    const unclear = h.fx.repos.reviews.openForSubject(pending.rowId).filter((r) => r.kind === 'disposition-unclear');
+    expect(unclear).toHaveLength(1);
+    expect(h.fx.repos.vetting.listByResponseRow(pending.rowId)).toEqual([]);
+    // A request workbook picked in the response importer cannot be committed.
+    const bad = unwrap(
+      await h.svc.responses.importFile('r11.xlsx', fixtureBytes('responses/resp-011-request-workbook.xlsx'), s.id),
+    );
     expect(bad.canCommit).toBe(false);
+    expect(bad.fileKindGuess).toBe('investc-request');
     expect(errCode(await h.svc.responses.importCommit({ previewId: bad.previewId, requestId: s.id }))).toBe(
       'FILE_INVALID',
     );
