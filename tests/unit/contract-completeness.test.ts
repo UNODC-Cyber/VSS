@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ALL_CHANNELS, channelName, METHODS, NAMESPACES } from '@shared/ipc/channels';
 import type { Namespace } from '@shared/ipc/channels';
 import { EVENT_NAMES } from '@shared/ipc/contract';
-import { APP_SCHEMA_VERSION } from '../../src/main/db/migrations';
 import { eventSchemas, ipcSchemas, schemasForChannel } from '@shared/ipc/schemas';
 import { APP_SCHEMA_VERSION } from '../../src/main/db/migrations';
 import { createMockApi } from '../../src/renderer/src/mock/mockApi';
