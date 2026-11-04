@@ -168,10 +168,32 @@ describe('mock journey', () => {
     await page.getByRole('button', { name: 'Email requestor' }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Subject').waitFor();
-    expect(await dlg.getByLabel('Subject').inputValue()).toContain('Received: vetting request');
+    expect(await dlg.getByLabel('Subject').inputValue()).toContain('vetting request received');
     await dlg.getByRole('button', { name: 'Open in mail client' }).click();
     await dlg.getByTestId('mailto-status').waitFor();
     await expectNoAxeViolations();
+    await page.keyboard.press('Escape');
+  });
+
+  it('a saved e-mail template shows up in the next draft; the authority contacts are accessible', async () => {
+    await nav('Settings').click();
+    await page.getByRole('heading', { name: 'E-mail templates' }).waitFor();
+    await page.getByRole('tab', { name: 'Acknowledge receipt to requestor' }).click();
+    await page.getByLabel('Subject', { exact: true }).fill('Custom ack: {event}');
+    await page.getByTestId('preview-subject').filter({ hasText: 'Custom ack: Example Regional Workshop' }).waitFor();
+    await page.getByRole('button', { name: 'Add To contact' }).click();
+    await page.getByLabel('To contact 1: Name').fill('Example Desk');
+    await page.getByLabel('To contact 1: E-mail address').fill('desk@example.invalid');
+    await expectNoAxeViolations();
+    await page.getByLabel(/Password to confirm changes/).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await page.getByText('Settings saved').first().waitFor();
+    await nav('Requests').click();
+    await page.getByRole('link', { name: 'Journey Event' }).click();
+    await page.getByRole('button', { name: 'Email requestor' }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByLabel('Subject').waitFor();
+    expect(await dlg.getByLabel('Subject').inputValue()).toBe('Custom ack: Journey Event');
     await page.keyboard.press('Escape');
   });
 

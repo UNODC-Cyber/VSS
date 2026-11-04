@@ -589,7 +589,10 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
             if (!snap) return err('NOT_FOUND', 'Request not found');
             // DOB / ID columns are opt-in per email (default: name, unit, status, valid until).
             const fields: EmailFieldSet = { dob: req.fields?.dob === true, ids: req.fields?.ids === true };
-            return ok(buildDraft(req, snap, fields));
+            const cfg = settings.getOrDefault();
+            return ok(
+              buildDraft(req, snap, fields, { templates: cfg.emailTemplates, authority: cfg.vettingAuthority }),
+            );
           } catch (e) {
             if (e instanceof EmailError) return err(e.code, e.message);
             throw e;
