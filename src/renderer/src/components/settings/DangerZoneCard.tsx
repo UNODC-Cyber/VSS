@@ -14,7 +14,7 @@ export const DangerZoneCard = memo(function DangerZoneCard() {
   return (
     <Card withBorder id="card-danger" style={{ borderColor: 'var(--mantine-color-red-6)' }}>
       <Stack>
-        <Title order={4} c="red">
+        <Title order={4} c="var(--mantine-color-red-text)">
           {t('danger.title')}
         </Title>
         <Text>{t('danger.intro')}</Text>
