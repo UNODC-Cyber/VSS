@@ -69,9 +69,8 @@ describe('people', () => {
     expect(screen.getByText(/Approved - /)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Merge another person into this one' }));
     const dlg = await screen.findByRole('dialog');
-    await user.type(within(dlg).getByLabelText('Search'), 'Fir');
-    await user.click(within(dlg).getByRole('button', { name: 'Search' }));
-    await user.click(await within(dlg).findByRole('button', { name: /Select Fir, Marlo J/ }));
+    await user.type(within(dlg).getByRole('combobox', { name: /Search/ }), 'Fir');
+    await user.click(await within(dlg).findByRole('option', { name: /Fir, Marlo J/ }));
     const reason = await screen.findByLabelText('Reason');
     await user.type(reason, 'Same person, confirmed');
     await user.click(screen.getByRole('button', { name: 'Merge' }));

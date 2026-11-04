@@ -9,6 +9,7 @@ export const picker = {
     searchHint: 'Type a name in any order (commas allowed), a date of birth or an identifier.',
     results: 'Possible persons',
     loading: 'Looking for possible persons...',
+    count: '{{count}} possible persons',
     count_one: '{{count}} possible person',
     count_other: '{{count}} possible persons',
     select: 'Select',
