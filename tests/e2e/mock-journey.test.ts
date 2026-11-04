@@ -205,6 +205,50 @@ describe('mock journey', () => {
     await page.keyboard.press('Escape');
   });
 
+  it('R7: a request whose people all have an answer is Finished; review and close; reopen', async () => {
+    // The journey request still has one unanswered row (S3 "None of these"): excluding it completes the request.
+    await page.evaluate(async () => {
+      const m = window.__vssMock!;
+      const r = m.db.requests.find((x) => x.eventName === 'Journey Event')!;
+      for (const i of r.items)
+        if (!m.db.records.some((x) => x.requestId === r.id && x.personId === i.personId))
+          await m.api.requests.setItemDecision({ itemId: i.id, decision: 'exclude', reason: 'no answer needed' });
+    });
+    await nav('Requests').click();
+    await page.getByRole('button', { name: 'Needs closing' }).click();
+    await page.getByRole('link', { name: 'Journey Event' }).click();
+    await page.getByTestId('review-close-panel').waitFor();
+    expect(await page.locator('[data-request-status="finished"]').count()).toBeGreaterThan(0);
+    await expectNoAxeViolations();
+    await page.getByRole('button', { name: 'Close request' }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByLabel('Close note (optional)').fill('Reviewed with the requestor');
+    await expectNoAxeViolations();
+    await dlg.getByRole('button', { name: 'Close request' }).click();
+    await page.getByTestId('close-note').waitFor();
+    await page.getByRole('button', { name: 'Reopen request' }).click();
+    const re = page.getByRole('dialog');
+    expect(await re.getByRole('button', { name: 'Reopen request' }).isDisabled()).toBe(true);
+    await re.getByLabel('Reason for reopening').fill('Late correction');
+    await re.getByRole('button', { name: 'Reopen request' }).click();
+    await page.getByRole('button', { name: 'Close request' }).first().waitFor();
+  });
+
+  it('R14: the dashboard backup warning links to the Backup card in Settings and focuses its heading', async () => {
+    await page.evaluate(() => {
+      const m = window.__vssMock!;
+      m.db.audit = m.db.audit.filter((e) => e.type !== 'vault.backup');
+    });
+    await nav('Dashboard').click();
+    const warning = page.getByRole('status').filter({ hasText: 'No backup has been made yet' });
+    await warning.waitFor();
+    await expectNoAxeViolations();
+    await warning.getByRole('link', { name: 'Settings' }).click();
+    await page.getByRole('heading', { name: 'Settings', level: 2 }).waitFor();
+    await page.waitForFunction(() => document.activeElement?.textContent === 'Backup and restore');
+    expect(await page.evaluate(() => window.location.hash)).toBe('#/settings');
+  });
+
   it('dashboard numbers reflect the journey', async () => {
     await nav('Dashboard').click();
     await page.getByTestId('stat-outstanding').waitFor();

@@ -4,6 +4,7 @@
  * batch); everything ambiguous becomes pending-review with a ReviewItem; a new person is created only for a row with
  * no candidate at all (inside or outside the batch).
  */
+import { isManualTarget } from '@shared/domain/lifecycle';
 import { addDays, daysBetween } from '@shared/domain/status';
 import type {
   ExportPolicy,
@@ -651,9 +652,13 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
   const setStatusCore = (id: Ulid, status: VettingRequest['status'], at?: string): RequestSummary => {
     const before = ctx.repos.requests.getHeader(id);
     if (!before) return fail('NOT_FOUND', 'Request not found');
+    // Finished and Closed are never set by hand: Finished is derived, Closed goes through requests.close.
+    if (!isManualTarget(status)) return fail('LIFECYCLE_CONFLICT', 'This status is set automatically or by closing');
+    if (before.status === 'closed') return fail('LIFECYCLE_CONFLICT', 'Reopen the request first');
     ctx.tx('requests.setStatus', () => {
       ctx.repos.requests.setStatus(id, status, at ?? ctx.nowIso());
       ctx.audit('request.status', 'request', id, { requestId: id, fromStatus: before.status, toStatus: status });
+      ctx.hooks.onRequestAnswered(id);
     });
     return summaryOf(ctx, id);
   };
@@ -778,6 +783,7 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
             itemId,
             exportDecision: decision,
           });
+          ctx.hooks.onRequestAnswered(item.requestId);
           return out;
         }),
       ),
@@ -793,6 +799,7 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
             personId: out.personId ?? '',
             linkState: out.linkState,
           });
+          ctx.hooks.onRequestAnswered(out.requestId);
           return out;
         }),
       ),
@@ -1017,6 +1024,7 @@ export function recordEmailClearance(ctx: Ctx, req: EmailClearanceInput): EmailC
     ctx.repos.requests.update(h.id, { responseKind: 'email-clearance' });
     ctx.repos.requests.setStatus(h.id, 'responded', at);
     for (const it of items) refreshItemPolicy(ctx, it.id);
+    ctx.hooks.onRequestAnswered(h.id);
     const after = ctx.repos.requests.getHeader(h.id)!;
     const responseDays =
       after.sentToDcAt && after.respondedAt

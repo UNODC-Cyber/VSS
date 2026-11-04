@@ -21,6 +21,7 @@ import { SaveCard } from '../components/settings/SaveCard';
 import { UpdatesCard } from '../components/settings/UpdatesCard';
 import { VettingAuthorityCard } from '../components/settings/VettingAuthorityCard';
 import { TemplatesCard } from '../components/TemplatesCard';
+import { useCardAnchor } from '../components/useCardAnchor';
 import { useAction, vss } from '../lib/api';
 import { useUi } from '../store';
 
@@ -31,6 +32,7 @@ export function SettingsScreen() {
   const setSettings = useUi((s) => s.setSettings);
   const [s, setS] = useState<Settings>(structuredClone(current));
   const [pw, setPw] = useState('');
+  useCardAnchor();
   const dirty = JSON.stringify(s) !== JSON.stringify(current);
 
   const save = async () => {
@@ -47,9 +49,15 @@ export function SettingsScreen() {
       <PageHeader title={t('settings.title')} />
       <GeneralCard value={s} onChange={setS} />
       <ExportPolicyCard value={s} onChange={setS} />
-      <EmailTemplatesCard value={s} onChange={setS} />
-      <VettingAuthorityCard value={s} onChange={setS} />
-      <AppearanceCard value={s} onChange={setS} />
+      <div id="card-email-templates">
+        <EmailTemplatesCard value={s} onChange={setS} />
+      </div>
+      <div id="card-authority">
+        <VettingAuthorityCard value={s} onChange={setS} />
+      </div>
+      <div id="card-appearance">
+        <AppearanceCard value={s} onChange={setS} />
+      </div>
       <PeerCard value={s} onChange={setS} />
       <SaveCard
         password={pw}
@@ -58,10 +66,18 @@ export function SettingsScreen() {
         onSave={() => void save()}
         onRevert={() => setS(structuredClone(current))}
       />
-      <TemplatesCard />
-      <PasswordCard />
-      <BackupCard />
-      <UpdatesCard />
+      <div id="card-templates">
+        <TemplatesCard />
+      </div>
+      <div id="card-password">
+        <PasswordCard />
+      </div>
+      <div id="card-backup">
+        <BackupCard />
+      </div>
+      <div id="card-updates">
+        <UpdatesCard />
+      </div>
       <AboutCard />
       <DangerZoneCard />
     </Stack>

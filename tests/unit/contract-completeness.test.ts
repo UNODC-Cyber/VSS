@@ -22,8 +22,6 @@ const NO_MAIN_HANDLER: readonly Namespace[] = ['peer'];
 const ID = '01HZZZZZZZZZZZZZZZZZZZZZZZ';
 /** Valid requests for the Alpha 1 methods whose lane has not landed (they must answer NOT_SUPPORTED). */
 const LANE_STUBS: [Namespace, string, unknown][] = [
-  ['requests', 'close', { id: ID, note: 'done' }],
-  ['requests', 'reopen', { id: ID, reason: 'reopened for a correction' }],
   ['persons', 'suggest', { forSubject: { kind: 'review-item', id: ID } }],
   ['review', 'manualValidate', { id: ID, target: { kind: 'new-person' }, reason: 'valid answer' }],
   ['review', 'editSubject', { id: ID, subject: { kind: 'person', personId: ID, patch: {} }, reason: 'typo' }],

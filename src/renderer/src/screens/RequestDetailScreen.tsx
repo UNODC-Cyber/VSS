@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RequestItem, VettingRequest } from '@shared/domain/types';
 import { col, DataTable } from '../components/DataTable';
+import { RequestStatusBadge } from '../components/RequestStatusBadge';
+import { ReviewAndClosePanel } from '../components/ReviewAndClosePanel';
 import {
   EditRequestDialog,
   EmailClearanceDialog,
@@ -52,7 +54,11 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
         actions={
           <>
             <Button onClick={() => setDlg('export')}>{t('request.exportForVetting')}</Button>
-            <Button variant="default" onClick={() => setDlg('sent')} disabled={req.status === 'responded'}>
+            <Button
+              variant="default"
+              onClick={() => setDlg('sent')}
+              disabled={['responded', 'finished', 'closed'].includes(req.status)}
+            >
               {t('request.markSent')}
             </Button>
             <Button variant="default" onClick={() => setDlg('clearance')}>
@@ -74,7 +80,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
         }
       />
       <Group>
-        <Badge variant="light">{t(`reqstatus.${req.status}`)}</Badge>
+        <RequestStatusBadge status={req.status} />
         {awaiting && <Badge color="yellow">{t('request.awaiting')}</Badge>}
         {unresolved > 0 && (
           <Badge color="orange" data-testid="unresolved-count">
@@ -82,6 +88,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
           </Badge>
         )}
       </Group>
+      <ReviewAndClosePanel req={req} reload={reload} />
       <Card withBorder>
         <KeyValue
           rows={[

@@ -28,3 +28,17 @@ export function useRoute(): Route {
   }, []);
   return parseHash(hash);
 }
+
+/**
+ * Remove one query parameter from the current hash without adding a history entry (used after a one-shot anchor such
+ * as `#/settings?card=backup` has been handled, so a later manual scroll is not undone). Re-fires hashchange so
+ * `useRoute` follows.
+ */
+export function clearQueryParam(name: string): void {
+  const route = parseHash(window.location.hash);
+  if (!route.query.has(name)) return;
+  route.query.delete(name);
+  const q = route.query.toString();
+  window.history.replaceState(window.history.state, '', `#${route.path}${q ? `?${q}` : ''}`);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+}

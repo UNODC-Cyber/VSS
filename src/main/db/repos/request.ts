@@ -106,6 +106,16 @@ interface ReqRow {
   response_kind: string | null;
   batch_id: string | null;
   notes: string | null;
+  finished_at: string | null;
+  closed_at: string | null;
+  close_notes_json: string | null;
+  reopen_count: number | null;
+}
+/** One entry of request.close_notes_json: the manager's close note or a reopen reason. */
+export interface CloseNoteEntry {
+  at: IsoDateTime;
+  kind: 'close' | 'reopen';
+  text: string;
 }
 interface ItemRow {
   id: string;
@@ -271,16 +281,58 @@ export class RequestRepo {
     return this.getHeader(id)!;
   }
 
-  /** Status change; 'sent-to-dc' stamps sentToDcAt (default now), 'responded' stamps respondedAt when unset. */
+  /**
+   * Status change; 'sent-to-dc' stamps sentToDcAt (default now), 'responded' stamps respondedAt when unset,
+   * 'finished' stamps finishedAt. Leaving finished/closed for an earlier state clears finishedAt and closedAt.
+   */
   setStatus(id: Ulid, status: RequestStatus, at: IsoDateTime = new Date().toISOString()): RequestHeader {
     this.db.transaction(() => {
       const r = this.db.prepare('UPDATE request SET status = ? WHERE id = ?').run(status, id);
       if (r.changes === 0) throw new DbError('NOT_FOUND', 'request not found');
+      if (status === 'finished')
+        this.db.prepare('UPDATE request SET finished_at = ?, closed_at = NULL WHERE id = ?').run(at, id);
+      else if (status !== 'closed' && status !== 'withdrawn')
+        this.db.prepare('UPDATE request SET finished_at = NULL, closed_at = NULL WHERE id = ?').run(id);
       if (status === 'sent-to-dc') this.db.prepare('UPDATE request SET sent_to_dc_at = ? WHERE id = ?').run(at, id);
       if (status === 'responded')
         this.db.prepare('UPDATE request SET responded_at = coalesce(responded_at, ?) WHERE id = ?').run(at, id);
     });
     return this.getHeader(id)!;
+  }
+
+  /** Close a Finished request: status, closedAt and the manager's note (appended to the history). */
+  close(id: Ulid, note: string, at: IsoDateTime): RequestHeader {
+    this.db.transaction(() => {
+      const history = this.noteHistory(id);
+      history.push({ at, kind: 'close', text: note });
+      const r = this.db
+        .prepare(`UPDATE request SET status = 'closed', closed_at = ?, close_notes_json = ? WHERE id = ?`)
+        .run(at, toJson(history), id);
+      if (r.changes === 0) throw new DbError('NOT_FOUND', 'request not found');
+    });
+    return this.getHeader(id)!;
+  }
+
+  /** Reopen a Closed request into `status` (finished|responded); the reason is appended to the history. */
+  reopen(id: Ulid, status: 'finished' | 'responded', reason: string, at: IsoDateTime): RequestHeader {
+    this.db.transaction(() => {
+      const history = this.noteHistory(id);
+      history.push({ at, kind: 'reopen', text: reason });
+      const r = this.db
+        .prepare(
+          `UPDATE request SET status = ?, closed_at = NULL, close_notes_json = ?, reopen_count = reopen_count + 1,
+             finished_at = CASE WHEN ? = 'finished' THEN coalesce(finished_at, ?) ELSE NULL END WHERE id = ?`,
+        )
+        .run(status, toJson(history), status, at, id);
+      if (r.changes === 0) throw new DbError('NOT_FOUND', 'request not found');
+    });
+    return this.getHeader(id)!;
+  }
+
+  noteHistory(id: Ulid): CloseNoteEntry[] {
+    const r = this.db.prepare('SELECT close_notes_json AS j FROM request WHERE id = ?').get(id) as
+      { j: string | null } | undefined;
+    return fromJson<CloseNoteEntry[]>(r?.j, []);
   }
 
   list(q: RequestListFilter): { items: RequestHeader[]; total: number } {
@@ -491,10 +543,13 @@ export class RequestRepo {
       responseKind: r.response_kind as VettingRequest['responseKind'],
       batchId: r.batch_id,
       notes: r.notes ?? '',
-      finishedAt: null,
-      closedAt: null,
-      closeNote: '',
-      reopenCount: 0,
+      finishedAt: r.finished_at ?? null,
+      closedAt: r.closed_at ?? null,
+      closeNote: r.closed_at
+        ? ([...fromJson<CloseNoteEntry[]>(r.close_notes_json, [])].reverse().find((e) => e.kind === 'close')?.text ??
+          '')
+        : '',
+      reopenCount: r.reopen_count ?? 0,
     };
   }
 }

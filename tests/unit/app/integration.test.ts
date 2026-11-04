@@ -156,7 +156,8 @@ describe('integration: real services behind the handler table', () => {
     const tahusPerson = v(await call('persons', 'get', { id: tahusItem.personId }));
     expect(tahusPerson.status).toBe('approved');
     expect(tahusPerson.records[0].expiresAt).toBe('2027-10-20');
-    expect(v(await call('requests', 'get', { id: req.id })).status).toBe('responded');
+    // every item answered by the response => derived Finished (lane D)
+    expect(v(await call('requests', 'get', { id: req.id })).status).toBe('finished');
 
     // 6. Email-only all-clear for another request: default expiry assumed (30 days)
     const pv1 = v(

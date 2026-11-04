@@ -31,7 +31,7 @@ export function applyMockExtensions(
 ): VssApi {
   const out: Record<string, unknown> = { ...api };
   for (const ext of extensions) {
-    for (const [ns, methods] of Object.entries(ext({ db, emit }))) {
+    for (const [ns, methods] of Object.entries(ext({ db, emit, api }))) {
       out[ns] = { ...((out[ns] as object | undefined) ?? {}), ...methods };
     }
   }

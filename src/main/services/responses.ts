@@ -812,12 +812,18 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
           if (!ctx.repos.files.isReferenced(resp.sourceFile.id)) ctx.repos.files.delete(resp.sourceFile.id);
           if (resp.requestId) {
             const h = ctx.repos.requests.getHeader(resp.requestId);
-            if (h && h.responseKind === 'dc-file' && ctx.repos.responses.listByRequest(h.id).length === 0) {
+            if (
+              h &&
+              h.status !== 'closed' &&
+              h.responseKind === 'dc-file' &&
+              ctx.repos.responses.listByRequest(h.id).length === 0
+            ) {
               ctx.repos.requests.update(h.id, { respondedAt: null, responseKind: null });
               if (h.sentToDcAt) ctx.repos.requests.setStatus(h.id, 'sent-to-dc', h.sentToDcAt);
               else ctx.repos.requests.setStatus(h.id, 'exported', ctx.nowIso());
             }
             for (const it of ctx.repos.requests.listItems(resp.requestId)) refreshItemPolicy(ctx, it.id);
+            ctx.hooks.onRequestAnswered(resp.requestId);
           }
           ctx.audit('response.undo-import', 'response', id, {
             responseId: id,

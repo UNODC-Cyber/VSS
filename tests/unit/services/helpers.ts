@@ -68,7 +68,7 @@ export interface Harness {
   setNow(iso: string): void;
   fault: { step: string | null };
   auditCount(): number;
-  /** Audit events other than the saved-requestor side events (lane B), which ride along with request writes. */
+  /** Audit events other than the saved-requestor side events (lane B) and the system 'request.finish' event (lane D), which ride along with request writes. */
   actionAuditCount(): number;
   count(table: string): number;
   cleanup(): void;
@@ -108,7 +108,11 @@ export function harness(startIso = '2026-11-03T09:00:00.000Z'): Harness {
     fault,
     auditCount: () => count('audit'),
     actionAuditCount: () =>
-      (fx.db.prepare("SELECT count(*) AS n FROM audit WHERE type NOT LIKE 'requestor.%'").get() as { n: number }).n,
+      (
+        fx.db
+          .prepare("SELECT count(*) AS n FROM audit WHERE type NOT LIKE 'requestor.%' AND type <> 'request.finish'")
+          .get() as { n: number }
+      ).n,
     count,
     cleanup: fx.cleanup,
   };
@@ -137,7 +141,10 @@ export function errCode<T>(r: Result<T>): string {
   return r.error.code;
 }
 
-/** Runs a mutating call and asserts it appended exactly one audit event. */
+/**
+ * Runs a mutating call and asserts it appended exactly one audit event. The derived, system-authored
+ * `request.finish` event of the lifecycle (lane D) is a consequence, not a user action, and is not counted.
+ */
 export async function once<T>(h: Harness, p: () => Promise<Result<T>>): Promise<T> {
   const before = h.actionAuditCount();
   const r = await p();
