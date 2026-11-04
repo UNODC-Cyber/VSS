@@ -94,6 +94,29 @@ are lost, installed apps cannot be updated automatically; publish a manual-downl
 9. Publish the draft in the GitHub UI. Never mark a release published before step 8 passes. Prereleases (`-rc.N`) are
    ignored by installed apps unless prerelease updates are enabled.
 
+## 3a. Alpha pre-releases (`vX.Y.Z-alpha.N`)
+
+Alpha builds are unsigned pre-releases for testers and never reach an installed app as an update.
+
+1. On `main`: set `package.json` version to the prerelease (for example `0.2.0-alpha.1`), update `CHANGELOG.md` and
+   `docs/KNOWN-LIMITATIONS.md`, merge. A prerelease version only builds with channel `alpha` (`npm run dist:alpha`);
+   `npm run dist` refuses it, and `dist:alpha` refuses a plain version.
+2. Local gate before tagging: `npm run typecheck`, `npm run lint`, `npm test`, the e2e suites, `npm run dist:alpha`,
+   `node tools/verify-channel.mjs out/main/index.js alpha`,
+   `npm run verify:fuses -- "dist/win-unpacked/Vetting Support System.exe"`, `tests/e2e/packaged.test.ts` against
+   `dist/win-unpacked`, then the manual packaged journey (create vault, import a synthetic request, export, import a
+   synthetic response, close the request, lock and unlock; since F-10 the packaged build cannot be driven automatically).
+3. Tag and push: `git tag -s vX.Y.Z-alpha.N && git push origin vX.Y.Z-alpha.N`. The tag must equal `v` + the version.
+4. `release.yml` detects the `-` in the tag and takes the alpha path: the placeholder-key gate is skipped (stable tags
+   keep it), the build runs `npm run dist:alpha` and asserts the channel in the bundle, `SHA256SUMS` and `SHA512SUMS` are
+   produced, `latest.yml` and blockmaps are **not** uploaded, and a **draft prerelease** is created.
+5. Inspect the draft: download the assets, compare `SHA256SUMS` / `SHA512SUMS` with your own hashes, check that there is no
+   `latest.yml` and no blockmap, install the portable exe on a scratch machine and confirm the alpha banner and the
+   absence of any Updates card.
+6. Publishing the draft is a separate, deliberate maintainer decision. Alphas are **not** signed with the update keys
+   (no `release-manifest.json`), so the offline signing steps of section 3 do not apply. The key ceremony in section 2 is
+   still required before the first non-alpha release.
+
 ## 4. What installed apps do
 
 - Check at most once per 24 h, only after unlock, only if **Settings > Updates > Check for updates** is on. When off,
@@ -119,24 +142,9 @@ are lost, installed apps cannot be updated automatically; publish a manual-downl
   needed, the service can fetch `key-rotation.json` + signatures from a release, verify it, and persist the new key
   set as `next` inside the encrypted settings.
 
-## 6. SignPath Foundation (free OSS code signing) application checklist
+## 6. First run on Windows (unsigned builds, SmartScreen)
 
-Authenticode signing removes most SmartScreen friction; it is complementary to (not a replacement for) the manifest
-signatures above.
-
-- [ ] Repository public with an OSI license (Apache-2.0), README stating purpose, maintainers listed.
-- [ ] Builds are fully automated from source in GitHub Actions (`release.yml`), no manual build steps.
-- [ ] No proprietary or closed components in the shipped binaries; SBOM attached to each release.
-- [ ] Project has had releases and visible activity; security policy (`SECURITY.md`) in place.
-- [ ] MFA enabled for all maintainers on GitHub; branch protection on `main`; tags signed.
-- [ ] Code signing policy page drafted (who approves releases, what is signed).
-- [ ] Apply at signpath.org (Foundation programme); after approval, add the SignPath GitHub action as a step that
-      signs the build artefacts **before** `SHA512SUMS` and before the manifest is signed offline.
-- [ ] Then set `publisherName` in `electron-builder.yml` so electron-updater also checks Authenticode.
-
-## 7. First run on Windows (unsigned builds, SmartScreen)
-
-Until builds are Authenticode-signed, Windows shows "Windows protected your PC".
+Builds are unsigned until an organisational code-signing certificate is available, so Windows shows "Windows protected your PC".
 
 1. Download the installer from the project's GitHub Releases page only.
 2. Optional: verify it. In PowerShell: `Get-FileHash .\vss-X.Y.Z-x64-setup.exe -Algorithm SHA512` and compare with the
