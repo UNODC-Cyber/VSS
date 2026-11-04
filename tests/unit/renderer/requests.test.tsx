@@ -189,9 +189,8 @@ describe('request detail', () => {
     await screen.findByRole('heading', { name: 'Resolve Event' });
     await user.click(screen.getByRole('button', { name: 'Resolve identity for row R3' }));
     const dlg = await screen.findByRole('dialog');
-    await user.type(within(dlg).getByLabelText('Search'), 'Cedar');
-    await user.click(within(dlg).getByRole('button', { name: 'Search' }));
-    await user.click(await within(dlg).findByRole('button', { name: /Select Cedar/ }));
+    await user.type(within(dlg).getByRole('combobox', { name: /Search/ }), 'Cedar');
+    await user.click(await within(dlg).findByRole('option', { name: /Cedar, Solana/ }));
     await waitFor(() => expect(screen.queryByTestId('unresolved-count')).not.toBeInTheDocument());
     expect(ctl.db.reviews.filter((r) => r.kind === 'request-item-link' && r.state === 'open')).toHaveLength(0);
   });

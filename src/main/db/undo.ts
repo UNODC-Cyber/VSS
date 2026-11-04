@@ -124,6 +124,8 @@ export function undoRequest(db: Db, requestId: Ulid, opts: UndoRequestOptions = 
           'DELETE FROM review_item WHERE EXISTS (SELECT 1 FROM json_each(review_item.subject_ids_json) j WHERE j.value IN (SELECT value FROM json_each(?)))',
         )
         .run(rowJson).changes;
+      // Lane K (migration 008): corrections of these rows go with them.
+      db.prepare('DELETE FROM response_row_edit WHERE row_id IN (SELECT value FROM json_each(?))').run(rowJson);
       db.prepare(`DELETE FROM response_row WHERE response_id IN (${qs(respIds.length)})`).run(...respIds);
       db.prepare(`DELETE FROM response WHERE id IN (${qs(respIds.length)})`).run(...respIds);
       for (const r of responses) {
@@ -182,6 +184,7 @@ export function undoRequest(db: Db, requestId: Ulid, opts: UndoRequestOptions = 
       } else {
         db.prepare('DELETE FROM person_alias WHERE person_id = ?').run(pid);
         db.prepare('DELETE FROM identifier WHERE person_id = ?').run(pid);
+        db.prepare('DELETE FROM person_edit WHERE person_id = ?').run(pid);
         db.prepare('DELETE FROM person WHERE id = ?').run(pid);
         removeFromSearch(db, 'person', pid);
         personsDeleted.push(pid);

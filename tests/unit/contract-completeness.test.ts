@@ -19,12 +19,10 @@ vi.setConfig({ testTimeout: 60_000 });
 /** Namespaces main deliberately leaves to the registry default (NOT_SUPPORTED): peer mode is post-MVP. */
 const NO_MAIN_HANDLER: readonly Namespace[] = ['peer'];
 
-const ID = '01HZZZZZZZZZZZZZZZZZZZZZZZ';
 /** Valid requests for the Alpha 1 methods whose lane has not landed (they must answer NOT_SUPPORTED). */
 const LANE_STUBS: [Namespace, string, unknown][] = [
-  ['persons', 'suggest', { forSubject: { kind: 'review-item', id: ID } }],
-  ['review', 'manualValidate', { id: ID, target: { kind: 'new-person' }, reason: 'valid answer' }],
-  ['review', 'editSubject', { id: ID, subject: { kind: 'person', personId: ID, patch: {} }, reason: 'typo' }],
+  // landed: lanes B (requestors), D (requests close / reopen), E (email templates), K (persons.suggest,
+  // review.manualValidate, review.editSubject: tests/unit/services/review-manual.test.ts)
   ['app', 'openFeedback', undefined],
 ];
 

@@ -195,6 +195,31 @@ describe('F-01 purge erases everywhere', () => {
     expect(new AuditLog(h.db).verifyChain().ok).toBe(true);
   });
 
+  it('lane K copies (DC originals, row and person edit diffs, validation reasons) are purged too', async () => {
+    h = plainHarness();
+    const { a } = await seed(h);
+    // A person correction and a row correction whose provenance holds the old values, plus a reason naming A.
+    unwrap(await h.svc.persons.update({ id: a, patch: { notes: 'x' }, reason: 'Siarorikpon checked' }));
+    const row = h.repos.responses.rowsByPerson(a)[0]!;
+    h.repos.responses.correctRow(row.id, { ...row, unitName: `${row.unitName} corrected` });
+    h.repos.responses.addEdit({
+      rowId: row.id,
+      at: '2026-11-25T08:00:00.000Z',
+      actor: 'tester',
+      reason: 'Siarorikpon typo',
+      diff: { nameRaw: { from: row.nameRaw, to: row.nameRaw } },
+    });
+    const item = h.repos.requests.itemsByPerson(a)[0]!;
+    const rv = h.repos.reviews.insert({ kind: 'request-item-link', subjectIds: [item.id], candidates: [] });
+    h.repos.reviews.resolve(rv.id, 'resolved', 'manual-validate', '2026-11-25T08:00:00.000Z', 'Siarorikpon confirmed');
+    expect(findLeftovers(h, A).some((x) => x.startsWith('response_row.original_json'))).toBe(true);
+
+    unwrap(await h.svc.persons.purge({ id: a, password: PASSWORD }));
+
+    expect(findLeftovers(h, A)).toEqual([]);
+    expect(h.db.prepare('SELECT count(*) AS n FROM person_edit WHERE person_id = ?').get(a)).toEqual({ n: 0 });
+  });
+
   it('FTS5 secure-delete is on for every search table (migration 003)', () => {
     h = plainHarness();
     for (const t of ['person_search', 'unit_search', 'request_search', 'response_search']) {

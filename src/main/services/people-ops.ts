@@ -119,6 +119,15 @@ export const isApprovedSection = (s: ResponseRow['section']): boolean =>
   s === 'approved-individual' || s === 'approved-unit';
 export const isLinkedDecision = (m: RowMatch): boolean => m.decision === 'auto' || m.decision === 'confirmed';
 
+/**
+ * Disposition a row states: its classified DISP (lane C, `dispClass`; a reviewer may have set or corrected it, lane K).
+ * A row whose disposition is unclear ('unknown') never yields a vetting record: callers check first, this guards.
+ */
+export function rowDisposition(row: ResponseRow): 'approved' | 'non-approved' {
+  if (row.dispClass === 'approved' || row.dispClass === 'non-approved') return row.dispClass;
+  return fail('CONFLICT', 'The disposition of this row is unclear; set it first');
+}
+
 /** Vetting record exactly as stated by a DC row: cert date and expiry from the file, never computed. */
 export function recordFromRow(
   ctx: Ctx,
@@ -132,8 +141,8 @@ export function recordFromRow(
     unitId,
     requestId,
     responseRowId: row.id,
-    // S-06 (lane C): the classified DISP; callers never write a record for a row whose dispClass is 'unknown'.
-    disposition: row.dispClass === 'approved' ? 'approved' : 'non-approved',
+    // S-06 (lane C): the classified DISP; never a record for a row whose dispClass is 'unknown'.
+    disposition: rowDisposition(row),
     certDate: row.certDate.parsed,
     expiresAt: row.expires.parsed,
     expiryAssumed: false,

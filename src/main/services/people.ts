@@ -31,8 +31,9 @@ import { generateCandidates, rankTargets } from '../matching/matcher';
 import { keysOf, personInputFromObserved } from './people-ops';
 import { DbNegativePairs, SqlCandidateSource } from './people-source';
 import { summarize as summarizeRequests } from './requests';
+import { suggestPersons } from './suggest';
 import { snapshotsFor } from './vetting-status';
-import { displayName, fail, makeCtx, notSupported, run } from './vetting-common';
+import { displayName, fail, makeCtx, run } from './vetting-common';
 import type { Ctx, ServiceDeps } from './vetting-common';
 
 export interface PersonSplitRequest {
@@ -57,7 +58,7 @@ export interface PersonsService {
   markNotSame(req: PersonNotSameRequest): Promise<Result<Ack>>;
   purge(req: PersonPurgeRequest): Promise<Result<Ack>>;
   scanDuplicates(): Promise<Result<DuplicateScanResult>>;
-  /** LANE K SLOT (docs/PLAN-ALPHA.md section 14): picker suggestions; NOT_SUPPORTED until lane K lands. */
+  /** Lane K picker suggestions (services/suggest.ts): read-only, never links anything. */
   suggest(req: PersonSuggestRequest): Promise<Result<PersonSuggestion[]>>;
 }
 export interface UnitsService {
@@ -147,6 +148,43 @@ function personDetail(ctx: Ctx, id: Ulid): PersonDetail {
       ]),
     ],
   };
+}
+
+type PersonFields = PersonPatch['patch'];
+const PERSON_FIELDS = ['canonical', 'dob', 'dobPrecision', 'sex', 'nationality', 'pob', 'notes'] as const;
+
+/**
+ * Apply a person correction and record its provenance in `person_edit` (migration 008): the previous and new value
+ * of every changed field, who, when and why. No audit (the caller appends exactly one event). Returns the changed
+ * field names. Personal data: purge clears person_edit.
+ */
+export function updatePersonWithProvenance(ctx: Ctx, id: Ulid, patch: PersonFields, reason: string): string[] {
+  const before = requireActive(ctx, id);
+  const diff: Record<string, { from: unknown; to: unknown }> = {};
+  for (const k of PERSON_FIELDS) {
+    if (patch[k] === undefined) continue;
+    const from = before[k];
+    if (JSON.stringify(from) !== JSON.stringify(patch[k])) diff[k] = { from, to: patch[k] };
+  }
+  ctx.repos.persons.update(id, { ...patch, ...(patch.canonical ? keysOf(patch.canonical) : {}) }, ctx.nowIso());
+  if (Object.keys(diff).length > 0)
+    ctx.db
+      .prepare('INSERT INTO person_edit(id, person_id, at, actor, reason, diff_json) VALUES (?,?,?,?,?,?)')
+      .run(newId(), id, ctx.nowIso(), ctx.actor(), reason, JSON.stringify(diff));
+  return Object.keys(diff);
+}
+
+/** Recorded corrections of a person, oldest first. */
+export function personEdits(
+  ctx: Ctx,
+  id: Ulid,
+): { at: string; diff: Record<string, { from: unknown; to: unknown }> }[] {
+  return (
+    ctx.db.prepare('SELECT at, diff_json FROM person_edit WHERE person_id = ? ORDER BY at, id').all(id) as {
+      at: string;
+      diff_json: string;
+    }[]
+  ).map((r) => ({ at: r.at, diff: JSON.parse(r.diff_json) as Record<string, { from: unknown; to: unknown }> }));
 }
 
 function requireActive(ctx: Ctx, id: Ulid): Person {
@@ -457,9 +495,20 @@ function purgePerson(ctx: Ctx, id: Ulid): void {
          prior_json = NULL, export_reason = NULL WHERE id = ?`,
     ).run(JSON.stringify(blank), it.id);
   }
+  // Lane K (migration 008): corrections, DC originals and manual-validation reasons hold copies of the same data.
+  const itemIds = ctx.repos.requests.itemsByPerson(id).map((i) => i.id);
+  const rowIds = idsOf(db.prepare('SELECT id FROM response_row WHERE person_id = ?').all(id));
+  db.prepare('DELETE FROM response_row_edit WHERE row_id IN (SELECT value FROM json_each(?))').run(
+    JSON.stringify(rowIds),
+  );
+  db.prepare('DELETE FROM person_edit WHERE person_id = ?').run(id);
+  db.prepare(
+    `UPDATE review_item SET resolution_note = NULL WHERE resolution_note IS NOT NULL AND EXISTS (
+       SELECT 1 FROM json_each(review_item.subject_ids_json) j WHERE j.value IN (SELECT value FROM json_each(?)))`,
+  ).run(JSON.stringify([id, ...itemIds, ...rowIds]));
   db.prepare(
     `UPDATE response_row SET name_raw = '', surname = '', given_json = '[]', core_key = NULL, dob = NULL, dob_raw = '',
-       pob_city = NULL, pob_state = NULL, pob_country = NULL, detail_json = NULL WHERE person_id = ?`,
+       pob_city = NULL, pob_state = NULL, pob_country = NULL, detail_json = NULL, original_json = NULL WHERE person_id = ?`,
   ).run(id);
   removeFromSearch(db, 'person', id);
   for (const r of requestIds) reindexRequest(db, r);
@@ -510,11 +559,10 @@ export function createPersonsService(deps: ServiceDeps): PersonsService {
 
     get: ({ id }) => run(() => personDetail(ctx, id)),
 
-    update: ({ id, patch }) =>
+    update: ({ id, patch, reason }) =>
       run(() => {
         ctx.tx('persons.update', () => {
-          requireActive(ctx, id);
-          ctx.repos.persons.update(id, { ...patch, ...(patch.canonical ? keysOf(patch.canonical) : {}) }, ctx.nowIso());
+          updatePersonWithProvenance(ctx, id, patch, reason);
           ctx.audit('person.update', 'person', id, { personId: id, fields: Object.keys(patch).sort().join(',') });
         });
         return personDetail(ctx, id);
@@ -625,7 +673,7 @@ export function createPersonsService(deps: ServiceDeps): PersonsService {
         }),
       ),
 
-    suggest: () => notSupported('Person suggestions'),
+    suggest: (req) => run(() => suggestPersons(ctx, req)),
   };
 }
 

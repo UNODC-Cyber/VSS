@@ -79,16 +79,41 @@ export class ReviewItemRepo {
         .all(subjectId) as Row[]
     ).map(map);
   }
-  resolve(id: Ulid, state: 'resolved' | 'dismissed', resolution: string, at: IsoDateTime = nowIso()): ReviewItemRow {
-    const r = this.db
-      .prepare('UPDATE review_item SET state = ?, resolution = ?, resolved_at = ? WHERE id = ?')
-      .run(state, resolution, at, id);
+  /** `note`: the reviewer's free-text reason (manual validation, migration 008); personal data, never audited. */
+  resolve(
+    id: Ulid,
+    state: 'resolved' | 'dismissed',
+    resolution: string,
+    at: IsoDateTime = nowIso(),
+    note?: string,
+  ): ReviewItemRow {
+    const r =
+      note === undefined
+        ? this.db
+            .prepare('UPDATE review_item SET state = ?, resolution = ?, resolved_at = ? WHERE id = ?')
+            .run(state, resolution, at, id)
+        : this.db
+            .prepare(
+              'UPDATE review_item SET state = ?, resolution = ?, resolved_at = ?, resolution_note = ? WHERE id = ?',
+            )
+            .run(state, resolution, at, note, id);
     if (r.changes === 0) throw new DbError('NOT_FOUND', 'review item not found');
     return this.get(id)!;
   }
+  resolutionNote(id: Ulid): string | null {
+    const r = this.db.prepare('SELECT resolution_note FROM review_item WHERE id = ?').get(id) as
+      { resolution_note: string | null } | undefined;
+    return r?.resolution_note ?? null;
+  }
+  /** Replace the candidates shown for an open item (after a correction; never decides anything). */
+  setCandidates(id: Ulid, candidates: MatchCandidate[]): void {
+    this.db.prepare('UPDATE review_item SET candidates_json = ? WHERE id = ?').run(toJson(candidates), id);
+  }
   reopen(id: Ulid): void {
     this.db
-      .prepare("UPDATE review_item SET state = 'open', resolution = NULL, resolved_at = NULL WHERE id = ?")
+      .prepare(
+        "UPDATE review_item SET state = 'open', resolution = NULL, resolved_at = NULL, resolution_note = NULL WHERE id = ?",
+      )
       .run(id);
   }
   counts(): ReviewCounts {

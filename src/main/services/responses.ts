@@ -43,7 +43,6 @@ import type { ResponseHeader } from '../db/repos';
 import { sha256Hex } from '../db/repos/storedFile';
 import { newId } from '../db/repos/util';
 import { foldForSearch, searchIds } from '../db/search';
-import { sectionOf } from '../formats/dc/disposition';
 import { parseFinalResults, parseUsDate } from '../formats/dc/parse';
 import type { DcResponseDraft, FileKindGuess, ResponseIssue } from '../formats/dc/types';
 import { matchResponseRows } from '../matching/matcher';
@@ -484,15 +483,26 @@ export function resolveRowDisposition(
   disposition: 'approved' | 'non-approved',
 ): DispositionResolved {
   const row = ctx.repos.responses.getRow(rowId) ?? fail('NOT_FOUND', 'Response row not found');
-  if (row.dispClass !== 'unknown') return fail('CONFLICT', 'The disposition of this row is already known');
+  // Already set to the same value (e.g. by an edit in place) is a no-op write; a different known value is a conflict.
+  if (row.dispClass !== 'unknown' && row.dispClass !== disposition)
+    return fail('CONFLICT', 'The disposition of this row is already known');
   const individual = isIndividualSection(row.section);
-  const section = sectionOf(individual ? 'individual' : 'unit', disposition);
-  ctx.db.prepare('UPDATE response_row SET disp_class = ?, section = ? WHERE id = ?').run(disposition, section, rowId);
-  const out = ctx.repos.responses.getRow(rowId)!;
+  const at = ctx.nowIso();
+  // Lane K provenance: the stated disposition is a correction (the DC original is snapshotted on the first one, the
+  // section follows the class). The edit row names only the class change, never personal data.
+  const out =
+    row.dispClass === disposition ? row : ctx.repos.responses.correctRow(rowId, { ...row, dispClass: disposition });
+  if (out !== row)
+    ctx.repos.responses.addEdit({
+      rowId,
+      at,
+      actor: ctx.actor(),
+      reason: 'set-disposition',
+      diff: { dispClass: { from: row.dispClass, to: disposition } },
+    });
   const resp = ctx.repos.responses.getHeader(out.responseId)!;
   const links = ctx.repos.responses.rowLinks(rowId) ?? { requestItemId: null, personId: null };
   const item = links.requestItemId ? ctx.repos.requests.getItem(links.requestItemId) : null;
-  const at = ctx.nowIso();
   let recordsCreated = 0;
   if (individual) {
     const personId = links.personId ?? item?.personId ?? null;

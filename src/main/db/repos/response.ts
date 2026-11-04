@@ -13,6 +13,7 @@ import type {
   Ulid,
 } from '@shared/domain/types';
 import { dispClassOfSection } from '@shared/domain/response-section';
+import { sectionOf } from '../../formats/dc/disposition';
 import { DbError } from '../errors';
 import type { Db } from '../open';
 import { reindexResponse } from '../search';
@@ -70,6 +71,7 @@ interface RowRow {
   detail_json: string | null;
   disp_class?: string | null;
   section_source?: string | null;
+  original_json?: string | null;
 }
 interface Detail {
   script: Script;
@@ -79,6 +81,40 @@ interface Detail {
   certDate: RawDate;
   expires: RawDate;
 }
+
+/** Stored columns a correction may change (lane K); `original_json` snapshots exactly these. */
+const EDIT_COLUMNS = [
+  'name_raw',
+  'surname',
+  'given_json',
+  'core_key',
+  'dob',
+  'dob_raw',
+  'pob_city',
+  'pob_state',
+  'pob_country',
+  'unit_name',
+  'cert_date',
+  'expires',
+  'detail_json',
+  'disp_class',
+  'section',
+] as const;
+/** Raw column values of one row (snapshot / restore unit). */
+export type RowColumns = Record<string, string | null>;
+/** One recorded correction of a response row (migration 008). `diff` holds personal data: purge clears it. */
+export interface RowEdit {
+  id: Ulid;
+  rowId: Ulid;
+  at: IsoDateTime;
+  actor: string;
+  reason: string;
+  diff: Record<string, { from: unknown; to: unknown }>;
+}
+
+/** The kind half of a stored section (the disposition half follows `disp_class`, see `sectionOf`). */
+const kindOfSection = (section: string | null): 'individual' | 'unit' =>
+  section === 'approved-unit' || section === 'nonapproved-unit' ? 'unit' : 'individual';
 const EMPTY_KEY: NameKey = { fullTokens: [], coreTokens: [], particles: [], phonetic: [], folded: '' };
 const rawFrom = (parsed: string | null, value: string | null): RawDate => ({
   kind: value ? 'text' : 'empty',
@@ -266,9 +302,128 @@ export class ResponseRepo {
     this.db.prepare('UPDATE response SET request_id = ? WHERE id = ?').run(requestId, id);
   }
 
+  // -------------------------------------------------------------------------------------------------------------
+  // Lane K: corrections in place (migration 008). The DC original is snapshotted on the first edit only.
+  // -------------------------------------------------------------------------------------------------------------
+
+  private readColumns(id: Ulid): RowColumns | null {
+    const cols = EDIT_COLUMNS;
+    const r = this.db.prepare(`SELECT ${cols.join(', ')} FROM response_row WHERE id = ?`).get(id) as
+      RowColumns | undefined;
+    return r ? { ...r } : null;
+  }
+  private writeColumns(id: Ulid, cols: RowColumns): void {
+    const names = EDIT_COLUMNS.filter((c) => c in cols);
+    this.db
+      .prepare(`UPDATE response_row SET ${names.map((c) => `${c} = @${c}`).join(', ')} WHERE id = @id`)
+      .run({ ...Object.fromEntries(names.map((c) => [c, cols[c] ?? null])), id });
+  }
+
+  /** The row as the DC file stated it (null when it was never corrected). */
+  originalRow(id: Ulid): ResponseRow | null {
+    const r = this.db.prepare('SELECT * FROM response_row WHERE id = ?').get(id) as RowRow | undefined;
+    if (!r?.original_json) return null;
+    const orig = fromJson<RowColumns>(r.original_json, {});
+    return mapRow({ ...r, ...orig } as RowRow);
+  }
+  isEdited(id: Ulid): boolean {
+    const r = this.db.prepare('SELECT original_json FROM response_row WHERE id = ?').get(id) as
+      { original_json: string | null } | undefined;
+    return !!r?.original_json;
+  }
+
+  /**
+   * Replace the correctable fields of a row with those of `next` (name, name key, DOB, POB, unit name, cert / expiry
+   * dates, disposition). The first correction snapshots the stored columns into `original_json`. Re-indexes the
+   * response search blob. Links and match are NOT touched (the service decides).
+   */
+  correctRow(id: Ulid, next: ResponseRow): ResponseRow {
+    const before = this.readColumns(id);
+    if (!before) throw new DbError('NOT_FOUND', 'response row not found');
+    const head = this.db
+      .prepare('SELECT response_id, original_json, section FROM response_row WHERE id = ?')
+      .get(id) as {
+      response_id: string;
+      original_json: string | null;
+      section: string | null;
+    };
+    if (!head.original_json)
+      this.db.prepare('UPDATE response_row SET original_json = ? WHERE id = ?').run(toJson(before), id);
+    const detail: Detail = {
+      script: next.name.script,
+      raw: next.name.raw,
+      nameKey: next.nameKey,
+      dob: next.dob,
+      certDate: next.certDate,
+      expires: next.expires,
+    };
+    const cols: RowColumns = {
+      name_raw: next.nameRaw,
+      surname: next.name.surname,
+      given_json: toJson(next.name.given),
+      core_key: next.nameKey.coreTokens.join(' ') || null,
+      dob: next.dob.parsed,
+      dob_raw: next.dob.value,
+      pob_city: next.pob.city,
+      pob_state: next.pob.state,
+      pob_country: next.pob.country,
+      unit_name: next.unitName,
+      cert_date: next.certDate.parsed,
+      expires: next.expires.parsed,
+      detail_json: toJson(detail),
+      // The stored disp_class (lane C, migration 007) is the row's classification; the section follows it.
+      disp_class: next.dispClass,
+    };
+    if (before.disp_class !== next.dispClass) cols.section = sectionOf(kindOfSection(head.section), next.dispClass);
+    this.writeColumns(id, cols);
+    reindexResponse(this.db, head.response_id);
+    return this.getRow(id)!;
+  }
+
+  /** Restore the DC original byte for byte and forget the snapshot. False when the row was never corrected. */
+  restoreOriginal(id: Ulid): boolean {
+    const r = this.db.prepare('SELECT response_id, original_json FROM response_row WHERE id = ?').get(id) as
+      { response_id: string; original_json: string | null } | undefined;
+    if (!r?.original_json) return false;
+    this.writeColumns(id, fromJson<RowColumns>(r.original_json, {}));
+    this.db.prepare('UPDATE response_row SET original_json = NULL WHERE id = ?').run(id);
+    reindexResponse(this.db, r.response_id);
+    return true;
+  }
+
+  addEdit(e: Omit<RowEdit, 'id'>): RowEdit {
+    const id = newId();
+    this.db
+      .prepare('INSERT INTO response_row_edit(id, row_id, at, actor, reason, diff_json) VALUES (?,?,?,?,?,?)')
+      .run(id, e.rowId, e.at, e.actor, e.reason, toJson(e.diff));
+    return { id, ...e };
+  }
+  listEdits(rowId: Ulid): RowEdit[] {
+    return (
+      this.db.prepare('SELECT * FROM response_row_edit WHERE row_id = ? ORDER BY at, id').all(rowId) as {
+        id: string;
+        row_id: string;
+        at: string;
+        actor: string;
+        reason: string;
+        diff_json: string;
+      }[]
+    ).map((r) => ({
+      id: r.id,
+      rowId: r.row_id,
+      at: r.at,
+      actor: r.actor,
+      reason: r.reason,
+      diff: fromJson<RowEdit['diff']>(r.diff_json, {}),
+    }));
+  }
+
   /** Delete a response, its rows and search blob (records created from it are the caller's concern). */
   delete(id: Ulid): void {
     this.db.transaction(() => {
+      this.db
+        .prepare('DELETE FROM response_row_edit WHERE row_id IN (SELECT id FROM response_row WHERE response_id = ?)')
+        .run(id);
       this.db.prepare('DELETE FROM response_row WHERE response_id = ?').run(id);
       this.db.prepare('DELETE FROM response WHERE id = ?').run(id);
       reindexResponse(this.db, id);
@@ -322,6 +477,7 @@ function mapRow(r: RowRow): ResponseRow {
     certDate: d.certDate ?? rawFrom(r.cert_date, null),
     expires: d.expires ?? rawFrom(r.expires, null),
     match: fromJson<RowMatch>(r.match_json, NO_MATCH),
+    // The stored disp_class wins; only a row without one (never true after migration 007) derives it from the section.
     dispClass: isDispClass(r.disp_class)
       ? r.disp_class
       : dispClassOfSection((r.section ?? 'approved-individual') as ResponseSection),
