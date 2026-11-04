@@ -57,6 +57,9 @@ const only = (process.env['VSS_UI_AUDIT_ONLY'] ?? '').split(',').filter(Boolean)
 // VSS_UI_AUDIT_SCREENS=<substring,...>: still drive every screen, but capture only those whose name contains one.
 const onlyScreens = (process.env['VSS_UI_AUDIT_SCREENS'] ?? '').split(',').filter(Boolean);
 const fx = (p: string) => resolve('fixtures', p);
+// VSS_UI_AUDIT_CHANNEL=alpha (set by tools/ui-audit-alpha.mjs after an alpha build): also capture the alpha-only
+// affordances, and fail loudly if the bundle is not an alpha build.
+const ALPHA = process.env['VSS_UI_AUDIT_CHANNEL'] === 'alpha';
 
 interface Entry {
   viewport: string;
@@ -190,6 +193,11 @@ class Run {
       window.location.hash = h;
     }, hash);
     await this.page.waitForTimeout(500);
+    // Every screen is captured from its top (R3S-13: the audit page opened scrolled to the bottom).
+    await this.page.evaluate(() => {
+      document.scrollingElement?.scrollTo(0, 0);
+      for (const el of document.querySelectorAll('main, [data-scroll-root]')) (el as HTMLElement).scrollTop = 0;
+    });
   }
 
   /** Run `fn` (navigate / open a dialog), then capture. A throw is logged; the screen is still captured. */
@@ -520,6 +528,18 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
       await run.go(`#/review/${rv.id}`);
       await run.click(/validate/i);
     });
+    // With a candidate chosen: the disagreement banner, side-by-side values and the "I compared" tick (R3O-04).
+    await run.screen('dialog-review-validate-candidate', async () => {
+      await run.go(`#/review/${rv.id}`);
+      await run.click(/validate/i);
+      await page
+        .getByRole('dialog')
+        .first()
+        .getByLabel(/\(candidate\)$/)
+        .first()
+        .check({ timeout: 6000 });
+      await page.waitForTimeout(300);
+    });
   }
 
   const target = imported[0];
@@ -640,6 +660,82 @@ async function seededScreens(app: ElectronApplication, run: Run): Promise<void> 
     await run.click(/mark (as )?sent/i);
     await page.getByRole('dialog').first().waitFor({ timeout: 6000 });
   });
+  // Delete confirmation of a request that can be deleted (the imported one above has a response file: blocked).
+  await run.screen('dialog-delete-request-deletable', async () => {
+    const pid = await ensurePendingItemRequest(page, []);
+    if (!pid) throw new Error('could not create a deletable request');
+    await run.go(`#/requests/${pid}`);
+    await run.click(/^delete/i);
+    await page.getByRole('dialog').first().waitFor({ timeout: 6000 });
+  });
+}
+
+/**
+ * Alpha-channel affordances (UI review R3O-H1 / R3S-07): only rendered by a bundle built with VSS_CHANNEL=alpha
+ * (`npm run ui-audit:alpha`). Captures the banner, the Help menu, the About dialog, the Send feedback result (the
+ * browser launch is stubbed in main, nothing opens), and the Settings Updates note and About card.
+ */
+async function alphaScreens(app: ElectronApplication, run: Run): Promise<void> {
+  const { page } = run;
+  const info = await val(api(page, 'app', 'info'));
+  if (info.channel !== 'alpha') throw new Error(`alpha profile, but the build reports channel ${info.channel}`);
+  await app.evaluate(({ shell }) => {
+    shell.openExternal = (async () => undefined) as typeof shell.openExternal;
+  });
+  await run.screen('alpha-banner-dashboard', async () => {
+    await run.go('#/');
+    await page.getByTestId('alpha-banner').waitFor({ timeout: 6000 });
+  });
+  await run.screen('alpha-banner-request-detail', async () => {
+    const reqs = (await val(api(page, 'requests', 'list', { offset: 0, limit: 5 }))).items as { id: string }[];
+    if (reqs[0]) await run.go(`#/requests/${reqs[0].id}`);
+  });
+  await run.screen(
+    'alpha-help-menu',
+    async () => {
+      await run.go('#/');
+      await run.click(/^help$/i);
+      await page.getByRole('menuitem', { name: /about vss/i }).waitFor({ timeout: 6000 });
+    },
+    { scrolled: false },
+  );
+  await page.keyboard.press('Escape').catch(() => undefined);
+  await run.screen(
+    'alpha-about-dialog',
+    async () => {
+      await run.go('#/');
+      await run.click(/^help$/i);
+      await page.getByRole('menuitem', { name: /about vss/i }).click({ timeout: 6000 });
+      await page.getByTestId('about-body').waitFor({ timeout: 6000 });
+    },
+    { scrolled: false },
+  );
+  await run.screen(
+    'alpha-send-feedback',
+    async () => {
+      await run.go('#/');
+      await run.click(/^help$/i);
+      await page.getByRole('menuitem', { name: /send feedback/i }).click({ timeout: 6000 });
+      await page.waitForTimeout(400);
+    },
+    { scrolled: false },
+  );
+  await run.screen(
+    'alpha-settings-updates',
+    async () => {
+      await run.go('#/settings');
+      await page.getByTestId('updates-alpha-note').scrollIntoViewIfNeeded({ timeout: 6000 });
+    },
+    { scrolled: false },
+  );
+  await run.screen(
+    'alpha-settings-about',
+    async () => {
+      await run.go('#/settings');
+      await page.getByTestId('about-version').scrollIntoViewIfNeeded({ timeout: 6000 });
+    },
+    { scrolled: false },
+  );
 }
 
 async function emptyScreens(run: Run): Promise<void> {
@@ -733,6 +829,7 @@ describe('UI audit', () => {
         for (const th of THEMES) {
           run.theme = th;
           await setTheme(l.page, th);
+          if (ALPHA) await alphaScreens(app, run);
           await seededScreens(app, run);
         }
         run.theme = 'light';
