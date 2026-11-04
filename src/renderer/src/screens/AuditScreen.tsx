@@ -6,7 +6,7 @@ import type { AuditVerifyResult } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
 import { PageHeader, QueryBoundary, SimplePager } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
-import { fmtDateTime } from '../lib/format';
+import { fmtDateTime, utcOffsetLabel } from '../lib/format';
 
 const PAGE = 50;
 
@@ -58,6 +58,8 @@ export function AuditScreen() {
       <Group>
         <TextInput
           label={t('audit.filterType')}
+          placeholder={t('auditFlow.allEvents')}
+          description={t('auditFlow.filterHelp')}
           value={type}
           onChange={(e) => {
             setType(e.currentTarget.value);
@@ -79,7 +81,10 @@ export function AuditScreen() {
               tableId="audit"
               columns={[
                 col<AuditEvent>('seq', '#', (e) => e.seq, { width: 72, nowrap: true, drop: 3 }),
-                col<AuditEvent>('at', t('audit.time'), (e) => fmtDateTime(e.at), { width: 170, nowrap: true }),
+                col<AuditEvent>('at', t('auditFlow.timeIn', { zone: utcOffsetLabel() }), (e) => fmtDateTime(e.at), {
+                  width: 170,
+                  nowrap: true,
+                }),
                 col<AuditEvent>('type', t('audit.type'), (e) => e.type, {
                   minWidth: 200,
                   truncate: true,

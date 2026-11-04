@@ -7,7 +7,7 @@ import { col, DataTable } from '../components/DataTable';
 import { RequestStatusBadge } from '../components/RequestStatusBadge';
 import { PageHeader, QueryBoundary, SimplePager } from '../components/common';
 import { useQuery, vss } from '../lib/api';
-import { fmtDate } from '../lib/format';
+import { fmtLocalDate } from '../lib/format';
 import { navigate, useRoute } from '../lib/router';
 
 const STATUSES: RequestStatus[] = [
@@ -141,7 +141,7 @@ export function RequestsScreen() {
                   (r) => <a href={`#/requests/${r.id}`}>{r.eventName}</a>,
                   { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => r.eventName },
                 ),
-                col<RequestSummary>('received', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
+                col<RequestSummary>('received', t('requests.received'), (r) => fmtLocalDate(r.receivedAt), {
                   width: 112,
                   nowrap: true,
                   drop: 2,

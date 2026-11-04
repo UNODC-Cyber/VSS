@@ -189,6 +189,11 @@ export function BackupCard() {
           <Button disabled={!configured} onClick={() => void runNow()}>
             {t('settings.backupNow')}
           </Button>
+          {!configured && (
+            <Text size="sm" data-testid="backup-now-why">
+              {t('backupFlow.setUpFirst')}
+            </Text>
+          )}
           <Text size="sm" data-testid="backup-last">
             {info?.lastBackupAt ? t('backup.last', { at: fmtDateTime(info.lastBackupAt) }) : t('backupFlow.none')}
           </Text>

@@ -606,7 +606,11 @@ function detailOf(ctx: Ctx, id: Ulid): ReviewItemDetail {
   const { resolvedAt: _x, ...item } = row;
   void _x;
   const ids = [...new Set([...item.subjectIds, ...item.candidates.map((c) => c.targetId)])];
-  return { item, subjects: ids.map((s) => subjectOf(ctx, s)).filter((s): s is ReviewSubject => s !== null) };
+  return {
+    item,
+    subjects: ids.map((s) => subjectOf(ctx, s)).filter((s): s is ReviewSubject => s !== null),
+    context: contextOf(ctx, item.subjectIds[0]),
+  };
 }
 
 export function createReviewService(deps: ServiceDeps): ReviewService {

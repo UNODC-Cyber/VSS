@@ -376,7 +376,7 @@ describe('real app journey (no mock)', () => {
     expect(await page.getByTestId('stat-outstanding').textContent()).toBe('0');
     expect(await page.getByTestId('ta-file').textContent()).toBe('1 requests, mean 12.0, median 12.0');
     expect(await page.getByTestId('ta-email').textContent()).toBe('2 requests, mean 21.5, median 21.5'); // 40 and 3
-    expect(await page.getByTestId('exp-30').textContent()).toBe('within 30 d: 6');
+    expect(await page.getByTestId('exp-30').textContent()).toBe('within 30 days: 6');
     expect(await page.getByTestId('stat-backup').textContent()).toBe('Never');
     const dash = await v(call(page, 'stats', 'dashboard', {}));
     expect(dash.counts).toMatchObject({ approved: 6, expiring: 6 });

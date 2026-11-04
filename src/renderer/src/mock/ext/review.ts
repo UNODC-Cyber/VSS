@@ -389,6 +389,6 @@ export const reviewMock: MockExtension = ({ db, emit, api: base }) => {
       const fr = findRow(id2);
       if (fr && !subjects.some((x) => x.id === id2)) subjects.unshift(rowSubjectFor(id2, fr.row, fr.resp));
     }
-    return mockOk({ item: structuredClone(rv), subjects });
+    return mockOk({ item: structuredClone(rv), subjects, context: r.value.context ?? null });
   }
 };

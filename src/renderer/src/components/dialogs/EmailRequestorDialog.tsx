@@ -25,11 +25,18 @@ const DRAFT_ID: Partial<Record<EmailTemplatePurpose, EmailTemplateId>> = {
   'request-to-dc': 'request-to-dc',
 };
 
+/** The template that fits the request's state (UI review R2O-12); the user can still pick any other. */
+export function defaultTemplateFor(status: DialogProps['request']['status']): EmailTemplatePurpose {
+  if (status === 'exported' || status === 'sent-to-dc') return 'reminder';
+  if (status === 'responded' || isFinal(status)) return 'status-to-requestor';
+  return 'acknowledgement';
+}
+
 export function EmailRequestorDialog({ opened, onClose, request }: Omit<DialogProps, 'onChanged'>) {
   const { t } = useTranslation();
   const act = useAction();
   const toast = useUi((s) => s.pushToast);
-  const [template, setTemplate] = useState<EmailTemplatePurpose>('acknowledgement');
+  const [template, setTemplate] = useState<EmailTemplatePurpose>(() => defaultTemplateFor(request.status));
   /** Saved requestors matching the request's requestor (lane B); empty when that lane's API is unavailable. */
   const [requestors, setRequestors] = useState<RequestorRecord[]>([]);
   const [chosen, setChosen] = useState<string | null>(null);

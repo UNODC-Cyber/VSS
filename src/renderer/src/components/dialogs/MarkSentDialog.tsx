@@ -2,13 +2,15 @@ import { Alert, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/co
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAction, vss } from '../../lib/api';
-import { localInputToIso, nowLocalInput } from '../../lib/format';
+import { localInputToIso, localZoneLabel, nowLocalInput } from '../../lib/format';
 import type { DialogProps } from './types';
 
 export function MarkSentDialog({ opened, onClose, request, onChanged }: DialogProps) {
   const { t } = useTranslation();
   const act = useAction();
   const [at, setAt] = useState(nowLocalInput());
+  /** Nothing has been exported yet (UI review R2O-19): allowed, but said plainly. */
+  const notExported = request.status === 'received' || request.status === 'validated';
   return (
     <Modal opened={opened} onClose={onClose} title={t('sent.title')} trapFocus returnFocus>
       <Stack>
@@ -17,9 +19,15 @@ export function MarkSentDialog({ opened, onClose, request, onChanged }: DialogPr
             {t('sentFlow.noItems')}
           </Alert>
         )}
+        {notExported && (
+          <Alert color="yellow" data-testid="sent-not-exported">
+            {t('sentFlow.notExported')}
+          </Alert>
+        )}
         <Text size="sm">{t('sentFlow.help')}</Text>
         <TextInput
           label={t('sent.when')}
+          description={t('sentFlow.zone', { zone: localZoneLabel() })}
           type="datetime-local"
           data-autofocus
           value={at}
