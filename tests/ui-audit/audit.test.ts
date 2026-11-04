@@ -5,7 +5,8 @@
  * empty vault. Output (never in the repo): <out>/<timestamp>/<viewport>/<theme>__<screen>.png, one axe-core JSON per
  * screen and an index.json. A failing screen is logged and the run continues.
  *
- * Run: npm run ui-audit  (VSS_UI_AUDIT_OUT overrides the output root, VSS_UI_AUDIT_ONLY=<viewport id,...> limits it).
+ * Run: npm run ui-audit  (VSS_UI_AUDIT_OUT overrides the output root, VSS_UI_AUDIT_ONLY=<viewport id,...> and
+ * VSS_UI_AUDIT_SCREENS=<name part,...> limit it).
  * Windows are positioned off-screen and never focused; the harness only touches windows it launched itself.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -53,6 +54,8 @@ type Viewport = (typeof VIEWPORTS)[number];
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const OUT_ROOT = join(process.env['VSS_UI_AUDIT_OUT'] ?? join(process.env['TEMP'] ?? tmpdir(), 'vss-ui-audit'), stamp);
 const only = (process.env['VSS_UI_AUDIT_ONLY'] ?? '').split(',').filter(Boolean);
+// VSS_UI_AUDIT_SCREENS=<substring,...>: still drive every screen, but capture only those whose name contains one.
+const onlyScreens = (process.env['VSS_UI_AUDIT_SCREENS'] ?? '').split(',').filter(Boolean);
 const fx = (p: string) => resolve('fixtures', p);
 
 interface Entry {
@@ -212,8 +215,13 @@ class Run {
       pages: 1,
       status: 'ok',
     };
+    const skipCapture = onlyScreens.length > 0 && !onlyScreens.some((x) => name.includes(x));
     try {
       await fn?.();
+      if (skipCapture) {
+        await this.closeDialogs();
+        return;
+      }
       await this.page.waitForTimeout(350);
     } catch (err) {
       e.status = 'failed';
@@ -243,7 +251,19 @@ class Run {
             if (b.width < 2 || b.height < 2) continue;
             const text = (el.textContent ?? '').trim();
             if (!text && el.tagName !== 'BUTTON') continue;
-            if (b.right > box.right + 1 || el.scrollWidth > el.clientWidth + 1) {
+            // Text laid out past the edge of an ancestor that clips it (a Badge label cut with an ellipsis).
+            let textCut = false;
+            for (const n of el.childNodes) {
+              if (n.nodeType !== Node.TEXT_NODE || !(n.textContent ?? '').trim()) continue;
+              const range = document.createRange();
+              range.selectNodeContents(n);
+              const tr = range.getBoundingClientRect();
+              for (let a: HTMLElement | null = el; a && cell.contains(a); a = a.parentElement) {
+                if (getComputedStyle(a).overflowX !== 'visible' && tr.right > a.getBoundingClientRect().right + 1)
+                  textCut = true;
+              }
+            }
+            if (textCut || b.right > box.right + 1 || el.scrollWidth > el.clientWidth + 1) {
               spill.push(`${el.tagName.toLowerCase()}: ${text.slice(0, 30)}`);
               break;
             }

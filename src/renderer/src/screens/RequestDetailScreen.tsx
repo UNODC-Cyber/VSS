@@ -213,7 +213,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             (i) => <CopyField wrap value={itemName(i)} label={t('items.fieldName')} />,
             {
               sticky: 'first',
-              minWidth: 240,
+              minWidth: 168,
               grow: true,
             },
           ),
@@ -226,7 +226,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             'dob',
             t('import.dob'),
             (i) => <CopyField value={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />,
-            { width: 140, nowrap: true },
+            { width: 144, nowrap: true },
           ),
           col<RequestItem>(
             'ids',
@@ -250,11 +250,11 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             tooltip: (i) => i.observed.unitName,
           }),
           col<RequestItem>('status', t('items.status'), (i) => <StatusBadge status={i.prior?.status ?? 'unknown'} />, {
-            minWidth: 130,
+            minWidth: 118,
             nowrap: true,
           }),
           col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt), {
-            width: 108,
+            width: 96,
             nowrap: true,
           }),
           col<RequestItem>(
@@ -280,7 +280,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 )}
               </Group>
             ),
-            { minWidth: 224, nowrap: true },
+            { minWidth: 226, nowrap: true },
           ),
           col<RequestItem>(
             'copy',
