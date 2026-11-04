@@ -5,4 +5,6 @@
 export { default as IconCheck } from '@tabler/icons-react/dist/esm/icons/IconCheck.mjs';
 export { default as IconCopy } from '@tabler/icons-react/dist/esm/icons/IconCopy.mjs';
 export { default as IconColumns3 } from '@tabler/icons-react/dist/esm/icons/IconColumns3.mjs';
+export { default as IconChevronLeft } from '@tabler/icons-react/dist/esm/icons/IconChevronLeft.mjs';
+export { default as IconChevronRight } from '@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs';
 export { default as IconTableOff } from '@tabler/icons-react/dist/esm/icons/IconTableOff.mjs';

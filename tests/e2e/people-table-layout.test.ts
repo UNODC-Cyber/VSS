@@ -55,7 +55,7 @@ async function openPeople(width: number, height: number): Promise<Page> {
   await page.evaluate(() => {
     window.location.hash = '#/people';
   });
-  await page.getByRole('heading', { name: 'People', level: 2 }).waitFor();
+  await page.getByRole('heading', { name: 'People', level: 1 }).waitFor();
   await page.getByRole('table', { name: /People/ }).waitFor();
   await page.waitForTimeout(400);
   return page;

@@ -26,12 +26,12 @@ const metaOf = (id: string): ColMeta<PersonSummary> | undefined =>
 
 describe('People table (R13 reference case)', () => {
   it('declares the width and no-wrap configuration of the plan', () => {
-    expect(metaOf('name')).toMatchObject({ sticky: 'first', minWidth: 220, grow: true, truncate: true });
+    expect(metaOf('name')).toMatchObject({ sticky: 'first', minWidth: 200, grow: true, truncate: true });
     expect(metaOf('dob')).toMatchObject({ width: 112, nowrap: true });
-    expect(metaOf('unit')).toMatchObject({ maxWidth: 200, truncate: true });
+    expect(metaOf('unit')).toMatchObject({ minWidth: 160, grow: true, truncate: true });
     expect(metaOf('status')).toMatchObject({ minWidth: 150, nowrap: true });
-    expect(metaOf('exp')).toMatchObject({ width: 120, nowrap: true });
-    expect(metaOf('rev')).toMatchObject({ width: 124 });
+    expect(metaOf('exp')).toMatchObject({ width: 112, nowrap: true });
+    expect(metaOf('rev')).toMatchObject({ width: 136 });
   });
 
   it('renders Expires and Status as non-wrapping cells, Unit as a truncating cell with the full name', async () => {
@@ -48,9 +48,8 @@ describe('People table (R13 reference case)', () => {
     expect(within(status).getByText('Approved')).toBeVisible();
     expect(await within(unit).findByText(LONG_UNIT)).toHaveAttribute('data-full', LONG_UNIT);
     const cols = screen.getByRole('table', { name: 'People table' }).querySelectorAll('col');
-    expect((cols[3] as HTMLElement).style.width).toBe('200px');
     expect((cols[4] as HTMLElement).style.width).toBe('150px');
-    expect((cols[5] as HTMLElement).style.width).toBe('120px');
+    expect((cols[5] as HTMLElement).style.width).toBe('112px');
   });
 
   it('shows the status as readable text for every status', () => {

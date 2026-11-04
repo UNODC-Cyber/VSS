@@ -137,20 +137,23 @@ export function RequestsScreen() {
                   { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => r.eventName },
                 ),
                 col<RequestSummary>('received', t('requests.received'), (r) => fmtDate(r.receivedAt.slice(0, 10)), {
-                  width: 120,
+                  width: 112,
                   nowrap: true,
+                  drop: 2,
                 }),
                 col<RequestSummary>('requestor', t('requests.requestor'), (r) => r.requestor.name, {
-                  maxWidth: 200,
+                  minWidth: 150,
+                  grow: true,
+                  drop: 1,
                   truncate: true,
                   tooltip: (r) => r.requestor.name,
                 }),
                 col<RequestSummary>('status', t('requests.status'), (r) => <RequestStatusBadge status={r.status} />, {
-                  minWidth: 150,
+                  minWidth: 140,
                   nowrap: true,
                 }),
                 col<RequestSummary>('items', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`, {
-                  width: 88,
+                  width: 124,
                   nowrap: true,
                 }),
                 col<RequestSummary>(
@@ -162,7 +165,7 @@ export function RequestsScreen() {
                     ) : (
                       '-'
                     ),
-                  { width: 88, nowrap: true },
+                  { width: 96, nowrap: true },
                 ),
                 col<RequestSummary>(
                   'aging',

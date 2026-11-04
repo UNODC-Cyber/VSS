@@ -156,7 +156,7 @@ function Body({ d }: { d: Dashboard }) {
             nowrap: true,
           }),
           col<DashboardOutstandingRequest>('i', t('requests.items'), (r) => `${r.answeredCount}/${r.itemCount}`, {
-            width: 88,
+            width: 124,
             nowrap: true,
           }),
         ]}

@@ -17,6 +17,7 @@ import type { RequestorForm } from '../components/RequestorField';
 import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
 import { useAction, useBusyAction, vss } from '../lib/api';
+import { dobDisplay } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useUi } from '../store';
 
@@ -280,36 +281,6 @@ export function ImportRequestScreen() {
                   truncate: true,
                   tooltip: (i) => i.displayName,
                 }),
-                col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef, { width: 72, nowrap: true }),
-                col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName, {
-                  maxWidth: 200,
-                  truncate: true,
-                  tooltip: (i) => i.unitName,
-                }),
-                col<ImportPreviewItem>('dob', t('import.dob'), (i) => <Sensitive value={i.dobRaw} />, {
-                  width: 120,
-                  nowrap: true,
-                }),
-                col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
-                  minWidth: 150,
-                  nowrap: true,
-                }),
-                col<ImportPreviewItem>(
-                  'prior',
-                  t('import.prior'),
-                  (i) => (i.prior ? <StatusBadge status={i.prior.status} /> : '-'),
-                  { minWidth: 150, nowrap: true },
-                ),
-                col<ImportPreviewItem>(
-                  'issues',
-                  t('import.issues'),
-                  (i) => (i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-'),
-                  {
-                    minWidth: 160,
-                    truncate: true,
-                    tooltip: (i) => i.issues.map((x) => x.code).join(', '),
-                  },
-                ),
                 col<ImportPreviewItem>(
                   'export',
                   t('import.export'),
@@ -350,6 +321,39 @@ export function ImportRequestScreen() {
                     );
                   },
                   { minWidth: 240 },
+                ),
+                col<ImportPreviewItem>('row', t('import.row'), (i) => i.rowRef, { width: 80, nowrap: true, drop: 1 }),
+                col<ImportPreviewItem>('unit', t('import.unit'), (i) => i.unitName, {
+                  minWidth: 140,
+                  grow: true,
+                  drop: 3,
+                  truncate: true,
+                  tooltip: (i) => i.unitName,
+                }),
+                col<ImportPreviewItem>('dob', t('import.dob'), (i) => <Sensitive value={dobDisplay(i.dobRaw)} />, {
+                  width: 112,
+                  nowrap: true,
+                }),
+                col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
+                  minWidth: 140,
+                  nowrap: true,
+                }),
+                col<ImportPreviewItem>(
+                  'prior',
+                  t('import.prior'),
+                  (i) => (i.prior ? <StatusBadge status={i.prior.status} /> : '-'),
+                  { minWidth: 140, nowrap: true, drop: 2 },
+                ),
+                col<ImportPreviewItem>(
+                  'issues',
+                  t('import.issues'),
+                  (i) => (i.issues.length ? i.issues.map((x) => x.code).join(', ') : '-'),
+                  {
+                    minWidth: 160,
+                    drop: 4,
+                    truncate: true,
+                    tooltip: (i) => i.issues.map((x) => x.code).join(', '),
+                  },
                 ),
               ]}
             />

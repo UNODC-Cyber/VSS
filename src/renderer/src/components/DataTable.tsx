@@ -1,11 +1,11 @@
-import { ActionIcon, Checkbox, Popover, Stack, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Checkbox, Group, Popover, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { FlexRender, tableFeatures, useTable } from '@tanstack/react-table';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUi } from '../store';
-import { IconColumns3, IconTableOff } from './ui/icons';
+import { IconChevronLeft, IconChevronRight, IconColumns3, IconTableOff } from './ui/icons';
 import { useTableState } from './ui/tableState';
 
 const features = tableFeatures({});
@@ -35,6 +35,11 @@ export interface ColMeta<T extends object = object> {
   hideable?: boolean;
   /** Hidden until the user shows it (only with `hideable`). */
   defaultHidden?: boolean;
+  /**
+   * Drop order when the table is wider than its container and the user has not chosen columns: columns with a
+   * `drop` rank are hidden (lowest rank first) until the rest fit. Implies `hideable`; the chooser brings them back.
+   */
+  drop?: number;
 }
 
 export type Col<T extends object> = ColumnDef<VssFeatures, T> & { meta?: ColMeta<T> };
@@ -71,11 +76,11 @@ export const colWidth = (m: ColMeta<never> | undefined): number =>
 const colMin = (m: ColMeta<never> | undefined): number => m?.minWidth ?? colWidth(m);
 
 /** Class names a cell carries; exported so tests can assert the configuration without a layout engine. */
-export function cellClass(m: ColMeta<never> | undefined, isFirst: boolean): string {
+export function cellClass(m: ColMeta<never> | undefined, isFirst: boolean, header = false): string {
   return [
     'vss-cell',
-    m?.nowrap || m?.width ? 'vss-nowrap' : '',
-    m?.truncate ? 'vss-truncate' : '',
+    !header && (m?.nowrap || m?.width) ? 'vss-nowrap' : '',
+    !header && m?.truncate ? 'vss-truncate' : '',
     m?.sticky === 'first' && isFirst ? 'vss-sticky' : '',
     m?.align ? `vss-align-${m.align}` : '',
   ]
@@ -179,6 +184,7 @@ export function DataTable<T extends object>({
   tableId,
   maxHeight,
 }: Props<T>) {
+  const { t } = useTranslation();
   const density = useUi((s) => s.settings.uiDensity);
   const savedHidden = useUi((s) => (tableId ? s.settings.tableColumns[tableId] : undefined));
   const sessionHidden = useTableState((s) => (tableId ? s.hidden[tableId] : undefined));
@@ -186,13 +192,33 @@ export function DataTable<T extends object>({
 
   const metaOf = (c: Col<T>): ColMeta<T> | undefined => c.meta;
   const engine = columns.some((c) => metaOf(c) !== undefined);
+  const isHideable = (c: Col<T>) => !!(metaOf(c)?.hideable || metaOf(c)?.drop !== undefined);
   const defaultHidden = useMemo(
-    () => columns.filter((c) => metaOf(c)?.hideable && metaOf(c)?.defaultHidden).map((c) => String(c.id)),
+    () => columns.filter((c) => isHideable(c) && metaOf(c)?.defaultHidden).map((c) => String(c.id)),
     [columns],
   );
-  const hidden = sessionHidden ?? savedHidden ?? defaultHidden;
-  const hideableCols = columns.filter((c) => metaOf(c)?.hideable);
-  const visible = columns.filter((c) => !(metaOf(c)?.hideable && hidden.includes(String(c.id))));
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(0);
+  const [overflowing, setOverflowing] = useState(false);
+  const explicit = sessionHidden ?? savedHidden;
+  // Without a user choice, shed low-priority columns (lowest `drop` first) until the rest fit the container.
+  const autoHidden = useMemo(() => {
+    if (explicit || avail <= 0) return defaultHidden;
+    const hiddenIds = [...defaultHidden];
+    const shown = () => columns.filter((c) => !hiddenIds.includes(String(c.id)));
+    const total = () => shown().reduce((n, c) => n + colMin(metaOf(c)), 0);
+    const droppable = columns
+      .filter((c) => metaOf(c)?.drop !== undefined && !hiddenIds.includes(String(c.id)))
+      .sort((a, b) => (metaOf(a)?.drop ?? 0) - (metaOf(b)?.drop ?? 0));
+    for (const c of droppable) {
+      if (total() <= avail) break;
+      hiddenIds.push(String(c.id));
+    }
+    return hiddenIds;
+  }, [explicit, avail, defaultHidden, columns]);
+  const hidden = explicit ?? autoHidden;
+  const hideableCols = columns.filter(isHideable);
+  const visible = columns.filter((c) => !(isHideable(c) && hidden.includes(String(c.id))));
 
   const table = useTable({
     features,
@@ -202,6 +228,24 @@ export function DataTable<T extends object>({
   });
   const rows = table.getRowModel().rows;
   const metaById = new Map(visible.map((c) => [String(c.id), metaOf(c)]));
+
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAvail(el.clientWidth);
+    setOverflowing(el.scrollWidth > el.clientWidth + 1);
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const inner = el.firstElementChild;
+    if (inner) ro.observe(inner);
+    return () => ro.disconnect();
+  });
+  const scrollBy = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
 
   const totalMin = visible.reduce((n, c) => n + colMin(metaOf(c)), 0);
   const hasGrow = visible.some((c) => metaOf(c)?.grow);
@@ -241,7 +285,7 @@ export function DataTable<T extends object>({
             {hg.headers.map((h, i) => {
               const m = metaById.get(h.id);
               return (
-                <Table.Th key={h.id} scope="col" className={engine ? cellClass(m, i === 0) : undefined}>
+                <Table.Th key={h.id} scope="col" className={engine ? cellClass(m, i === 0, true) : undefined}>
                   {h.isPlaceholder ? null : <FlexRender header={h} />}
                 </Table.Th>
               );
@@ -277,9 +321,10 @@ export function DataTable<T extends object>({
                   const m = metaById.get(c.column.id);
                   const content = renderCell(c);
                   const cls = engine ? cellClass(m, i === 0) : undefined;
+                  const plain = typeof content === 'string' || typeof content === 'number';
                   const wrapped =
-                    m?.truncate && engine ? (
-                      <TruncatedCell full={m.tooltip ? m.tooltip(original) : undefined}>{content}</TruncatedCell>
+                    engine && (m?.truncate || plain) ? (
+                      <TruncatedCell full={m?.tooltip ? m.tooltip(original) : undefined}>{content}</TruncatedCell>
                     ) : (
                       content
                     );
@@ -300,20 +345,56 @@ export function DataTable<T extends object>({
   if (!engine) {
     return <Table.ScrollContainer minWidth={600}>{body}</Table.ScrollContainer>;
   }
+  const showTools = !!(tableId && hideableCols.length > 0) || overflowing;
   return (
-    <div className="vss-table-wrap" data-table-id={tableId}>
-      {tableId && hideableCols.length > 0 && (
-        <div className="vss-table-tools">
-          <ColumnChooser
-            tableId={tableId}
-            items={hideableCols.map((c) => ({ id: String(c.id), header: String(c.header ?? c.id) }))}
-            hidden={hidden}
-            onChange={(next) => setSessionHidden(tableId, next)}
-          />
-        </div>
+    <div
+      className="vss-table-wrap"
+      data-table-id={tableId}
+      data-dropped={
+        explicit ? undefined : autoHidden.filter((id) => !defaultHidden.includes(id)).join(',') || undefined
+      }
+    >
+      {showTools && (
+        <Group className="vss-table-tools" justify="flex-end" gap="xs" wrap="nowrap">
+          {overflowing && (
+            <>
+              <Text size="xs" c="dimmed" data-testid="table-more-columns">
+                {t('ui.table.scrollHint')}
+              </Text>
+              <ActionIcon
+                variant="default"
+                size="sm"
+                aria-label={t('ui.table.scrollLeft')}
+                title={t('ui.table.scrollLeft')}
+                onClick={() => scrollBy(-320)}
+              >
+                <IconChevronLeft size={16} aria-hidden="true" />
+              </ActionIcon>
+              <ActionIcon
+                variant="default"
+                size="sm"
+                aria-label={t('ui.table.scrollRight')}
+                title={t('ui.table.scrollRight')}
+                onClick={() => scrollBy(320)}
+              >
+                <IconChevronRight size={16} aria-hidden="true" />
+              </ActionIcon>
+            </>
+          )}
+          {tableId && hideableCols.length > 0 && (
+            <ColumnChooser
+              tableId={tableId}
+              items={hideableCols.map((c) => ({ id: String(c.id), header: String(c.header ?? c.id) }))}
+              hidden={hidden}
+              onChange={(next) => setSessionHidden(tableId, next)}
+            />
+          )}
+        </Group>
       )}
       <div
+        ref={scrollRef}
         className="vss-table-scroll"
+        data-overflowing={overflowing ? 'true' : undefined}
         role="region"
         aria-label={caption}
         tabIndex={0}

@@ -17,7 +17,7 @@ import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
 import { DispBadge, PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../components/common';
 import { useAction, useQuery, vss } from '../lib/api';
-import { fmtDate, fmtDateTime } from '../lib/format';
+import { dobDisplay, fmtDate, fmtDateTime } from '../lib/format';
 import { navigate } from '../lib/router';
 
 const PAGE = 25;
@@ -50,22 +50,30 @@ export function ResponsesScreen() {
                   tooltip: (r) => r.batchId,
                 }),
                 col<ResponseSummary>('post', t('responses.post'), (r) => r.post, {
-                  maxWidth: 160,
+                  minWidth: 140,
+                  grow: true,
                   truncate: true,
                   tooltip: (r) => r.post,
                 }),
                 col<ResponseSummary>('asof', t('responses.asOf'), (r) => fmtDate(r.resultsAsOf), {
-                  width: 120,
+                  width: 112,
                   nowrap: true,
+                  drop: 2,
                 }),
                 col<ResponseSummary>('imported', t('responses.imported'), (r) => fmtDateTime(r.importedAt), {
                   width: 160,
                   nowrap: true,
+                  drop: 1,
                 }),
-                col<ResponseSummary>('rows', t('responses.rows'), (r) => r.rowCount, { width: 80, nowrap: true }),
+                col<ResponseSummary>('rows', t('responses.rows'), (r) => r.rowCount, {
+                  width: 80,
+                  nowrap: true,
+                  drop: 3,
+                }),
                 col<ResponseSummary>('approved', t('responses.approved'), (r) => r.approvedCount, {
                   width: 100,
                   nowrap: true,
+                  drop: 4,
                 }),
                 col<ResponseSummary>('non', t('responses.nonApproved'), (r) => r.nonApprovedCount, {
                   width: 120,
@@ -460,36 +468,43 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
               columns={[
                 col<ResponsePreviewRow>('name', t('import.name'), (r) => <Sensitive value={r.nameRaw} />, {
                   sticky: 'first',
-                  minWidth: 180,
+                  minWidth: 170,
                   grow: true,
                   truncate: true,
                   tooltip: (r) => r.nameRaw,
                 }),
-                col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef, { width: 72, nowrap: true }),
+                col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef, { width: 132, nowrap: true, drop: 1 }),
                 col<ResponsePreviewRow>('disp', t('ui.dispClass.label'), (r) => <DispBadge value={r.dispClass} />, {
                   minWidth: 140,
                   nowrap: true,
+                  drop: 3,
                 }),
                 col<ResponsePreviewRow>(
                   'section',
                   t('responseImport.section'),
                   (r) => `${t(`section.${r.section}`)} (${r.disp})`,
                   {
-                    maxWidth: 200,
+                    width: 180,
                     truncate: true,
                     hideable: true,
+                    drop: 2,
                     tooltip: (r) => `${t(`section.${r.section}`)} (${r.disp})`,
                   },
                 ),
-                col<ResponsePreviewRow>('dob', t('import.dob'), (r) => <Sensitive value={r.dobRaw} />, {
-                  width: 120,
-                  nowrap: true,
-                }),
+                col<ResponsePreviewRow>(
+                  'dob',
+                  t('import.dob'),
+                  (r) => <Sensitive value={dobDisplay(r.dobRaw, true)} />,
+                  {
+                    width: 104,
+                    nowrap: true,
+                  },
+                ),
                 col<ResponsePreviewRow>(
                   'cert',
                   t('responseImport.cert'),
                   (r) => `${fmtDate(r.certDate)} / ${fmtDate(r.expires)}`,
-                  { width: 220, nowrap: true },
+                  { width: 190, nowrap: true, drop: 5 },
                 ),
                 col<ResponsePreviewRow>(
                   'tier',
@@ -507,7 +522,7 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                       <Text size="sm">{t('responseImport.noCandidate')}</Text>
                     );
                   },
-                  { minWidth: 150, nowrap: true },
+                  { minWidth: 150, nowrap: true, drop: 4 },
                 ),
                 col<ResponsePreviewRow>(
                   'choice',
@@ -551,7 +566,7 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                       </Group>
                     );
                   },
-                  { minWidth: 300 },
+                  { minWidth: 250 },
                 ),
               ]}
             />

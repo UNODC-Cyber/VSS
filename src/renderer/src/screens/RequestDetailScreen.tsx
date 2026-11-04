@@ -143,16 +143,20 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             (i) => <CopyField value={itemName(i)} label={t('items.fieldName')} />,
             {
               sticky: 'first',
-              minWidth: 240,
+              minWidth: 190,
               grow: true,
             },
           ),
-          col<RequestItem>('row', t('import.row'), (i) => i.observed.rowRef, { width: 72, nowrap: true }),
+          col<RequestItem>('row', t('import.row'), (i) => i.observed.rowRef, {
+            width: 84,
+            nowrap: true,
+            drop: 4,
+          }),
           col<RequestItem>(
             'dob',
             t('import.dob'),
             (i) => <CopyField value={i.observed.dob.parsed ?? i.observed.dob.value} label={t('items.fieldDob')} />,
-            { width: 150, nowrap: true },
+            { width: 140, nowrap: true },
           ),
           col<RequestItem>(
             'ids',
@@ -166,26 +170,28 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 {!i.observed.passport && !i.observed.nationalId && '-'}
               </Stack>
             ),
-            { minWidth: 190 },
+            { minWidth: 190, drop: 1 },
           ),
           col<RequestItem>('unit', t('import.unit'), (i) => i.observed.unitName, {
-            maxWidth: 200,
+            minWidth: 140,
+            grow: true,
+            drop: 5,
             truncate: true,
             tooltip: (i) => i.observed.unitName,
           }),
           col<RequestItem>('status', t('items.status'), (i) => <StatusBadge status={i.prior?.status ?? 'unknown'} />, {
-            minWidth: 150,
+            minWidth: 130,
             nowrap: true,
           }),
           col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt), {
-            width: 120,
+            width: 108,
             nowrap: true,
           }),
           col<RequestItem>(
             'person',
             t('items.person'),
             (i) => (i.personId ? <a href={`#/people/${i.personId}`}>{t('items.openPerson')}</a> : '-'),
-            { width: 110, nowrap: true, hideable: true },
+            { width: 110, nowrap: true, hideable: true, drop: 2 },
           ),
           col<RequestItem>(
             'link',
@@ -204,7 +210,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 )}
               </Group>
             ),
-            { minWidth: 210, nowrap: true },
+            { minWidth: 180, nowrap: true },
           ),
           col<RequestItem>(
             'copy',
@@ -221,7 +227,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
                 />
               </Group>
             ),
-            { width: 96, nowrap: true },
+            { width: 96, nowrap: true, drop: 3 },
           ),
         ]}
       />

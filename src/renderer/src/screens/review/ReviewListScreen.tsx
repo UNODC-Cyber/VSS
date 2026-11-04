@@ -69,14 +69,16 @@ export function ReviewScreen() {
                       <Sensitive value={nameOf(r)} />
                     </a>
                   ),
-                  { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (r) => nameOf(r) },
+                  { sticky: 'first', minWidth: 180, grow: true, truncate: true, tooltip: (r) => nameOf(r) },
                 ),
                 col<ReviewItemSummary>('d', t('reviewList.dob'), (r) => <Sensitive value={r.subjectDob} />, {
                   width: 112,
                   nowrap: true,
                 }),
                 col<ReviewItemSummary>('u', t('reviewList.unit'), (r) => r.unitName ?? '-', {
-                  maxWidth: 200,
+                  minWidth: 140,
+                  grow: true,
+                  drop: 2,
                   truncate: true,
                   tooltip: (r) => r.unitName,
                 }),
@@ -93,11 +95,11 @@ export function ReviewScreen() {
                     ) : (
                       <a href="#/responses">{t('reviewList.contextResponse', { batch: r.context.batchId })}</a>
                     ),
-                  { minWidth: 200, truncate: true },
+                  { minWidth: 180, truncate: true, drop: 1 },
                 ),
                 col<ReviewItemSummary>('k', t('review.kind'), (r) => t(`reviewkind.${r.kind}`), {
-                  minWidth: 160,
-                  truncate: true,
+                  minWidth: 190,
+                  nowrap: true,
                 }),
                 col<ReviewItemSummary>(
                   't',
@@ -111,6 +113,7 @@ export function ReviewScreen() {
                 col<ReviewItemSummary>('c', t('review.created'), (r) => fmtDateTime(r.createdAt), {
                   width: 160,
                   nowrap: true,
+                  drop: 3,
                 }),
               ]}
             />

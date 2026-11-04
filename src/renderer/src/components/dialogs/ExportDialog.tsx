@@ -119,7 +119,9 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
                   tooltip: (i) => i.displayName,
                 }),
                 col<ExportPreview['items'][number]>('u', t('import.unit'), (i) => i.unitName, {
-                  maxWidth: 180,
+                  minWidth: 150,
+                  grow: true,
+                  drop: 2,
                   truncate: true,
                   tooltip: (i) => i.unitName,
                 }),
@@ -135,6 +137,7 @@ export function ExportDialog({ opened, onClose, request, onChanged }: DialogProp
                 ),
                 col<ExportPreview['items'][number]>('r', t('common.reason'), (i) => i.reason, {
                   minWidth: 160,
+                  drop: 1,
                   truncate: true,
                   tooltip: (i) => i.reason,
                 }),

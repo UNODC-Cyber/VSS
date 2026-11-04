@@ -1,6 +1,8 @@
 /* Accessibility overrides on top of Mantine defaults (WCAG AA contrast). */
 :root[data-mantine-color-scheme='light'] {
   --mantine-color-dimmed: #495057;
+  --mantine-color-red-filled: #c92a2a;
+  --mantine-color-red-filled-hover: #b02525;
   --mantine-color-placeholder: #6c727a;
   --mantine-color-orange-light-color: #9c4300;
   --mantine-color-orange-outline: #9c4300;
@@ -16,6 +18,56 @@
   --mantine-color-gray-outline: #343a40;
 }
 
+/*
+ * Dark theme (all axe colour-contrast failures were dark only): same idea as the light block, by token. Dimmed text,
+ * red filled buttons, destructive text, and neutral badges are lifted to AA on the dark surfaces (#242424 / #2e2e2e /
+ * #3b3b3b). The filled primary is darkened in theme.ts (primaryShade).
+ */
+:root[data-mantine-color-scheme='dark'] {
+  --mantine-color-dimmed: #b8b8b8;
+  --mantine-color-placeholder: #a6a6a6;
+  --mantine-color-red-filled: #c92a2a;
+  --mantine-color-red-filled-hover: #b02525;
+  --mantine-color-red-text: #ff8787;
+  --mantine-color-red-outline: #ff8787;
+  --mantine-color-red-light: rgba(250, 82, 82, 0.2);
+  --mantine-color-red-light-color: #ffa8a8;
+  --mantine-color-orange-light: rgba(253, 126, 20, 0.22);
+  --mantine-color-orange-light-color: #ffc078;
+  --mantine-color-yellow-light: rgba(250, 176, 5, 0.2);
+  --mantine-color-yellow-light-color: #ffe066;
+  --mantine-color-green-light: rgba(64, 192, 87, 0.2);
+  --mantine-color-green-light-color: #8ce99a;
+  --mantine-color-blue-light: rgba(34, 139, 230, 0.25);
+  --mantine-color-blue-light-color: #a5d8ff;
+  --mantine-color-cyan-light: rgba(21, 170, 191, 0.22);
+  --mantine-color-cyan-light-color: #99e9f2;
+  --mantine-color-gray-light: rgba(173, 181, 189, 0.22);
+  --mantine-color-gray-light-color: #e9ecef;
+  --mantine-color-dark-light-color: #e9ecef;
+  --mantine-color-anchor: #74c0fc;
+}
+/* Links: one theme anchor colour for plain <a> in tables and text (no browser-default blue / visited purple). */
+:root {
+  --vss-link: #1864ab;
+  --vss-link-hover: #0b3d73;
+}
+:root[data-mantine-color-scheme='dark'] {
+  --vss-link: #74c0fc;
+  --vss-link-hover: #a5d8ff;
+}
+a:not([class]) {
+  color: var(--vss-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+a:not([class]):hover {
+  color: var(--vss-link-hover);
+}
+a:not([class]):visited {
+  color: var(--vss-link);
+}
+
 /* Local variable font (bundled by main.tsx from @fontsource-variable/inter; no CDN, CSP font-src 'self'). */
 :root {
   --vss-font: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -29,13 +81,22 @@
   width: 100%;
 }
 .vss-table-tools {
-  display: flex;
-  justify-content: flex-end;
   margin-bottom: 4px;
 }
 .vss-table-scroll {
   overflow-x: auto;
   max-width: 100%;
+  /* Scroll shadows: a soft edge shows on the side that still has columns. */
+  background:
+    linear-gradient(to right, var(--mantine-color-body) 30%, transparent) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--mantine-color-body) 30%, transparent) right center / 24px 100% no-repeat local,
+    linear-gradient(to right, rgba(0, 0, 0, 0.22), transparent) left center / 10px 100% no-repeat scroll,
+    linear-gradient(to left, rgba(0, 0, 0, 0.22), transparent) right center / 10px 100% no-repeat scroll;
+}
+/* A table wider than its box keeps its sideways scrollbar inside the viewport (the box scrolls vertically too). */
+.vss-table-scroll[data-overflowing='true'] {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
 }
 .vss-table-scroll:focus-visible {
   outline: 2px solid var(--mantine-primary-color-filled);
@@ -49,6 +110,7 @@
 }
 .vss-table .vss-nowrap {
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .vss-table .vss-truncate {
   white-space: nowrap;
@@ -80,7 +142,22 @@
   box-shadow: 1px 0 0 var(--table-border-color, var(--mantine-color-default-border));
 }
 .vss-table thead th {
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: bottom;
+  line-height: 1.25;
+}
+.vss-table thead th.vss-sticky {
+  z-index: 3;
+}
+.vss-table-scroll[data-overflowing='true'] thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--mantine-color-body);
+}
+.vss-table-scroll[data-overflowing='true'] thead th.vss-sticky {
+  z-index: 4;
 }
 .vss-table[data-density='compact'] {
   font-size: var(--mantine-font-size-sm);

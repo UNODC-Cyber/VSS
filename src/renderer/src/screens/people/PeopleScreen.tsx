@@ -27,17 +27,19 @@ export const PERSON_COLUMNS = (t: TFunction): Col<PersonSummary>[] => [
         <Sensitive value={p.displayName} />
       </a>
     ),
-    { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (p) => p.displayName },
+    { sticky: 'first', minWidth: 200, grow: true, truncate: true, tooltip: (p) => p.displayName },
   ),
   col<PersonSummary>('dob', t('people.dob'), (p) => <Sensitive value={p.dob} />, { width: 112, nowrap: true }),
   col<PersonSummary>('nat', t('people.nationality'), (p) => p.nationality ?? '-', {
-    width: 120,
+    width: 110,
     truncate: true,
     hideable: true,
+    drop: 1,
     tooltip: (p) => p.nationality,
   }),
   col<PersonSummary>('unit', t('people.unit'), (p) => p.currentUnitName ?? '-', {
-    maxWidth: 200,
+    minWidth: 160,
+    grow: true,
     truncate: true,
     tooltip: (p) => p.currentUnitName,
   }),
@@ -45,12 +47,12 @@ export const PERSON_COLUMNS = (t: TFunction): Col<PersonSummary>[] => [
     minWidth: 150,
     nowrap: true,
   }),
-  col<PersonSummary>('exp', t('items.expiry'), (p) => fmtDate(p.expiresAt), { width: 120, nowrap: true }),
+  col<PersonSummary>('exp', t('items.expiry'), (p) => fmtDate(p.expiresAt), { width: 112, nowrap: true }),
   col<PersonSummary>(
     'rev',
     t('people.review'),
     (p) => (p.hasOpenReview ? <Badge color="orange">{t('people.openReview')}</Badge> : '-'),
-    { width: 124, nowrap: true, hideable: true },
+    { width: 136, nowrap: true, hideable: true, drop: 2 },
   ),
 ];
 

@@ -72,3 +72,23 @@ export function dobBoth(iso: string): { dm: string; md: string } | null {
   const pad = (n: number) => String(n).padStart(2, '0');
   return { dm: `${pad(p.b)}/${pad(p.a)}/${p.y}`, md: `${pad(p.a)}/${pad(p.b)}/${p.y}` };
 }
+
+/**
+ * Date of birth as shown in previews: an Excel serial (e.g. 35410) becomes ISO `YYYY-MM-DD`; with `mdy` set,
+ * `M/D/YYYY` text (the response workbook format) becomes ISO too. Anything else is returned verbatim.
+ */
+export function dobDisplay(raw: string | null | undefined, mdy = false): string {
+  const v = (raw ?? '').trim();
+  if (!v) return '';
+  if (/^\d{5,6}(\.\d+)?$/.test(v)) {
+    const n = Math.floor(Number(v));
+    if (n >= 1 && n < 2958466) return new Date(Date.UTC(1899, 11, 30) + n * 86_400_000).toISOString().slice(0, 10);
+  }
+  const m = mdy ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v) : null;
+  if (m) {
+    const [, mo, d, y] = m as unknown as [string, string, string, string];
+    if (Number(mo) >= 1 && Number(mo) <= 12 && Number(d) >= 1 && Number(d) <= 31)
+      return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return v;
+}
