@@ -125,21 +125,41 @@ export const RULES: readonly RuleDef[] = [
     'error',
     'Template capture: whitelist applied, every unit and individual row removed, document properties reset.',
   ),
-  S('S-01', 'error', 'Sheet Final_Results with the four header cells matching their patterns.'),
+  S(
+    'S-01',
+    'error',
+    'Package is an xlsx; the results sheet is the first sheet (any name, hidden included) with a result header row; a request workbook is refused (LOOKS_LIKE_REQUEST).',
+    ['PKG_NOT_XLSX', 'LOOKS_LIKE_REQUEST', 'RESULTS_SHEET_NOT_FOUND'],
+  ),
   S(
     'S-02',
     'error',
-    'Sections located by exact label, then the 8-column header row; data ends at an empty NAME and DISP.',
+    'Header row = 5 of the 8 result headers in any order and columns; each header row re-derives the column map; NAME missing blocks; no readable row blocks.',
+    ['HEADER_COLUMN_MISSING'],
   ),
   S('S-03', 'warning', 'Dates are M/D/YYYY text or serial; otherwise parsed is null with a warning.'),
-  S('S-04', 'warning', 'NAME is split at the first comma; UNKNOWN surname means an unknown commander.'),
+  S(
+    'S-04',
+    'warning',
+    'NAME is split at the first comma; given words split by script; UNKNOWN surname means an unknown commander; mixed script is information.',
+    ['NAME_MIXED_SCRIPT'],
+  ),
   S('S-05', 'warning', 'POB is split on " - " into city, state, country with blanks as null.'),
   S(
     'S-06',
-    'error',
-    'Disposition derives from the section; an unknown section label blocks the import and is shown raw.',
+    'warning',
+    'Sections by label pattern (implicit first section, empty sections, unknown labels warn); DISP classified per row; unclear or conflicting DISP is a review item.',
+    ['SECTION_IMPLICIT', 'SECTION_EMPTY', 'DISP_UNRECOGNISED', 'DISP_SECTION_CONFLICT'],
   ),
-  S('S-07', 'warning', 'Hidden or extra columns are ignored; extra sheets warn.'),
+  S('S-07', 'info', 'Hidden or extra sheets and columns are tolerated and reported as information.', [
+    'HEADER_COLUMN_EXTRA',
+  ]),
+  S(
+    'S-08',
+    'warning',
+    'Metadata (Final Results as of, Post, Batch ID, Assistance) found by label above the first header row; missing batch id or date warns.',
+    ['META_LABEL_MISSING'],
+  ),
 ];
 
 export const RULE_IDS: readonly string[] = RULES.map((r) => r.id);
