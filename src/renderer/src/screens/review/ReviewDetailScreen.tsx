@@ -181,7 +181,7 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
             </Button>
           )}
           {canValidate && (
-            <Button variant="light" color="teal" onClick={() => setValidating(true)}>
+            <Button variant="default" onClick={() => setValidating(true)}>
               {t('reviewAct.validate')}
             </Button>
           )}
