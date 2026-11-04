@@ -1,10 +1,12 @@
-import { Card, NumberInput, Stack, Switch, Title } from '@mantine/core';
+import { Button, Card, NumberInput, Stack, Switch, Text, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
+import { useAction, vss } from '../../lib/api';
 import { asNum } from './types';
 import type { SettingsDraftProps } from './types';
 
 export function GeneralCard({ value: s, onChange: setS }: SettingsDraftProps) {
   const { t } = useTranslation();
+  const act = useAction();
   return (
     <Card withBorder>
       <Stack>
@@ -43,6 +45,14 @@ export function GeneralCard({ value: s, onChange: setS }: SettingsDraftProps) {
           checked={s.updateCheckEnabled}
           onChange={(e) => setS({ ...s, updateCheckEnabled: e.currentTarget.checked })}
         />
+        <div>
+          <Button variant="default" onClick={() => void act(vss().app.resetWindowState(), t('windowState.resetDone'))}>
+            {t('windowState.resetButton')}
+          </Button>
+          <Text size="sm" c="dimmed" mt={4}>
+            {t('windowState.resetHelp')}
+          </Text>
+        </div>
       </Stack>
     </Card>
   );

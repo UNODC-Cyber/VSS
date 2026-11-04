@@ -646,6 +646,12 @@ create a new vault -> the old request is gone -> old files absent on disk -> the
 Acceptance: no way to reach the wipe with fewer than password + exact phrase; back-off counts wrong attempts; a
 fresh vault can be created immediately afterwards; no personal data in the log line.
 
+Status (implemented): the backend contract literal stays `confirm: 'WIPE'` (A0 did not change it); the dialog sends it
+only after the exact-phrase check. `wipeExtras` runs only when the box is ticked and deletes `vss-backup-*.vssbak` and
+the keyring in the configured folder. Not done: the Chromium session folder is in use while the app runs, so it is not
+deleted (the wipe removes the vault, database, stored blobs and migration copies); the card text therefore does not
+claim it. `ScreenLink` is not available yet, so the Backup card link is a plain anchor.
+
 ## 16. Cross-cutting requirements for every lane
 
 - i18n: no literal user-visible string; new keys only in the lane's `locales/en/<ns>.ts`; a unit test
@@ -679,3 +685,13 @@ fresh vault can be created immediately afterwards; no personal data in the log l
 
 ## 18. R16: remember window size and position (owner request, 2026-11-04)
 Persist the main window's bounds (x, y, width, height), maximised state and the display it was on, and restore them on the next launch. Not sensitive, so it is stored in a small plain `window-state.json` in the app's session directory (readable before unlock so the lock screen opens in the right place), never in the vault and never containing any user data. Rules: validate against the current displays (if the saved rectangle is off-screen or on a disconnected monitor, fall back to the primary display centred; clamp to the work area; enforce min size), debounce writes (e.g. 500 ms after move/resize), save on close, handle maximised/full-screen separately (keep the last normal bounds), ignore minimised, tolerate a corrupt file (reset silently). Owner: Lane J2-follow-up or G2 (touches `src/main/index.ts` window creation only; implement as a small `src/main/app/window-state.ts` module with unit tests using a fake display list). Add a Settings > General "Reset window position" button.
+
+Status (implemented): `src/main/app/window-state.ts` (pure core plus a keeper; displays and the window are injected),
+wired in `src/main/index.ts` (one keeper, `createMainWindow(route, restored)`), file `window-state.json` in the session
+directory. Geometry only: `{ version, bounds, maximized, displayId }`; bounds are Electron's `getNormalBounds()`, so
+maximised and minimised windows keep the last normal rectangle. Off-screen (less than 120x60 px visible) or
+disconnected-display state opens centred on the primary display at the saved size; otherwise the rectangle is shifted
+and shrunk into the work area, never below 960x600 (or the work area if smaller). Writes: 500 ms debounce on
+move/resize/maximize/unmaximize, immediate on close, via a temp file and rename. The new IPC method
+`app.resetWindowState()` (contract, schema, channel, compose option, mock) backs Settings > General "Reset window
+position": it deletes the file and re-centres and un-maximises the open window.

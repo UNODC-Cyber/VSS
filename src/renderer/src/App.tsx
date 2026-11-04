@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { i18n } from './i18n';
 import { vss } from './lib/api';
 import { navigate, parseHash, useRoute } from './lib/router';
+import { ToastHost } from './components/ToastHost';
 import { Shell } from './components/Shell';
 import { CreateVaultScreen } from './screens/CreateVaultScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
@@ -86,7 +87,13 @@ export function App() {
       </Center>
     );
   }
-  if (state === 'no-vault') return <CreateVaultScreen />;
+  if (state === 'no-vault')
+    return (
+      <>
+        <CreateVaultScreen />
+        <ToastHost />
+      </>
+    ); // the host is needed here for the one-time "database was deleted" toast (lane L)
   if (state === 'locked') return <UnlockScreen />;
   return <Shell />;
 }
