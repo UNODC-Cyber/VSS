@@ -610,7 +610,6 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                 col<ResponsePreviewRow>('disp', t('ui.dispClass.label'), (r) => <DispBadge value={r.dispClass} />, {
                   minWidth: 140,
                   nowrap: true,
-                  drop: 3,
                 }),
                 col<ResponsePreviewRow>(
                   'section',
@@ -637,13 +636,13 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                       )}
                     </Stack>
                   ),
-                  { width: 120, nowrap: true },
+                  { width: 168, nowrap: true },
                 ),
                 col<ResponsePreviewRow>(
                   'cert',
                   t('responseImport.cert'),
                   (r) => `${fmtDate(r.certDate)} / ${fmtDate(r.expires)}`,
-                  { width: 190, nowrap: true, drop: 5 },
+                  { width: 190, nowrap: true, drop: 3 },
                 ),
                 col<ResponsePreviewRow>(
                   'tier',

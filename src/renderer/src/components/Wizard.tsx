@@ -127,7 +127,7 @@ export function Wizard({
           <Text size="sm" c="dimmed">
             {t('wizard.stepOf', { n: current + 1, total: steps.length })}
           </Text>
-          <Title order={3} ref={headingRef} tabIndex={-1}>
+          <Title order={2} size="h3" ref={headingRef} tabIndex={-1}>
             {step.label}
           </Title>
         </div>

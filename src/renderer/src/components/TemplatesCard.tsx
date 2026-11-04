@@ -56,7 +56,9 @@ export function TemplatesCard() {
   return (
     <Card withBorder>
       <Stack>
-        <Title order={4}>{t('templates.title')}</Title>
+        <Title order={2} size="h4">
+          {t('templates.title')}
+        </Title>
         <Text size="sm">{t('templates.intro')}</Text>
         {list && !list.active && (
           <Alert color="yellow" role="status">
@@ -75,7 +77,9 @@ export function TemplatesCard() {
           </Stack>
         )}
         <Group>
-          <Button onClick={() => void importOne()}>{t('templates.importButton')}</Button>
+          <Button variant="default" onClick={() => void importOne()}>
+            {t('templates.importButton')}
+          </Button>
         </Group>
         {list && list.history.length > 0 && (
           <DataTable

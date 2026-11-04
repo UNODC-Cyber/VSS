@@ -10,7 +10,9 @@ export function GeneralCard({ value: s, onChange: setS }: SettingsDraftProps) {
   return (
     <Card withBorder>
       <Stack>
-        <Title order={4}>{t('settings.general')}</Title>
+        <Title order={2} size="h4">
+          {t('settings.general')}
+        </Title>
         <NumberInput
           label={t('settings.autoLock')}
           min={1}

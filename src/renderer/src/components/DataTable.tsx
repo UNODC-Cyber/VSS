@@ -346,6 +346,7 @@ export function DataTable<T extends object>({
     return <Table.ScrollContainer minWidth={600}>{body}</Table.ScrollContainer>;
   }
   const showTools = !!(tableId && hideableCols.length > 0) || overflowing;
+  const droppedCount = explicit ? 0 : autoHidden.filter((id) => !defaultHidden.includes(id)).length;
   return (
     <div
       className="vss-table-wrap"
@@ -356,6 +357,11 @@ export function DataTable<T extends object>({
     >
       {showTools && (
         <Group className="vss-table-tools" justify="flex-end" gap="xs" wrap="nowrap">
+          {droppedCount > 0 && (
+            <Text size="xs" c="dimmed" data-testid="table-hidden-columns">
+              {t('ui.table.hiddenColumns', { count: droppedCount })}
+            </Text>
+          )}
           {overflowing && (
             <>
               <Text size="xs" c="dimmed" data-testid="table-more-columns">

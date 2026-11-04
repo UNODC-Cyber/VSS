@@ -120,7 +120,9 @@ function Body({ d }: { d: Dashboard }) {
       )}
       {Object.values(d.requestsByStatus).reduce((a, b) => a + b, 0) === 0 && (
         <Card withBorder data-testid="get-started">
-          <Title order={3}>{t('dashboardFlow.startTitle')}</Title>
+          <Title order={2} size="h3">
+            {t('dashboardFlow.startTitle')}
+          </Title>
           <List type="ordered" size="sm" mt="xs">
             <List.Item>{t('dashboardFlow.step1')}</List.Item>
             <List.Item>{t('dashboardFlow.step2')}</List.Item>
@@ -152,7 +154,9 @@ function Body({ d }: { d: Dashboard }) {
         />
       </SimpleGrid>
 
-      <Title order={3}>{t('dashboard.outstandingTitle')}</Title>
+      <Title order={2} size="h3">
+        {t('dashboard.outstandingTitle')}
+      </Title>
       <Group role="group" aria-label={t('dashboard.aging')}>
         {AGING_BUCKETS.map((b) => (
           <Badge
@@ -193,7 +197,9 @@ function Body({ d }: { d: Dashboard }) {
         ]}
       />
 
-      <Title order={3}>{t('dashboard.turnaround')}</Title>
+      <Title order={2} size="h3">
+        {t('dashboard.turnaround')}
+      </Title>
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         <Card withBorder>
           <Text fw={600}>{t('dashboard.viaFile')}</Text>
@@ -221,7 +227,9 @@ function Body({ d }: { d: Dashboard }) {
         </Card>
       </SimpleGrid>
 
-      <Title order={3}>{t('dashboard.perMonth')}</Title>
+      <Title order={2} size="h3">
+        {t('dashboard.perMonth')}
+      </Title>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }} aria-label={t('dashboard.perMonth')}>
         {months.map((m) => (
           <li key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -241,7 +249,9 @@ function Body({ d }: { d: Dashboard }) {
       </ul>
 
       <Group justify="space-between">
-        <Title order={3}>{t('dashboard.expiring')}</Title>
+        <Title order={2} size="h3">
+          {t('dashboard.expiring')}
+        </Title>
         <ExpiryCsvButton />
       </Group>
       <Group>
@@ -266,7 +276,9 @@ function Body({ d }: { d: Dashboard }) {
         ))}
       </ul>
 
-      <Title order={3}>{t('lifecycle.byStatus')}</Title>
+      <Title order={2} size="h3">
+        {t('lifecycle.byStatus')}
+      </Title>
       <Group>
         {(Object.keys(d.requestsByStatus) as RequestStatus[]).map((s) => (
           <Group key={s} gap={4}>
@@ -278,7 +290,9 @@ function Body({ d }: { d: Dashboard }) {
         ))}
       </Group>
 
-      <Title order={3}>{t('dashboard.statusCounts')}</Title>
+      <Title order={2} size="h3">
+        {t('dashboard.statusCounts')}
+      </Title>
       <Group>
         {(Object.keys(d.counts) as VettingStatus[]).map((s) => (
           <Group key={s} gap={4}>

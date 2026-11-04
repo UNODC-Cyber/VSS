@@ -261,7 +261,9 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         />
       </Card>
       <Card withBorder>
-        <Title order={4}>{t('person.aliases')}</Title>
+        <Title order={2} size="h4">
+          {t('person.aliases')}
+        </Title>
         {p.aliases.length === 0 ? (
           <Text size="sm">{t('common.none')}</Text>
         ) : (
@@ -273,7 +275,7 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
             ))}
           </List>
         )}
-        <Title order={4} mt="sm">
+        <Title order={2} size="h4" mt="sm">
           {t('person.identifiers')}
         </Title>
         {p.identifiers.length === 0 ? (
@@ -295,7 +297,9 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         )}
       </Card>
 
-      <Title order={3}>{t('person.history')}</Title>
+      <Title order={2} size="h3">
+        {t('person.history')}
+      </Title>
       {d.records.length === 0 ? (
         <Text>{t('person.noHistory')}</Text>
       ) : (
@@ -324,7 +328,9 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         </Timeline>
       )}
 
-      <Title order={3}>{t('person.requests')}</Title>
+      <Title order={2} size="h3">
+        {t('person.requests')}
+      </Title>
       <DataTable<RequestSummary>
         caption={t('person.requestsCaption')}
         data={d.requests}
@@ -349,7 +355,9 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         ]}
       />
 
-      <Title order={3}>{t('person.units')}</Title>
+      <Title order={2} size="h3">
+        {t('person.units')}
+      </Title>
       <List>
         {d.units.map((u) => (
           <List.Item key={u.id}>
@@ -359,7 +367,9 @@ function PersonBody({ d, reload }: { d: PersonDetail; reload: () => void }) {
         {d.units.length === 0 && <Text size="sm">{t('common.none')}</Text>}
       </List>
 
-      <Title order={3}>{t('person.mergeHistory')}</Title>
+      <Title order={2} size="h3">
+        {t('person.mergeHistory')}
+      </Title>
       {d.mergeHistory.length === 0 ? (
         <Text size="sm">{t('common.none')}</Text>
       ) : (

@@ -214,7 +214,9 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
               </Text>
             </Group>
           ))}
-          <Text size="xs">{t('identity.tierLegend')}</Text>
+          <Text size="sm" c="dimmed">
+            {t('identity.tierLegend')}
+          </Text>
         </Stack>
       )}
       {open && isIdentity && conflicts.length > 0 && (
@@ -227,7 +229,14 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
         <Group role="group" aria-label={t('review.actions')}>
           {isLink &&
             cands.map((c, k) => (
-              <Button key={c.id} variant="default" onClick={() => setComparing({ kind: 'link', index: k + 1 })}>
+              <Button
+                key={c.id}
+                variant="default"
+                h="auto"
+                py={6}
+                styles={{ label: { whiteSpace: 'normal', textAlign: 'left' } }}
+                onClick={() => setComparing({ kind: 'link', index: k + 1 })}
+              >
                 {t('identity.compareWith', { name: c.displayName })}
               </Button>
             ))}
@@ -300,7 +309,7 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
         </Group>
       )}
       {open && (
-        <List size="xs" spacing={2} data-testid="review-action-help">
+        <List size="sm" c="dimmed" spacing={2} data-testid="review-action-help">
           {isIdentity && <List.Item>{t('reviewFlow.help.compare')}</List.Item>}
           {isIdentity && <List.Item>{t('reviewFlow.help.notSame')}</List.Item>}
           <List.Item>{t('reviewFlow.help.skip')}</List.Item>

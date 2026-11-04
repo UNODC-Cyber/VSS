@@ -51,7 +51,7 @@ export function ReviewAndClosePanel({ req, reload }: { req: VettingRequest; relo
   return (
     <Card withBorder aria-labelledby="review-close-title" data-testid="review-close-panel">
       <Stack gap="sm">
-        <Title order={3} id="review-close-title">
+        <Title order={2} size="h3" id="review-close-title">
           {t('lifecycle.reviewTitle')}
         </Title>
         {req.status === 'finished' ? (

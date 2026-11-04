@@ -1,4 +1,4 @@
-import { Badge, createTheme, Modal } from '@mantine/core';
+import { Anchor, Badge, createTheme, Modal, ModalHeader } from '@mantine/core';
 import { i18n } from './i18n';
 
 /**
@@ -12,6 +12,10 @@ export const theme = createTheme({
   autoContrast: true,
   components: {
     Badge: Badge.extend({ defaultProps: { variant: 'light' } }),
+    // Links inside running text must not rely on colour alone (WCAG 1.4.1); table links are plain anchors.
+    Anchor: Anchor.extend({ defaultProps: { underline: 'always' } }),
+    // Mantine renders the dialog title bar as <header>, which assistive technology lists as a second banner landmark.
+    ModalHeader: ModalHeader.extend({ defaultProps: { component: 'div' } as never }),
     Modal: Modal.extend({ defaultProps: { closeButtonProps: { 'aria-label': i18n.t('common.closeDialog') } } }),
   },
 });
