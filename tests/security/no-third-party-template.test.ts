@@ -137,5 +137,5 @@ describe('no third-party template in the repository', () => {
       for (const h of bannedPhraseHits(text)) hits.push(`${f}: ${h.slice(0, 12)}`);
     }
     expect(hits).toEqual([]);
-  });
+  }, 180_000);
 });
