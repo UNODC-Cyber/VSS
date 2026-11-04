@@ -6,3 +6,4 @@ docs
 src/shared/domain/types.ts
 src/main/db/migrations
 LICENSE
+fixtures/demo/manifest.json

@@ -35,7 +35,11 @@ import { SharedStringsTable } from '../../src/main/formats/ooxml/sharedStrings.t
 import { escapeXmlText } from '../../src/main/formats/ooxml/xml.ts';
 import { writeZip } from '../../src/main/formats/ooxml/zip.ts';
 
-export type CellValue = { t: 's'; v: string } | { t: 'n'; v: number } | { t: 'b'; v: boolean };
+/**
+ * A cell. A number may ask for the short built-in date format (numFmt 14, shown m/d/yy or mm-dd-yy by locale) instead of
+ * the column's `mm/dd/yyyy`: real request files mix both on the DOB column.
+ */
+export type CellValue = { t: 's'; v: string } | { t: 'n'; v: number; style?: 'date-short' } | { t: 'b'; v: boolean };
 /** Cells of one row by column letter. */
 export type RowCells = Partial<Record<string, CellValue>>;
 
@@ -84,9 +88,10 @@ const UID = {
 };
 
 /** Style indices of styles.xml below. */
-const S = { title: 1, header: 2, cell: 3, date: 4, marker: 5, prose: 6, group: 7 } as const;
+const S = { title: 1, header: 2, cell: 3, date: 4, marker: 5, prose: 6, group: 7, dateShort: 8 } as const;
 
-const STYLES =
+/** styles.xml; the short-date xf (index 8) is only added when a cell uses it, so older fixtures stay byte-identical. */
+const stylesXml = (shortDate: boolean): string =>
   XML_HEAD +
   `<styleSheet xmlns="${NS.main}">` +
   '<numFmts count="1"><numFmt numFmtId="164" formatCode="mm/dd/yyyy"/></numFmts>' +
@@ -104,7 +109,7 @@ const STYLES =
   '<top style="thin"><color rgb="FF9AA5B1"/></top><bottom style="thin"><color rgb="FF9AA5B1"/></bottom><diagonal/></border>' +
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="8">' +
+  `<cellXfs count="${shortDate ? 9 : 8}">` +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
   '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
@@ -113,6 +118,9 @@ const STYLES =
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
   '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' +
+  (shortDate
+    ? '<xf numFmtId="14" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'
+    : '') +
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';
@@ -193,7 +201,8 @@ function cell(ref: string, style: number | undefined, v: CellValue | undefined, 
   if (!v) return style !== undefined ? `<c r="${ref}"${s}/>` : '';
   if (v.t === 's') return `<c r="${ref}"${s} t="s"><v>${str(v.v)}</v></c>`;
   if (v.t === 'b') return `<c r="${ref}"${s} t="b"><v>${v.v ? 1 : 0}</v></c>`;
-  return `<c r="${ref}"${s}><v>${v.v}</v></c>`;
+  const ns = v.style === 'date-short' ? ` s="${S.dateShort}"` : s;
+  return `<c r="${ref}"${ns}><v>${v.v}</v></c>`;
 }
 
 const colNo = (letter: string): number => [...letter].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
@@ -480,7 +489,7 @@ function render(spec: InvestcWorkbookSpec, track: boolean): BuiltInvestcWorkbook
     'docProps/core.xml': canonicalCoreXml(FIXED_TIME, FIXED_TIME),
     'xl/_rels/workbook.xml.rels': WORKBOOK_RELS,
     'xl/sharedStrings.xml': sst.serialize(refs),
-    'xl/styles.xml': STYLES,
+    'xl/styles.xml': stylesXml(usesShortDate(spec)),
     'xl/workbook.xml': WORKBOOK,
     'xl/worksheets/sheet1.xml': sheet1,
     'xl/worksheets/sheet2.xml': sheet2,
@@ -488,6 +497,11 @@ function render(spec: InvestcWorkbookSpec, track: boolean): BuiltInvestcWorkbook
   });
   return { bytes: writeZip(pkg), strings: written };
 }
+
+const usesShortDate = (spec: InvestcWorkbookSpec): boolean =>
+  [...spec.unitRows, ...spec.people].some((r) =>
+    Object.values(r ?? {}).some((c) => c?.t === 'n' && c.style === 'date-short'),
+  );
 
 let blankCache: string[] | null = null;
 

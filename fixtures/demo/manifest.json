@@ -1,0 +1,259 @@
+{
+  "files": {
+    "request1": "demo-request-1_example-regional-workshop.xlsx",
+    "request2": "demo-request-2_example-river-city-course.xlsx",
+    "response1": "DEMO-0000000001.xlsx",
+    "response2": "DEMO-0000000002.xlsx"
+  },
+  "generator": "tools/fixtures/demo-dataset.ts",
+  "note": "All content is invented (seeded grammars and \"Example ...\" strings). Regenerate with npm run fixtures:demo.",
+  "pairs": [
+    {
+      "autoMatched": [
+        "demo-1-p3",
+        "demo-1-p5"
+      ],
+      "batchId": "DEMO-0000000001",
+      "counts": {
+        "autoMatched": 2,
+        "matched": 5,
+        "requestPeople": 5,
+        "requestUnits": 1,
+        "responseIndividualRows": 5,
+        "responseUnitRows": 1,
+        "reviewQueue": 3,
+        "unanswered": 0,
+        "unidentified": 0
+      },
+      "matched": [
+        "demo-1-p1",
+        "demo-1-p2",
+        "demo-1-p3",
+        "demo-1-p4",
+        "demo-1-p5"
+      ],
+      "pendingReview": [
+        "demo-1-p1",
+        "demo-1-p2",
+        "demo-1-p4"
+      ],
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "response": "DEMO-0000000001.xlsx",
+      "reviewByKind": {
+        "response-row-match": 3
+      },
+      "unanswered": [],
+      "unidentified": []
+    },
+    {
+      "autoMatched": [],
+      "batchId": "DEMO-0000000002",
+      "counts": {
+        "autoMatched": 0,
+        "matched": 0,
+        "requestPeople": 4,
+        "requestUnits": 2,
+        "responseIndividualRows": 1,
+        "responseUnitRows": 1,
+        "reviewQueue": 6,
+        "unanswered": 4,
+        "unidentified": 2
+      },
+      "matched": [],
+      "pendingReview": [],
+      "request": "demo-request-2_example-river-city-course.xlsx",
+      "response": "DEMO-0000000002.xlsx",
+      "reviewByKind": {
+        "unanswered-request-item": 4,
+        "unmatched-response-row": 2
+      },
+      "unanswered": [
+        "demo-2-p1",
+        "demo-2-p2",
+        "demo-2-p3",
+        "demo-2-p4"
+      ],
+      "unidentified": [
+        "demo-2-x1",
+        "demo-2-x2"
+      ]
+    }
+  ],
+  "people": [
+    {
+      "differences": [
+        "request-cell-whitespace",
+        "dob-day-month-swapped",
+        "pob-city-state-dropped",
+        "unit-type-differs"
+      ],
+      "id": "demo-1-p1",
+      "name": "Kevaarneen, Sudi Didaar a/p",
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "requestRow": "Data!12",
+      "response": "DEMO-0000000001.xlsx",
+      "responseRow": "Final_Results!13",
+      "responseSection": "approved-individual"
+    },
+    {
+      "differences": [
+        "dob-month-differs",
+        "pob-city-state-dropped",
+        "unit-type-differs"
+      ],
+      "id": "demo-1-p2",
+      "name": "Leepagush, Gire a/p",
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "requestRow": "Data!13",
+      "response": "DEMO-0000000001.xlsx",
+      "responseRow": "Final_Results!14",
+      "responseSection": "approved-individual"
+    },
+    {
+      "differences": [
+        "request-cell-whitespace",
+        "particle-moved-surname-to-given",
+        "surname-upper-case",
+        "pob-upper-case",
+        "unit-type-differs"
+      ],
+      "id": "demo-1-p3",
+      "name": "Bin Khoshifan, Deso Luro Yim",
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "requestRow": "Data!14",
+      "response": "DEMO-0000000001.xlsx",
+      "responseRow": "Final_Results!15",
+      "responseSection": "approved-individual"
+    },
+    {
+      "differences": [
+        "request-cell-whitespace",
+        "surname-replaced-by-given",
+        "particle-added",
+        "pob-differs",
+        "unit-type-differs"
+      ],
+      "id": "demo-1-p4",
+      "name": "Kaashpan, Shidush Bunaa Baar",
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "requestRow": "Data!15",
+      "response": "DEMO-0000000001.xlsx",
+      "responseRow": "Final_Results!16",
+      "responseSection": "approved-individual"
+    },
+    {
+      "differences": [
+        "pob-city-state-dropped",
+        "unit-type-differs"
+      ],
+      "id": "demo-1-p5",
+      "name": "Shahais, Farafa Binti",
+      "request": "demo-request-1_example-regional-workshop.xlsx",
+      "requestRow": "Data!16",
+      "response": "DEMO-0000000001.xlsx",
+      "responseRow": "Final_Results!17",
+      "responseSection": "approved-individual"
+    },
+    {
+      "differences": [
+        "no-response-row"
+      ],
+      "id": "demo-2-p1",
+      "name": "Phialoyok, Keengkamju",
+      "request": "demo-request-2_example-river-city-course.xlsx",
+      "requestRow": "Data!10",
+      "response": null,
+      "responseRow": null,
+      "responseSection": null
+    },
+    {
+      "differences": [
+        "no-response-row"
+      ],
+      "id": "demo-2-p2",
+      "name": "Luntoetamjat, Baaptachaik",
+      "request": "demo-request-2_example-river-city-course.xlsx",
+      "requestRow": "Data!11",
+      "response": null,
+      "responseRow": null,
+      "responseSection": null
+    },
+    {
+      "differences": [
+        "no-response-row"
+      ],
+      "id": "demo-2-p3",
+      "name": "Tuachaweeyiat, Khoyainoet",
+      "request": "demo-request-2_example-river-city-course.xlsx",
+      "requestRow": "Data!12",
+      "response": null,
+      "responseRow": null,
+      "responseSection": null
+    },
+    {
+      "differences": [
+        "no-response-row"
+      ],
+      "id": "demo-2-p4",
+      "name": "Mamlamthia, Jothumpom",
+      "request": "demo-request-2_example-river-city-course.xlsx",
+      "requestRow": "Data!13",
+      "response": null,
+      "responseRow": null,
+      "responseSection": null
+    },
+    {
+      "differences": [
+        "not-on-request",
+        "named-commander",
+        "thai-script-in-name",
+        "dob-day-month-ambiguous",
+        "pob-abroad"
+      ],
+      "id": "demo-2-x1",
+      "name": "Pikthaomiyuam, Phoewiat",
+      "request": null,
+      "requestRow": null,
+      "response": "DEMO-0000000002.xlsx",
+      "responseRow": "Final_Results!9",
+      "responseSection": "approved-unit"
+    },
+    {
+      "differences": [
+        "not-on-request",
+        "thai-script-in-name",
+        "dob-day-month-ambiguous"
+      ],
+      "id": "demo-2-x2",
+      "name": "Saoyunlaom, Chiarai",
+      "request": null,
+      "requestRow": null,
+      "response": "DEMO-0000000002.xlsx",
+      "responseRow": "Final_Results!13",
+      "responseSection": "approved-individual"
+    }
+  ],
+  "requestor": {
+    "email": "requestor@example.invalid",
+    "name": "Example Requestor",
+    "organisation": "Example Regional Office"
+  },
+  "requests": [
+    {
+      "eventEnd": "2026-12-09",
+      "eventLocation": "Example Harbour City",
+      "eventName": "Example Regional Workshop for Specialised Units on Online Child Protection",
+      "eventStart": "2026-12-08",
+      "file": "demo-request-1_example-regional-workshop.xlsx"
+    },
+    {
+      "eventEnd": "2027-01-20",
+      "eventLocation": "Example River City",
+      "eventName": "Example River City Course on Digital Evidence",
+      "eventStart": "2027-01-18",
+      "file": "demo-request-2_example-river-city-course.xlsx"
+    }
+  ],
+  "seed": "vss-demo/2026-11-04",
+  "synthetic": true
+}

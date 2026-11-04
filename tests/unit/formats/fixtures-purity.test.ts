@@ -81,13 +81,15 @@ describe('fixture purity gate', () => {
     expect(names.some((n) => /customXml|docMetadata|printerSettings|drawings|media/.test(n))).toBe(false);
   });
 
-  it('only xlsx, expected json, the allowlist and the README live under fixtures/ (no template folder)', () => {
+  it('only xlsx, expected json, the allowlist, READMEs and the demo manifest live under fixtures/ (no template folder)', () => {
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
         e.isDirectory() ? walk(`${dir}/${e.name}`).map((x) => `${e.name}/${x}`) : [e.name],
       );
     for (const f of walk(FIXTURES_DIR)) {
-      expect(f, f).toMatch(/\.(xlsx|expected\.json)$|^purity-allowlist\.json$|^README\.md$/);
+      expect(f, f).toMatch(
+        /\.(xlsx|expected\.json)$|^purity-allowlist\.json$|^(demo\/)?README\.md$|^demo\/manifest\.json$/,
+      );
     }
   });
 });
