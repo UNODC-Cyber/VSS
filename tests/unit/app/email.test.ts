@@ -71,6 +71,43 @@ describe('draft text', () => {
     expect(buildTable(snap.rows, { dob: true })).not.toContain('X1234567');
   });
 
+  it('the status list survives any mail client: one labelled field per line, no column alignment (R3O-06)', () => {
+    const d = buildDraft({ template: 'clearance-notice' }, snap);
+    const body = d.bodyText;
+    // No ASCII-table artefacts that misalign in proportional fonts.
+    expect(body).not.toMatch(/\s\|\s/);
+    expect(body).not.toMatch(/-{4,}/);
+    expect(body).not.toMatch(/ {4,}\S/);
+    expect(body).toContain(
+      [
+        '1. Name: Ada TESTPERSON',
+        '   Unit: Unit Alpha',
+        '   Status: Approved',
+        '   Valid until: 2027-05-01',
+        '',
+        '2. Name: Bao Ngoc EXAMPLE',
+        '   Unit: Unit Beta',
+        '   Status: Pending',
+        '   Valid until: -',
+      ].join('\n'),
+    );
+    expect(body).toContain('3. Name: Thaksin ทดสอบ');
+    // Short lines: nothing a mail client has to wrap for typical names (RFC 5322 recommends <= 78).
+    for (const line of body.split('\n')) expect([...line].length).toBeLessThanOrEqual(78);
+    const withAll = buildTable(snap.rows, { dob: true, ids: true });
+    expect(withAll).toContain('   Date of birth: 1980-01-02\n   ID number: X1234567');
+  });
+
+  it('the status list is identical in the .eml text part and in the mailto body', async () => {
+    const d = { ...buildDraft({ template: 'clearance-notice' }, snap), to: ['requestor@example.org'] };
+    const parsed = await simpleParser(buildEml(d));
+    expect(parsed.text?.replace(/\r\n/g, '\n').trim()).toBe(d.bodyText.trim());
+    expect(parsed.text).toContain('   Valid until: 2027-05-01');
+    const m = buildMailto(d);
+    const bodyParam = new URL(m.url).searchParams.get('body') ?? decodeURIComponent(m.url.split('body=')[1] ?? '');
+    expect(bodyParam.replace(/\r\n/g, '\n')).toContain('1. Name: Ada TESTPERSON\n   Unit: Unit Alpha');
+  });
+
   it('request-to-dc has no names in the body and names the attachment', () => {
     const d = buildDraft({ template: 'request-to-dc', to: ['dc@example.org'] }, snap);
     expect(d.containsPersonalData).toBe(false);

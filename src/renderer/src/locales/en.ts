@@ -77,7 +77,7 @@ const base = {
   vault: {
     createTitle: 'Create your vault',
     createIntro:
-      'The vault is an encrypted file on this computer that holds all vetting data. Nothing leaves this computer.',
+      'The vault is an encrypted file on this computer that holds all vetting data. No vetting data leaves this computer unless you export it or e-mail it.',
     displayName: 'Your name (shown in the audit log)',
     locationFixed:
       'The vault is kept in your user profile on this computer. Set up automatic backups in Settings after creating it.',
@@ -205,16 +205,16 @@ const base = {
   },
   flagged: { include: 'Include them', exclude: 'Exclude them', block: 'Block the export' },
   updphase: {
-    idle: 'idle',
-    disabled: 'disabled',
-    checking: 'checking',
+    idle: 'not checked yet',
+    disabled: 'update checks are off',
+    checking: 'checking for updates',
     'up-to-date': 'up to date',
     available: 'update available',
     downloading: 'downloading',
     verifying: 'verifying',
     verified: 'verified, ready to install',
-    'verify-failed': 'verification failed',
-    error: 'error',
+    'verify-failed': 'update rejected (it did not pass verification)',
+    error: 'could not check for updates',
   },
   dashboard: {
     title: 'Dashboard',
@@ -288,8 +288,6 @@ const base = {
     emailRequestor: 'Email requestor',
     edit: 'Edit details',
     delete: 'Delete request',
-    deleteTitle: 'Delete this request?',
-    deleteBody: 'The request and its items are removed. Vetting records already created stay. This cannot be undone.',
     deleted: 'Request deleted',
     itemsTitle: 'Individuals ({{count}})',
   },
@@ -674,7 +672,9 @@ const base = {
     redaction: 'Redaction mode',
     redactionHelp: 'Hide dates of birth and identifiers in lists.',
     updateCheck: 'Check for updates',
-    updateCheckHelp: 'The only feature that uses the network. Off means this program never connects.',
+    // Accurate network statement (UI review R3O-07): peer mode also uses the (local) network.
+    updateCheckHelp:
+      'Checks the internet for a new version; only the version number is sent. Off means VSS never checks. The only other network feature, peer mode (local network), is off by default and not available in this build.',
     exportPolicy: 'Export policy',
     expiringWithin: 'Treat as expiring within (days)',
     includePending: 'Include people already pending',
@@ -683,9 +683,11 @@ const base = {
     flagged: 'Unresolved flagged people',
     peer: 'Peer mode',
     peerMode: 'Enable peer mode (experimental)',
+    peerModeHelp:
+      'Off by default. Peer mode is meant to connect to other computers running VSS on the local network. It is not available in this build, so turning it on makes no connection.',
     peerWarningTitle: 'Experimental',
     peerWarning:
-      'Peer mode opens a local network connection to other computers. It is not part of the supported setup. Leave it off unless you were asked to test it.',
+      'When available, peer mode opens a local network connection to other computers. It is not part of the supported setup. Leave it off unless you were asked to test it.',
     reauth: 'Password to confirm changes',
     reauthHelp: 'Settings are protected. Enter your password to save.',
     save: 'Save settings',
@@ -705,6 +707,14 @@ const base = {
     restoreDone: 'Backup restored. Unlock to continue.',
     updates: 'Updates',
     updateState: 'Version {{version}}: {{phase}}',
+    updateLastChecked: 'last checked {{at}}',
+    updateHelp: {
+      error:
+        'VSS could not reach the update server. Your data is not affected. Check the internet connection and try Check now later.',
+      'verify-failed':
+        'The downloaded update did not pass the signature check and was deleted. Nothing was installed. Try again later.',
+      disabled: 'Turn on "Check for updates" under General to check for new versions.',
+    },
     checkNow: 'Check now',
     download: 'Download update',
     install: 'Install update',

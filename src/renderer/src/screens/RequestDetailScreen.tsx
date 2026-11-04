@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RequestItem, VettingRequest } from '@shared/domain/types';
@@ -10,6 +10,7 @@ import {
   EditRequestDialog,
   EmailClearanceDialog,
   EmailRequestorDialog,
+  DeleteRequestDialog,
   ExportDialog,
   LinkItemDialog,
   MarkSentDialog,
@@ -23,7 +24,7 @@ import {
   Sensitive,
   StatusBadge,
 } from '../components/common';
-import { useAction, useQuery, vss } from '../lib/api';
+import { useQuery, vss } from '../lib/api';
 import { CopyIconButton } from '../components/ui/CopyIconButton';
 import { fmtDate, fmtDateTime, mask } from '../lib/format';
 import { navigate } from '../lib/router';
@@ -103,7 +104,7 @@ function CopyField({ value, label, wrap }: { value: string; label: string; wrap?
         span
         {...(wrap ? {} : { truncate: 'end' as const })}
         title={shown}
-        style={{ flex: '1 1 auto', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : {}) }}
+        style={{ flex: '1 1 auto', minWidth: 0, ...(wrap ? { overflowWrap: 'break-word' } : {}) }}
       >
         <Sensitive value={value} />
       </Text>
@@ -114,7 +115,6 @@ function CopyField({ value, label, wrap }: { value: string; label: string; wrap?
 
 function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void }) {
   const { t } = useTranslation();
-  const act = useAction();
   const [dlg, setDlg] = useState<Dlg>(null);
   const [linkItem, setLinkItem] = useState<string | null>(null);
   const awaiting = req.status === 'sent-to-dc' || req.status === 'exported';
@@ -240,7 +240,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             t('import.dob'),
             // Invalid or ambiguous dates carry a badge and are never shown as if valid (UI review R2O-02).
             (i) => (
-              <Group gap={4} wrap="nowrap">
+              <Group gap={4} wrap="nowrap" align="flex-start">
                 <DobValue
                   parsed={i.observed.dob.parsed}
                   raw={i.observed.dob.value}
@@ -279,8 +279,9 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
             minWidth: 118,
             nowrap: true,
           }),
+          // Dates never truncate (rubric 3, R3O-03): 10 digits at 14 px plus cell padding need about 104 px.
           col<RequestItem>('expiry', t('items.expiry'), (i) => fmtDate(i.prior?.expiresAt), {
-            width: 96,
+            width: 112,
             nowrap: true,
           }),
           col<RequestItem>(
@@ -343,23 +344,7 @@ function RequestBody({ req, reload }: { req: VettingRequest; reload: () => void 
           {...((it) => (it ? { item: it } : {}))(req.items.find((x) => x.id === linkItem))}
         />
       )}
-      <Modal opened={dlg === 'delete'} onClose={close} title={t('request.deleteTitle')} trapFocus returnFocus>
-        <Text>{t('request.deleteBody')}</Text>
-        <Group mt="md" justify="flex-end">
-          <Button variant="default" onClick={close} data-autofocus>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            color="red"
-            onClick={async () => {
-              const r = await act(vss().requests.remove({ id: req.id }), t('request.deleted'));
-              if (r) navigate('/requests');
-            }}
-          >
-            {t('request.delete')}
-          </Button>
-        </Group>
-      </Modal>
+      {dlg === 'delete' && <DeleteRequestDialog opened onClose={close} request={req} />}
     </Stack>
   );
 }

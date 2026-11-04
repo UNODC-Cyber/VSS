@@ -12,6 +12,7 @@ export function PeerCard({ value: s, onChange: setS }: SettingsDraftProps) {
         </Title>
         <Switch
           label={t('settings.peerMode')}
+          description={t('settings.peerModeHelp')}
           checked={s.peerModeEnabled}
           onChange={(e) => setS({ ...s, peerModeEnabled: e.currentTarget.checked })}
         />

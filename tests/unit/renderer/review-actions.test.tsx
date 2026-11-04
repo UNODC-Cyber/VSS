@@ -40,6 +40,62 @@ describe('manual validation', () => {
   });
 });
 
+describe('manual validation against a person whose record disagrees (UI review R3O-04)', () => {
+  it('shows the values side by side and needs the "I compared" tick before recording', async () => {
+    const ctl = mock();
+    const user = userEvent.setup();
+    const person = ctl.db.persons.find((p) => p.dob && p.dob !== '1975-01-01')!;
+    const { reviewId } = addUnmatchedRow(ctl, 'UNLISTED, Person', { sex: 'M' } as never);
+    const rv = ctl.db.reviews.find((r) => r.id === reviewId)!;
+    rv.kind = 'response-row-match';
+    rv.subjectIds = [rv.subjectIds[0]!, person.id];
+    rv.candidates = [{ targetKind: 'person', targetId: person.id, tier: 'T3', evidence: [], score: 0.5 }];
+    const spy = vi.spyOn(window.vss.review, 'manualValidate');
+    ui(<ReviewDetailScreen id={reviewId} />);
+    await user.click(await screen.findByRole('button', { name: 'Manually validate...' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Manually validate this response row' });
+    expect(within(dlg).queryByTestId('validate-conflicts')).not.toBeInTheDocument();
+    await user.click(within(dlg).getByLabelText(/\(candidate\)$/));
+    expect(within(dlg).getByTestId('validate-conflicts')).toHaveTextContent('Date of birth');
+    const diff = within(dlg).getByTestId('diff');
+    const dobRow = within(diff).getByText('Date of birth').closest('tr')!;
+    expect(dobRow).toHaveAttribute('data-conflicts', 'true');
+    expect(within(dobRow).getByText('1975-01-01')).toBeInTheDocument();
+    expect(within(dobRow).getByText(person.dob!)).toBeInTheDocument();
+    await user.type(within(dlg).getByLabelText(/Reason/), 'confirmed by phone');
+    const go = within(dlg).getByRole('button', { name: 'Validate and record' });
+    expect(go).toBeDisabled(); // a reason is not enough while the records disagree
+    await user.click(within(dlg).getByRole('checkbox', { name: /I compared .*Date of birth/ }));
+    expect(go).toBeEnabled();
+    // Switching the target clears the tick: the new comparison must be acknowledged again.
+    await user.click(within(dlg).getByLabelText('A new person created from this row'));
+    expect(within(dlg).queryByTestId('validate-ack')).not.toBeInTheDocument();
+    await user.click(within(dlg).getByLabelText(/\(candidate\)$/));
+    expect(within(dlg).getByRole('checkbox', { name: /I compared/ })).not.toBeChecked();
+    expect(go).toBeDisabled();
+    await user.click(within(dlg).getByRole('checkbox', { name: /I compared/ }));
+    await user.click(go);
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith({
+        id: reviewId,
+        target: { kind: 'person', personId: person.id },
+        reason: 'confirmed by phone',
+      }),
+    );
+  });
+
+  it('compareFields: a sex or identifier stated differently is a conflict, a missing one is not', async () => {
+    const { compareFields } = await import('../../../src/renderer/src/components/review/ManualValidateDialog');
+    const { conflictLabels } = await import('../../../src/renderer/src/components/IdentityConfirm');
+    const t = (k: string) => k;
+    const base = { name: 'A, B', dob: '1980-01-02', sex: 'M', pob: 'X', unit: 'U', ids: ['P1'] };
+    expect(conflictLabels(compareFields(t, base, { ...base }))).toEqual([]);
+    expect(conflictLabels(compareFields(t, base, { ...base, sex: 'F' }))).toEqual(['person.sex']);
+    expect(conflictLabels(compareFields(t, base, { ...base, ids: ['P2'] }))).toEqual(['items.ids']);
+    expect(conflictLabels(compareFields(t, base, { ...base, sex: '', ids: [] }))).toEqual([]);
+  });
+});
+
 describe('edit in place', () => {
   it('shows the diff, needs a reason, saves; the DC original is shown and can be restored', async () => {
     const ctl = mock();

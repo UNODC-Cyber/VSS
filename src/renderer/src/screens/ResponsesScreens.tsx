@@ -223,15 +223,20 @@ export function RowNameCell({ row }: { row: ResponsePreviewRow }) {
   if (isIndividualRow(row)) return <Sensitive value={row.nameRaw} />;
   const unknown = isUnknownCommanderRow(row);
   return (
-    <Stack gap={0} data-testid="unit-row-name">
-      <Group gap={4} wrap="nowrap">
-        <Badge size="xs" variant="light" color="gray">
-          {t('unitRow.badge')}
-        </Badge>
-        <Text span size="sm">
-          {row.unitName || '-'}
-        </Text>
-      </Group>
+    // Badge on its own line, unit name wrapping under it: neither is ever cut at medium widths (R3S-01 / R3O-02).
+    <Stack
+      gap={2}
+      align="flex-start"
+      data-testid="unit-row-name"
+      title={rowNameTooltip(t, row)}
+      style={{ whiteSpace: 'normal' }}
+    >
+      <Badge size="xs" variant="light" color="gray" data-testid="unit-row-badge">
+        {t('unitRow.badge')}
+      </Badge>
+      <Text span size="sm" style={{ overflowWrap: 'anywhere' }}>
+        {row.unitName || '-'}
+      </Text>
       <Text size="xs" style={{ whiteSpace: 'normal' }}>
         {unknown ? (
           t('unitRow.commanderUnknown')
@@ -659,10 +664,9 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
               columns={[
                 col<ResponsePreviewRow>('name', t('import.name'), (r) => <RowNameCell row={r} />, {
                   sticky: 'first',
+                  // Wraps instead of truncating: a one-line cut hid the unit-approval badge and the unit name (R3O-02).
                   minWidth: 170,
                   grow: true,
-                  truncate: true,
-                  tooltip: (r) => rowNameTooltip(t, r),
                 }),
                 col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef, { width: 132, nowrap: true, drop: 1 }),
                 col<ResponsePreviewRow>('disp', t('ui.dispClass.label'), (r) => <DispBadge value={r.dispClass} />, {

@@ -33,7 +33,8 @@
     "dist:alpha": "node tools/install-electron.mjs && node tools/dist.mjs alpha",
     "verify:channel": "node tools/verify-channel.mjs",
     "verify:fuses": "node tools/verify-fuses.mjs",
-    "ui-audit": "npm run build && vitest run --config vitest.ui.config.ts"
+    "ui-audit": "npm run build && vitest run --config vitest.ui.config.ts",
+    "ui-audit:alpha": "node tools/ui-audit-alpha.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

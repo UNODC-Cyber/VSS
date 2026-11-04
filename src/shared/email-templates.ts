@@ -63,10 +63,15 @@ export const SAMPLE_CONTEXT: Readonly<TemplateContext> = {
   event: 'Example Regional Workshop',
   event_dates: `2027-03-01 ${EN_DASH} 2027-03-05`,
   status_table: [
-    'Name                   | Unit         | Status   | Valid until',
-    '-----------------------+--------------+----------+------------',
-    'EXAMPLE, Sample Person | Example Unit | Approved | 2027-06-30',
-    'SAMPLE, Test Person    | Example Unit | Pending  | -',
+    '1. Name: EXAMPLE, Sample Person',
+    '   Unit: Example Unit',
+    '   Status: Approved',
+    '   Valid until: 2027-06-30',
+    '',
+    '2. Name: SAMPLE, Test Person',
+    '   Unit: Example Unit',
+    '   Status: Pending',
+    '   Valid until: -',
   ].join('\n'),
   valid_until: '2027-06-30',
   batch_id: 'EX-0001',
@@ -188,27 +193,29 @@ export interface EmailFieldSet {
 }
 
 const cell = (s: string | null | undefined): string => oneLine(s ?? '') || '-';
-const width = (s: string): number => [...s].length;
-const pad = (s: string, n: number): string => s + ' '.repeat(Math.max(0, n - width(s)));
 
-/** Plain-text table with ` | ` separators and a rule under the header. */
+/**
+ * The `{status_table}` text: one numbered block per person, one labelled field per line, a blank line between
+ * people (UI review round 3, R3O-06). It is plain text that survives any mail client: no column alignment (which
+ * breaks in proportional fonts and when lines wrap), no `|` rules, and no line depends on the length of another.
+ * The same text goes into mailto: links, the clipboard and the text/plain part of a saved .eml.
+ */
 export function buildStatusTable(rows: RequestStatusRow[], fields: EmailFieldSet = {}): string {
-  const head = ['Name', 'Unit', 'Status', 'Valid until'];
-  if (fields.dob) head.push('Date of birth');
-  if (fields.ids) head.push('ID number');
-  const body = rows.map((r) => {
-    const line = [cell(r.name), cell(r.unit), cell(r.status), cell(r.validUntil)];
-    if (fields.dob) line.push(cell(r.dob));
-    if (fields.ids) line.push(cell(r.idNumber));
-    return line;
-  });
-  const widths = head.map((h, i) => Math.max(width(h), ...body.map((l) => width(l[i] ?? ''))));
-  const fmt = (l: string[]): string =>
-    l
-      .map((c, i) => pad(c, widths[i] ?? 0))
-      .join(' | ')
-      .trimEnd();
-  return [fmt(head), widths.map((w) => '-'.repeat(w)).join('-+-'), ...body.map(fmt)].join('\n');
+  return rows
+    .map((r, i) => {
+      const num = `${i + 1}. `;
+      const indent = ' '.repeat(num.length);
+      const lines = [
+        `${num}Name: ${cell(r.name)}`,
+        `${indent}Unit: ${cell(r.unit)}`,
+        `${indent}Status: ${cell(r.status)}`,
+        `${indent}Valid until: ${cell(r.validUntil)}`,
+      ];
+      if (fields.dob) lines.push(`${indent}Date of birth: ${cell(r.dob)}`);
+      if (fields.ids) lines.push(`${indent}ID number: ${cell(r.idNumber)}`);
+      return lines.join('\n');
+    })
+    .join('\n\n');
 }
 
 /** Template context for a request snapshot (`fields` choose the optional columns of `{status_table}`). */

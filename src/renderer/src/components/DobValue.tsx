@@ -53,7 +53,8 @@ export function DobValue({ parsed, raw, ambiguous, showRaw = true }: DobValuePro
   );
   return (
     <Stack gap={0} data-dob-state={v.state}>
-      <Group gap={4} wrap="nowrap">
+      {/* wrap: in a narrow cell the badge moves under the date instead of being cut (R3S-02, R3S-03). */}
+      <Group gap={4} wrap="wrap" style={{ rowGap: 2 }}>
         <Sensitive value={v.text} />
         {badge}
       </Group>

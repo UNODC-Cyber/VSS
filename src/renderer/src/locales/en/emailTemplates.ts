@@ -24,7 +24,7 @@ export const emailTemplates = {
       requestor_org: 'organisation of the requestor',
       event: 'event name',
       event_dates: 'event start and end dates',
-      status_table: 'table of names, units, status and validity (status and reminder e-mails only)',
+      status_table: 'list of names, units, status and validity (status and reminder e-mails only)',
       valid_until: 'earliest expiry among the approved individuals',
       batch_id: 'batch identifier',
       as_of: 'date of the draft',
