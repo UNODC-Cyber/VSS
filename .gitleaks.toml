@@ -1,0 +1,11 @@
+# Extends the default gitleaks rules. One reviewed false positive: a heading in the SQLite notes
+# ("Pragma sequence (raw 32-byte key, ChaCha20-Poly1305 page encryption)") matches the generic-api-key rule.
+title = "VSS gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "docs/NOTES-sqlite.md heading mentions the word 'key' next to a cipher name; no secret"
+paths = ['''docs/NOTES-sqlite\.md''']
+regexes = ['''Pragma sequence \(raw 32-byte key''']
