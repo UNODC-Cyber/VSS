@@ -5,6 +5,7 @@
  * The request -> status data comes from an injected `RequestStatusSource` (lane H supplies it).
  */
 import { randomBytes } from 'node:crypto';
+import { isValidEmailAddress } from '@shared/email-address';
 import type { EmailDraft, EmailDraftRequest, EmailMailtoResult, EmailTemplateId } from '@shared/ipc/contract';
 
 export class EmailError extends Error {
@@ -125,13 +126,9 @@ export function buildDraft(
 // Encoders
 // ---------------------------------------------------------------------------------------------------------------
 
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001f\u007f]/;
-const ADDRESS = /^[^\s<>()[\]",;:\\@]+@[^\s<>()[\]",;:\\@]+$/;
-
+/** One address rule for the whole app (src/shared/email-address.ts; the settings schema uses it too). */
 export function assertAddress(a: string): string {
-  if (CONTROL.test(a) || !ADDRESS.test(a) || a.length > 320)
-    throw new EmailError('BAD_REQUEST', 'Invalid email address');
+  if (!isValidEmailAddress(a)) throw new EmailError('BAD_REQUEST', 'Invalid email address');
   return a;
 }
 

@@ -6,6 +6,8 @@
 import { z } from 'zod';
 import type { ChannelName } from './channels';
 import { parseChannel } from './channels';
+import { EMAIL_TEMPLATE_PURPOSES } from '../domain/types';
+import { isValidEmailAddress } from '../email-address';
 import { ERROR_CODES, EVENT_NAMES } from './contract';
 import type { VssApi, VssEventMap, VssEventName } from './contract';
 
@@ -43,6 +45,7 @@ export const requestStatusSchema = z.enum([
   'exported',
   'sent-to-dc',
   'responded',
+  'finished',
   'closed',
   'withdrawn',
 ]);
@@ -59,6 +62,7 @@ export const reviewKindSchema = z.enum([
   'dob-conflict',
   'unmatched-response-row',
   'unanswered-request-item',
+  'disposition-unclear',
 ]);
 export const validationCodeSchema = z.enum([
   'PKG_NOT_XLSX',
@@ -92,6 +96,16 @@ export const validationCodeSchema = z.enum([
   'PERSON_KNOWN_DOB_MISMATCH',
   'PERSON_KNOWN_ID_MISMATCH',
   'PERSON_NON_APPROVED',
+  'LOOKS_LIKE_REQUEST',
+  'RESULTS_SHEET_NOT_FOUND',
+  'META_LABEL_MISSING',
+  'HEADER_COLUMN_MISSING',
+  'HEADER_COLUMN_EXTRA',
+  'SECTION_IMPLICIT',
+  'SECTION_EMPTY',
+  'DISP_UNRECOGNISED',
+  'DISP_SECTION_CONFLICT',
+  'NAME_MIXED_SCRIPT',
 ]);
 export const matchEvidenceSchema = z.enum([
   'NAME_CORE_EQUAL',
@@ -116,7 +130,11 @@ export const matchEvidenceSchema = z.enum([
   'POB_PLACE_CONFLICT',
   'DOB_PLACEHOLDER',
   'FATHER_CONFLICT',
+  'NAME_SCRIPT_CONFLICT',
+  'NAME_SCRIPT_IGNORED',
 ]);
+export const dispClassSchema = z.enum(['approved', 'non-approved', 'unknown']);
+export const sectionSourceSchema = z.enum(['label', 'implicit']);
 
 export const personNameSchema = z.object({
   surname: str(),
@@ -235,9 +253,24 @@ export const vettingStatusSnapshotSchema = z.object({
   asOf: isoDate,
 });
 export const requestorSchema = z.object({
+  id: ulid.optional(),
   name: str(256),
   email: str(320).nullable(),
   organisation: str(256).nullable(),
+  phone: str(64).nullable().optional(),
+  notes: str(4096).optional(),
+});
+export const requestorRecordSchema = z.object({
+  id: ulid,
+  name: str(256),
+  email: str(320).nullable(),
+  organisation: str(256).nullable(),
+  phone: str(64).nullable(),
+  notes: str(4096),
+  createdAt: isoDateTime,
+  updatedAt: isoDateTime,
+  requestCount: z.number().int().min(0),
+  lastUsedAt: isoDateTime.nullable(),
 });
 export const storedFileSchema = z.object({
   id: ulid,
@@ -278,6 +311,10 @@ export const vettingRequestSchema = z.object({
   responseKind: z.enum(['dc-file', 'email-clearance']).nullable(),
   batchId: str(64).nullable(),
   notes: str(65536),
+  finishedAt: isoDateTime.nullable(),
+  closedAt: isoDateTime.nullable(),
+  closeNote: str(65536),
+  reopenCount: z.number().int().min(0),
 });
 export const matchCandidateSchema = z.object({
   targetKind: z.enum(['request-item', 'person']),
@@ -309,6 +346,8 @@ export const responseRowSchema = z.object({
   certDate: rawDateSchema,
   expires: rawDateSchema,
   match: rowMatchSchema,
+  dispClass: dispClassSchema,
+  sectionSource: sectionSourceSchema,
 });
 export const dcResponseSchema = z.object({
   id: ulid,
@@ -356,6 +395,35 @@ export const exportPolicySchema = z.object({
   includeNonApproved: z.boolean(),
   includeFlaggedUnresolved: z.enum(['include', 'exclude', 'block']),
 });
+/** An e-mail address under the same rule as main's `assertAddress` (src/shared/email-address.ts). */
+export const emailAddressSchema = z.string().max(320).refine(isValidEmailAddress, 'invalid e-mail address');
+export const contactSchema = z.strictObject({ name: str(256), email: emailAddressSchema });
+export const vettingAuthoritySchema = z.strictObject({
+  to: z.array(contactSchema).max(50),
+  cc: z.array(contactSchema).max(50),
+});
+// eslint-disable-next-line no-control-regex
+const NO_CONTROL = /^[^\u0000-\u001f\u007f]*$/;
+// eslint-disable-next-line no-control-regex
+const NO_CONTROL_EXCEPT_WS = /^[^\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]*$/;
+export const templateSubjectSchema = z.string().max(200).regex(NO_CONTROL, 'control characters are not allowed');
+export const templateBodySchema = z
+  .string()
+  .max(20_000)
+  .regex(NO_CONTROL_EXCEPT_WS, 'control characters are not allowed');
+export const emailTemplatePurposeSchema = z.enum(EMAIL_TEMPLATE_PURPOSES);
+export const emailTemplateTextSchema = z.strictObject({ subject: templateSubjectSchema, body: templateBodySchema });
+export const emailTemplatesSchema = z.strictObject({
+  'status-to-requestor': emailTemplateTextSchema.nullable(),
+  'all-clear': emailTemplateTextSchema.nullable(),
+  'request-to-dc': emailTemplateTextSchema.nullable(),
+  reminder: emailTemplateTextSchema.nullable(),
+  acknowledgement: emailTemplateTextSchema.nullable(),
+});
+const tableOrColumnId = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/, 'invalid id');
+export const tableColumnsSchema = z
+  .record(tableOrColumnId, z.array(tableOrColumnId).max(64))
+  .refine((r) => Object.keys(r).length <= 64, 'too many tables');
 export const settingsSchema = z.object({
   autoLockMinutes: z.number().int().min(1).max(240),
   updateCheckEnabled: z.boolean(),
@@ -364,6 +432,10 @@ export const settingsSchema = z.object({
   emailClearanceDefaultDays: z.number().int().min(1).max(3650),
   exportPolicy: exportPolicySchema,
   redactionMode: z.boolean(),
+  emailTemplates: emailTemplatesSchema,
+  vettingAuthority: vettingAuthoritySchema,
+  uiDensity: z.enum(['comfortable', 'compact']),
+  tableColumns: tableColumnsSchema,
 });
 export const reviewItemSchema = z.object({
   id: ulid,
@@ -440,7 +512,11 @@ const vaultBackupResult = z.object({
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
 });
 const vaultRestoreReq = z.strictObject({ srcPath: path, passphrase: password, destDirectory: path });
-const vaultWipeReq = z.strictObject({ password, confirm: z.literal('WIPE') });
+const vaultWipeReq = z.strictObject({
+  password,
+  confirm: z.literal('WIPE'),
+  alsoDeleteScheduledBackups: z.boolean().optional(),
+});
 
 // settings
 const settingsUpdateReq = z.strictObject({
@@ -470,6 +546,10 @@ export const requestSummary = z.object({
   answeredCount: z.number().int().min(0),
   agingDays: z.number().nullable(),
   templateCaptured: z.lazy(() => templateInfo).optional(),
+  finishedAt: isoDateTime.nullable(),
+  closedAt: isoDateTime.nullable(),
+  closeNote: str(65536),
+  reopenCount: z.number().int().min(0),
 });
 const requestListQuery = z.strictObject({
   ...pageQuery,
@@ -566,6 +646,10 @@ const requestUpdateReq = z.strictObject({
 const requestSetStatusReq = z.strictObject({ id: ulid, status: requestStatusSchema, at: isoDateTime.optional() });
 const requestSetItemDecisionReq = z.strictObject({ itemId: ulid, decision: exportDecisionSchema, reason: str(1024) });
 const requestLinkItemReq = z.strictObject({ itemId: ulid, personId: ulid.nullable() });
+const reasonText = str(1024);
+const requestCloseReq = z.strictObject({ id: ulid, note: str(4096) });
+const requestReopenReq = z.strictObject({ id: ulid, reason: reasonText });
+const discardPreviewReq = z.strictObject({ previewId: str(128) });
 const exportModeSchema = z.enum(['regenerate', 'filter-original']);
 const exportReq = z.strictObject({
   requestId: ulid,
@@ -660,12 +744,15 @@ const responsePreviewRow = z.object({
   decision: z.enum(['auto', 'confirmed', 'pending', 'rejected', 'none']),
   chosenRequestItemId: ulid.nullable(),
   chosenPersonId: ulid.nullable(),
+  dispClass: dispClassSchema,
+  sectionSource: sectionSourceSchema,
 });
 const responsePreview = z.object({
   previewId: str(128),
   fileName: str(512),
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
-  batchId: str(64),
+  batchId: str(64).nullable(),
+  fileKindGuess: z.enum(['dc-response', 'investc-request', 'unknown']),
   post: str(),
   resultsAsOf: isoDate.nullable(),
   assistanceLine: str(),
@@ -688,6 +775,7 @@ const responseCommitReq = z.strictObject({
   previewId: str(128),
   requestId: ulid.nullable(),
   decisions: z.record(ulid, responseRowDecision).optional(),
+  batchIdOverride: str(64).min(1).optional(),
 });
 const responseCommitResult = z.object({
   response: responseSummary,
@@ -788,6 +876,23 @@ const duplicateScanResult = z.object({
 });
 const personNotSameReq = z.strictObject({ a: ulid, b: ulid });
 const personPurgeReq = z.strictObject({ id: ulid, password });
+const personSuggestReq = z.strictObject({
+  forSubject: z.strictObject({ kind: z.enum(['review-item', 'request-item', 'response-row']), id: ulid }),
+  text: str(256).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+const personSuggestion = z.object({
+  person: personSummary,
+  tier: z.enum(['T1', 'T2', 'T3', 'T4']).nullable(),
+  evidence: z.array(matchEvidenceSchema),
+  why: z.enum(['candidate', 'recent', 'search']),
+});
+
+// requestors
+const requestorSearchReq = z.strictObject({ text: str(256), limit: z.number().int().min(1).max(50).optional() });
+const requestorListReq = z.strictObject({ ...pageQuery, text: str(256).optional() });
+const requestorUpsertReq = z.strictObject({ requestor: z.strictObject(requestorSchema.shape) });
+const requestorMergeReq = z.strictObject({ survivorId: ulid, mergedId: ulid });
 
 // units
 const unitSummary = z.object({
@@ -834,7 +939,20 @@ const reviewSubject = z.object({
   identifiers: z.array(str()),
   source: str(),
 });
-const reviewItemDetail = z.object({ item: reviewItemSchema, subjects: z.array(reviewSubject) });
+const reviewSubjectEx = reviewSubject.extend({
+  edited: z.boolean(),
+  original: reviewSubject.partial().optional(),
+});
+const reviewItemDetail = z.object({ item: reviewItemSchema, subjects: z.array(reviewSubjectEx) });
+const reviewItemSummary = reviewItemSchema.extend({
+  subjectName: str(),
+  subjectDob: isoDate.nullable(),
+  unitName: str().nullable(),
+  context: z
+    .union([z.object({ requestId: ulid, eventName: str() }), z.object({ responseId: ulid, batchId: str(64) })])
+    .nullable(),
+  bestTier: z.enum(['T1', 'T2', 'T3', 'T4']).nullable(),
+});
 export const reviewResolutionSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('link'), targetId: ulid }),
   z.strictObject({ action: z.literal('new-person') }),
@@ -842,8 +960,35 @@ export const reviewResolutionSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('merge'), survivorId: ulid, mergedId: ulid }),
   z.strictObject({ action: z.literal('keep-dob'), subjectId: ulid }),
   z.strictObject({ action: z.literal('dismiss') }),
+  z.strictObject({ action: z.literal('set-disposition'), disposition: z.enum(['approved', 'non-approved']) }),
 ]);
 const reviewResolveReq = z.strictObject({ id: ulid, resolution: reviewResolutionSchema });
+const reviewManualValidateReq = z.strictObject({
+  id: ulid,
+  target: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('person'), personId: ulid }),
+    z.strictObject({ kind: z.literal('request-item'), itemId: ulid }),
+    z.strictObject({ kind: z.literal('new-person') }),
+  ]),
+  reason: reasonText,
+});
+const responseRowPatch = z.strictObject({
+  nameRaw: str(512).optional(),
+  dob: isoDate.nullable().optional(),
+  pob: z.strictObject({ city: str().nullable(), state: str().nullable(), country: str().nullable() }).optional(),
+  unitName: str(512).optional(),
+  certDate: isoDate.nullable().optional(),
+  expires: isoDate.nullable().optional(),
+  dispClass: dispClassSchema.optional(),
+});
+const reviewEditSubjectReq = z.strictObject({
+  id: ulid,
+  subject: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('response-row'), rowId: ulid, patch: responseRowPatch }),
+    z.strictObject({ kind: z.literal('person'), personId: ulid, patch: personPatchReq.shape.patch }),
+  ]),
+  reason: reasonText,
+});
 const reviewCounts = z.object({
   open: z.number().int().min(0),
   byKind: z.partialRecord(reviewKindSchema, z.number().int()),
@@ -875,6 +1020,24 @@ const emailDraft = z.object({
 const emailDraftStrict = z.strictObject({ ...emailDraft.shape });
 const emailWriteEmlReq = z.strictObject({ draft: emailDraftStrict, attachExportId: ulid.optional(), destPath: path });
 const emailMailtoResult = z.object({ url: str(8192), truncated: z.boolean() });
+const emailRenderTemplateReq = z.strictObject({
+  template: emailTemplatePurposeSchema,
+  requestId: ulid,
+  overrides: z
+    .strictObject({ subject: templateSubjectSchema.optional(), body: templateBodySchema.optional() })
+    .optional(),
+});
+const emailPreviewTemplateReq = z.strictObject({
+  template: emailTemplatePurposeSchema,
+  subject: templateSubjectSchema,
+  body: templateBodySchema,
+});
+const emailTemplateRender = z.object({
+  subject: str(998),
+  body: str(1_000_000),
+  unknownPlaceholders: z.array(str(64)).max(100),
+  containsPersonalData: z.boolean(),
+});
 
 // stats
 const turnaroundStats = z.object({
@@ -932,6 +1095,7 @@ const dashboard = z.object({
     count: z.number().int().min(0),
     sample: z.array(z.object({ personId: ulid, displayName: str(), lastActivityAt: isoDate })),
   }),
+  requestsByStatus: z.record(requestStatusSchema, z.number().int().min(0)),
 });
 const dashboardQuery = z.strictObject({ sinceDays: z.number().int().min(1).max(3650).optional() });
 const expiryWatchFields = {
@@ -1073,6 +1237,14 @@ const filePickSaveReq = z.strictObject({
 const fileRevealReq = z.strictObject({ path });
 const fileSaveStoredReq = z.strictObject({ fileId: ulid, destPath: path });
 
+// app
+const appInfo = z.object({
+  version: str(64),
+  channel: z.enum(['dev', 'alpha', 'release']),
+  platform: str(32),
+  schemaVersion: z.number().int().min(1),
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // The schema table (compile-time checked against VssApi)
 // ---------------------------------------------------------------------------------------------------------------
@@ -1122,6 +1294,16 @@ export const ipcSchemas = {
     exportPreview: { req: exportReq, res: exportPreview },
     export: { req: exportCommitReq, res: exportResult },
     remove: { req: idRef, res: ack },
+    close: { req: requestCloseReq, res: requestSummary },
+    reopen: { req: requestReopenReq, res: requestSummary },
+    discardPreview: { req: discardPreviewReq, res: ack },
+  },
+  requestors: {
+    search: { req: requestorSearchReq, res: z.array(requestorRecordSchema).max(50) },
+    get: { req: idRef, res: requestorRecordSchema },
+    upsert: { req: requestorUpsertReq, res: requestorRecordSchema },
+    merge: { req: requestorMergeReq, res: requestorRecordSchema },
+    list: { req: requestorListReq, res: page(requestorRecordSchema) },
   },
   responses: {
     list: { req: responseListQuery, res: page(responseSummary) },
@@ -1131,6 +1313,7 @@ export const ipcSchemas = {
     setRowMatch: { req: responseSetRowMatchReq, res: responseRowSchema },
     recordEmailClearance: { req: emailClearanceReq, res: emailClearanceResult },
     recordManual: { req: manualRecordReq, res: recordsCreated },
+    discardPreview: { req: discardPreviewReq, res: ack },
   },
   persons: {
     list: { req: personListQuery, res: page(personSummary) },
@@ -1142,6 +1325,7 @@ export const ipcSchemas = {
     markNotSame: { req: personNotSameReq, res: ack },
     purge: { req: personPurgeReq, res: ack },
     scanDuplicates: { req: none, res: duplicateScanResult },
+    suggest: { req: personSuggestReq, res: z.array(personSuggestion).max(50) },
   },
   units: {
     list: { req: unitListQuery, res: page(unitSummary) },
@@ -1151,15 +1335,19 @@ export const ipcSchemas = {
     merge: { req: unitMergeReq, res: unitDetail },
   },
   review: {
-    list: { req: reviewListQuery, res: page(reviewItemSchema) },
+    list: { req: reviewListQuery, res: page(reviewItemSummary) },
     get: { req: idRef, res: reviewItemDetail },
     resolve: { req: reviewResolveReq, res: reviewCounts },
     counts: { req: none, res: reviewCounts },
+    manualValidate: { req: reviewManualValidateReq, res: reviewCounts },
+    editSubject: { req: reviewEditSubjectReq, res: reviewItemDetail },
   },
   email: {
     draft: { req: emailDraftReq, res: emailDraft },
     writeEml: { req: emailWriteEmlReq, res: filePickResult },
     mailto: { req: emailDraftStrict, res: emailMailtoResult },
+    renderTemplate: { req: emailRenderTemplateReq, res: emailTemplateRender },
+    previewTemplate: { req: emailPreviewTemplateReq, res: emailTemplateRender },
   },
   stats: {
     dashboard: { req: dashboardQuery, res: dashboard },
@@ -1206,6 +1394,10 @@ export const ipcSchemas = {
     reveal: { req: fileRevealReq, res: ack },
     saveStored: { req: fileSaveStoredReq, res: ack },
   },
+  app: {
+    info: { req: none, res: appInfo },
+    openFeedback: { req: none, res: ack },
+  },
 } satisfies SchemaTable;
 
 /** Event payload schemas, keyed by event name. */
@@ -1217,6 +1409,7 @@ export const eventSchemas = {
   'updates:state': updateState,
   'clipboard:cleared': z.object({}),
   'peer:status': peerStatus,
+  'app:crash-recovered': z.object({ code: str(64) }),
 } satisfies { [E in VssEventName]: z.ZodType<VssEventMap[E]> };
 
 export const eventNameSchema = z.enum(EVENT_NAMES);

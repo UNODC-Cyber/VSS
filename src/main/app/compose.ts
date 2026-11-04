@@ -5,7 +5,8 @@
  * Everything Electron-specific arrives through `AppPorts`, so the whole graph runs in Vitest with fakes.
  *
  * Handler table status
- *   implemented here : vault.*, settings.*, backup.*, clipboard.*, email.*, files.*, updates.*, audit.*
+ *   implemented here : vault.*, settings.*, backup.*, clipboard.*, email.draft/writeEml/mailto, files.*, updates.*,
+ *                      audit.*, app.info (app.openFeedback: LANE I SLOT, NOT_SUPPORTED until lane I)
  *   LANE H SLOT      : requests.*, responses.*, persons.*, units.*, review.*, stats.*, templates.* -- default
  *                      `createDomainContribution` (app/domain-wiring.ts: lane H services + lane G exporter);
  *                      tests may pass another factory
@@ -16,12 +17,14 @@ import { dirname, join } from 'node:path';
 import type { Settings } from '@shared/domain/types';
 import type {
   Ack,
+  AppChannel,
   BackupListResult,
   ClipboardCopyRequest,
   Result,
   VaultBackupRequest,
   VaultBackupResult,
   VaultStatus,
+  VaultWipeRequest,
   VssEventMap,
   VssEventName,
 } from '@shared/ipc/contract';
@@ -30,6 +33,7 @@ import { unlock as cryptoUnlock, vaultExists } from '../crypto/vault';
 import type { Argon2idParams } from '../crypto/kdf';
 import { DbError, isDbError } from '../db/errors';
 import { SqliteDbController } from '../db/controller';
+import { APP_SCHEMA_VERSION } from '../db/migrations';
 import type { Db } from '../db/open';
 import type { Repos } from '../db/repos';
 import type { Handlers } from '../ipc/registry';
@@ -47,6 +51,8 @@ import { SettingsService } from '../services/settings';
 import { settingsLastCheckStore } from '../services/updates-wiring';
 import type { UpdateServiceFactory, UpdateServiceLike } from '../services/updates-wiring';
 import { VaultService } from '../services/vault-service';
+import { wipeExtras as defaultWipeExtras } from '../services/wipe';
+import type { WipeExtrasContext } from '../services/wipe';
 import { createDomainContribution } from './domain-wiring';
 import { nullLogger } from './logger';
 import type { Logger } from './logger';
@@ -121,6 +127,10 @@ export interface ComposeOptions {
   lockTickMs?: number;
   /** Max time an on-lock backup may delay locking. Default 60 s. */
   lockBackupTimeoutMs?: number;
+  /** What app.info reports (main/index.ts passes app.getVersion(); lane I supplies the build channel). */
+  appInfo?: { version: string; channel?: AppChannel };
+  /** LANE L SLOT: extra wipe clean-up (services/wipe.ts), run after the password check, before the vault goes. */
+  wipeExtras?: (req: VaultWipeRequest, ctx: WipeExtrasContext) => Promise<void>;
 }
 
 export interface ComposedApp {
@@ -136,6 +146,8 @@ export interface ComposedApp {
   initialRoute(): Promise<'create' | 'unlock'>;
   /** Lock first, then release timers. `backup:false` skips the on-lock backup. */
   shutdown(opts?: { backup?: boolean }): Promise<void>;
+  /** Lane J crash guard: tell the renderer the vault was locked after a fault (`code` only, never a message). */
+  crashRecovered(code: string): void;
 }
 
 const lockedError = <T>(): Result<T> => err('VAULT_LOCKED', 'Vault is locked');
@@ -449,9 +461,31 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
           return vault.restore({ ...req, srcPath });
         }),
       wipe: async (req) => {
+        if (req.alsoDeleteScheduledBackups === true) {
+          // The backup folder is only known while the vault is open, and only a proven owner may delete in it.
+          try {
+            await checkPassword(req.password);
+          } catch (e) {
+            const code = (e as { code?: string }).code === 'RATE_LIMITED' ? 'RATE_LIMITED' : 'BAD_CREDENTIALS';
+            return err(code, code === 'RATE_LIMITED' ? 'Too many failed attempts' : 'Password check failed');
+          }
+          let backupDir: string | null = null;
+          try {
+            backupDir = db.isOpen ? (backup.config()?.dir ?? null) : null;
+          } catch {
+            backupDir = null;
+          }
+          try {
+            await (opts.wipeExtras ?? defaultWipeExtras)(req, { backupDir });
+          } catch {
+            log.warn('wipe.extras.failed', { kind: 'wipe' });
+          }
+        }
         const r = await vault.wipe(req);
         // F-17: pre-migration copies are encrypted under the DEK that just became unrecoverable; remove them too.
         if (r.ok) await rm(paths.migrationBackupDir, { recursive: true, force: true }).catch(() => undefined);
+        // No audit is possible after a wipe: this PII-free log line is the only trace.
+        log.info('vault.wiped', { kind: 'wipe', ok: r.ok });
         return r;
       },
       touch: () => vault.touch(),
@@ -613,6 +647,18 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
         }),
     },
     ...(updates ? { updates: updates.handlers() } : {}),
+    app: {
+      // No vault data: answers while locked too.
+      info: async () =>
+        ok({
+          version: opts.appInfo?.version ?? '0.0.0',
+          channel: opts.appInfo?.channel ?? 'dev',
+          platform: process.platform,
+          schemaVersion: APP_SCHEMA_VERSION,
+        }),
+      // LANE I SLOT: the fixed, allowlisted feedback URL (docs/PLAN-ALPHA.md section 12).
+      openFeedback: async () => err('NOT_SUPPORTED', 'Feedback is not available in this version'),
+    },
   };
 
   // ===== LANE H SLOT ==============================================================================================
@@ -669,6 +715,9 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
       lock.dispose();
       if (backupTimer) clearInterval(backupTimer);
       backupTimer = null;
+    },
+    crashRecovered(code) {
+      ports.emit('app:crash-recovered', { code });
     },
   };
 }

@@ -7,21 +7,28 @@
 import type {
   AuditEvent,
   DcResponse,
+  DispClass,
   DobPrecision,
+  EmailTemplatePurpose,
+  EmailTemplateText,
   ExportDecision,
   IsoDate,
   IsoDateTime,
   MatchCandidate,
+  MatchEvidence,
+  MatchTier,
   ObservedUnit,
   Person,
   PersonName,
   RequestItem,
   Requestor,
+  RequestorRecord,
   RequestStatus,
   ResponseRow,
   ResponseSection,
   ReviewItem,
   ReviewKind,
+  SectionSource,
   Settings,
   Sex,
   Ulid,
@@ -65,6 +72,10 @@ export const ERROR_CODES = [
   'SCHEMA_NEWER_THAN_APP', // the database was written by a newer VSS version; update the app first
   'VAULT_TAMPERED', // vault header MAC / integrity check failed (vault.json or vss.db modified outside VSS)
   'TEMPLATE_MISSING', // regenerate export needed but no template is stored in the vault (Settings > Templates)
+  // Alpha 1
+  'WRONG_FILE_KIND', // e.g. a vetting request workbook picked in the DC response importer (lanes C, F)
+  'LIFECYCLE_CONFLICT', // request close / reopen not allowed from the current status (lane D)
+  'REASON_REQUIRED', // an audited manual action needs a reason of at least 3 characters (lanes D, K)
 ] as const;
 export type VssErrorCode = (typeof ERROR_CODES)[number];
 
@@ -174,6 +185,8 @@ export interface VaultWipeRequest {
   password: string;
   /** Must equal the literal string 'WIPE'. */
   confirm: 'WIPE';
+  /** Also delete VSS's own automatic backups in the configured backup folder (lane L). Default false. */
+  alsoDeleteScheduledBackups?: boolean;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -213,6 +226,11 @@ export interface RequestSummary {
   agingDays: number | null;
   /** importCommit only: the export template that was captured from this file (first valid import), if any. */
   templateCaptured?: TemplateInfo;
+  /** Alpha 1 lifecycle (lane D). */
+  finishedAt: IsoDateTime | null;
+  closedAt: IsoDateTime | null;
+  closeNote: string;
+  reopenCount: number;
 }
 export interface RequestListQuery extends PageQuery {
   text?: string;
@@ -334,6 +352,20 @@ export interface RequestSetItemDecisionRequest {
   decision: ExportDecision;
   reason: string;
 }
+/** Close a Finished request (lane D); `note` is kept on the row, never in the audit text. */
+export interface RequestCloseRequest {
+  id: Ulid;
+  note: string;
+}
+/** Reopen a Closed request (lane D); `reason` >= 3 characters (REASON_REQUIRED). */
+export interface RequestReopenRequest {
+  id: Ulid;
+  reason: string;
+}
+/** Drop an import preview at once (wizard Cancel, lane F). Unknown or expired ids are fine (no-op). */
+export interface DiscardPreviewRequest {
+  previewId: string;
+}
 export interface RequestLinkItemRequest {
   itemId: Ulid;
   /** null => create a new person from this row (explicit user action). */
@@ -453,6 +485,8 @@ export interface ImportResponsePreviewRequest {
   /** Hint: request to match against; otherwise the batch/assistance line and names are used. */
   requestId?: Ulid;
 }
+/** What the picked file looks like (lane C): a request workbook in the response importer is refused plainly. */
+export type FileKindGuess = 'dc-response' | 'investc-request' | 'unknown';
 export interface ResponsePreviewRow {
   /** Id the row will have once committed; the key of ResponseCommitRequest.decisions. */
   rowId: Ulid;
@@ -468,6 +502,9 @@ export interface ResponsePreviewRow {
   decision: ResponseRow['match']['decision'];
   chosenRequestItemId: Ulid | null;
   chosenPersonId: Ulid | null;
+  /** Alpha 1 (lane C), mirrors ResponseRow. */
+  dispClass: DispClass;
+  sectionSource: SectionSource;
 }
 /** A request the response may answer, ranked by assistance line, event date, units and row overlap. */
 export interface ResponseRequestCandidate {
@@ -480,7 +517,10 @@ export interface ResponsePreview {
   previewId: string;
   fileName: string;
   sha256: string;
-  batchId: string;
+  /** null when the file has no Batch ID label (lane C: META_LABEL_MISSING; the wizard asks for one). */
+  batchId: string | null;
+  /** Alpha 1 (lane C). */
+  fileKindGuess: FileKindGuess;
   post: string;
   resultsAsOf: IsoDate | null;
   assistanceLine: string;
@@ -512,6 +552,8 @@ export interface ResponseCommitRequest {
    * pending and becomes a review item.
    */
   decisions?: Record<Ulid, ResponseRowDecision>;
+  /** Batch id typed in the wizard when the file has none (lane C/F); overrides the file's value. */
+  batchIdOverride?: string;
 }
 export interface ResponseCommitResult {
   response: ResponseSummary;
@@ -642,10 +684,50 @@ export interface PersonPurgeRequest {
   id: Ulid;
   password: string;
 }
+/** The thing a person is being chosen for (lane K picker). */
+export interface SuggestSubject {
+  kind: 'review-item' | 'request-item' | 'response-row';
+  id: Ulid;
+}
+export interface PersonSuggestRequest {
+  forSubject: SuggestSubject;
+  /** Free text typed in the picker; absent = candidates and recent persons only. */
+  text?: string;
+  /** Default 20, max 50. */
+  limit?: number;
+}
+export interface PersonSuggestion {
+  person: PersonSummary;
+  tier: MatchTier | null;
+  evidence: MatchEvidence[];
+  why: 'candidate' | 'recent' | 'search';
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // units
 // ---------------------------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------------------------
+// requestors (lane B)
+// ---------------------------------------------------------------------------------------------------------------
+
+export interface RequestorSearchQuery {
+  /** Matched against folded name and e-mail. */
+  text: string;
+  /** Default 8, max 50. */
+  limit?: number;
+}
+export interface RequestorListQuery extends PageQuery {
+  text?: string;
+}
+export interface RequestorUpsertRequest {
+  /** With `id`: update that record; without: dedupe (same folded e-mail, else name + organisation) or create. */
+  requestor: Requestor;
+}
+export interface RequestorMergeRequest {
+  survivorId: Ulid;
+  mergedId: Ulid;
+}
 
 export interface UnitSummary {
   id: Ulid;
@@ -697,6 +779,19 @@ export interface ReviewSubject {
   unitName: string | null;
   identifiers: string[];
   source: string;
+  /** Alpha 1 (lane K): the subject was corrected in VSS; `original` holds the values as the source stated them. */
+  edited: boolean;
+  original?: Partial<Omit<ReviewSubject, 'original'>>;
+}
+/** Where a review item comes from (lane K list context). */
+export type ReviewItemContext = { requestId: Ulid; eventName: string } | { responseId: Ulid; batchId: string };
+/** A review list row: the item plus who it is about (lane K). Personal data: the renderer honours redactionMode. */
+export interface ReviewItemSummary extends ReviewItem {
+  subjectName: string;
+  subjectDob: IsoDate | null;
+  unitName: string | null;
+  context: ReviewItemContext | null;
+  bestTier: MatchTier | null;
 }
 export interface ReviewItemDetail {
   item: ReviewItem;
@@ -709,10 +804,36 @@ export type ReviewResolution =
   | { action: 'not-same' }
   | { action: 'merge'; survivorId: Ulid; mergedId: Ulid }
   | { action: 'keep-dob'; subjectId: Ulid }
-  | { action: 'dismiss' };
+  | { action: 'dismiss' }
+  // Alpha 1 (lanes C, K): resolve a disposition-unclear item.
+  | { action: 'set-disposition'; disposition: 'approved' | 'non-approved' };
 export interface ReviewResolveRequest {
   id: Ulid;
   resolution: ReviewResolution;
+}
+/** Assert manually that a response row is a valid DC answer for the target (lane K); reason >= 3 characters. */
+export interface ReviewManualValidateRequest {
+  id: Ulid;
+  target: { kind: 'person'; personId: Ulid } | { kind: 'request-item'; itemId: Ulid } | { kind: 'new-person' };
+  reason: string;
+}
+/** Correctable fields of a response row (lane K); the DC original is kept on first edit. */
+export interface ResponseRowPatch {
+  nameRaw?: string;
+  dob?: IsoDate | null;
+  pob?: { city: string | null; state: string | null; country: string | null };
+  unitName?: string;
+  certDate?: IsoDate | null;
+  expires?: IsoDate | null;
+  dispClass?: DispClass;
+}
+export type ReviewEditSubject =
+  | { kind: 'response-row'; rowId: Ulid; patch: ResponseRowPatch }
+  | { kind: 'person'; personId: Ulid; patch: PersonPatch['patch'] };
+export interface ReviewEditSubjectRequest {
+  id: Ulid;
+  subject: ReviewEditSubject;
+  reason: string;
 }
 export interface ReviewCounts {
   open: number;
@@ -751,6 +872,25 @@ export interface EmailWriteEmlRequest {
   /** Attach a previously produced export by id. */
   attachExportId?: Ulid;
   destPath: string;
+}
+/** Render a template (lane E) for a request: the user's override or the default, plus `overrides` typed in the dialog. */
+export interface EmailRenderTemplateRequest {
+  template: EmailTemplatePurpose;
+  requestId: Ulid;
+  overrides?: Partial<EmailTemplateText>;
+}
+/** Preview a template text against a fixed synthetic sample (never vault data). */
+export interface EmailPreviewTemplateRequest {
+  template: EmailTemplatePurpose;
+  subject: string;
+  body: string;
+}
+export interface EmailTemplateRender {
+  subject: string;
+  body: string;
+  /** Placeholders that were not recognised and stay literal. */
+  unknownPlaceholders: string[];
+  containsPersonalData: boolean;
 }
 export interface EmailMailtoResult {
   /** mailto: URL (subject/body only; no attachment support). */
@@ -803,6 +943,8 @@ export interface Dashboard {
    * purged automatically; the manual, password-gated purge stays the only way to delete.
    */
   inactivePersons: { count: number; sample: { personId: Ulid; displayName: string; lastActivityAt: IsoDate }[] };
+  /** Requests per status (lane D tiles). */
+  requestsByStatus: Record<RequestStatus, number>;
 }
 export interface DashboardQuery {
   /** Window for turnaround statistics. */
@@ -1021,6 +1163,20 @@ export interface FileSaveStoredRequest {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// app (lane I: channel, About, feedback)
+// ---------------------------------------------------------------------------------------------------------------
+
+export type AppChannel = 'dev' | 'alpha' | 'release';
+export interface AppInfo {
+  version: string;
+  channel: AppChannel;
+  /** process.platform */
+  platform: string;
+  /** Highest DB schema version this build understands. */
+  schemaVersion: number;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Events (main -> renderer)
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -1032,6 +1188,7 @@ export const EVENT_NAMES = [
   'updates:state',
   'clipboard:cleared',
   'peer:status',
+  'app:crash-recovered',
 ] as const;
 export type VssEventName = (typeof EVENT_NAMES)[number];
 export interface VssEventMap {
@@ -1042,6 +1199,8 @@ export interface VssEventMap {
   'updates:state': UpdateState;
   'clipboard:cleared': Empty;
   'peer:status': PeerStatus;
+  /** Lane J crash guard: the vault was locked after a fault. `code` only, never the error message. */
+  'app:crash-recovered': { code: string };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1083,6 +1242,19 @@ export interface VssApi {
     exportPreview(req: ExportRequest): R<ExportPreview>;
     export(req: ExportCommitRequest): R<ExportResult>;
     remove(req: IdRef): R<Ack>;
+    /** Lane D: Finished -> Closed (LIFECYCLE_CONFLICT otherwise). */
+    close(req: RequestCloseRequest): R<RequestSummary>;
+    /** Lane D: Closed -> Finished / Responded (recomputed). */
+    reopen(req: RequestReopenRequest): R<RequestSummary>;
+    discardPreview(req: DiscardPreviewRequest): R<Ack>;
+  };
+  /** Lane B. */
+  requestors: {
+    search(req: RequestorSearchQuery): R<RequestorRecord[]>;
+    get(req: IdRef): R<RequestorRecord>;
+    upsert(req: RequestorUpsertRequest): R<RequestorRecord>;
+    merge(req: RequestorMergeRequest): R<RequestorRecord>;
+    list(req: RequestorListQuery): R<Page<RequestorRecord>>;
   };
   responses: {
     list(req: ResponseListQuery): R<Page<ResponseSummary>>;
@@ -1092,6 +1264,7 @@ export interface VssApi {
     setRowMatch(req: ResponseSetRowMatchRequest): R<ResponseRow>;
     recordEmailClearance(req: EmailClearanceRequest): R<EmailClearanceResult>;
     recordManual(req: ManualRecordRequest): R<RecordsCreated>;
+    discardPreview(req: DiscardPreviewRequest): R<Ack>;
   };
   persons: {
     list(req: PersonListQuery): R<Page<PersonSummary>>;
@@ -1105,6 +1278,8 @@ export interface VssApi {
     purge(req: PersonPurgeRequest): R<Ack>;
     /** Compare all active persons and open a 'duplicate-persons' review item per likely pair. */
     scanDuplicates(): R<DuplicateScanResult>;
+    /** Lane K picker: candidates, recent and tolerant search hits for a subject. Never links anything. */
+    suggest(req: PersonSuggestRequest): R<PersonSuggestion[]>;
   };
   units: {
     list(req: UnitListQuery): R<Page<UnitSummary>>;
@@ -1114,15 +1289,23 @@ export interface VssApi {
     merge(req: UnitMergeRequest): R<UnitDetail>;
   };
   review: {
-    list(req: ReviewListQuery): R<Page<ReviewItem>>;
+    list(req: ReviewListQuery): R<Page<ReviewItemSummary>>;
     get(req: IdRef): R<ReviewItemDetail>;
     resolve(req: ReviewResolveRequest): R<ReviewCounts>;
     counts(): R<ReviewCounts>;
+    /** Lane K. */
+    manualValidate(req: ReviewManualValidateRequest): R<ReviewCounts>;
+    /** Lane K. */
+    editSubject(req: ReviewEditSubjectRequest): R<ReviewItemDetail>;
   };
   email: {
     draft(req: EmailDraftRequest): R<EmailDraft>;
     writeEml(req: EmailWriteEmlRequest): R<FilePickResult>;
     mailto(req: EmailDraft): R<EmailMailtoResult>;
+    /** Lane E. */
+    renderTemplate(req: EmailRenderTemplateRequest): R<EmailTemplateRender>;
+    /** Lane E: renders against a synthetic sample only. */
+    previewTemplate(req: EmailPreviewTemplateRequest): R<EmailTemplateRender>;
   };
   stats: {
     dashboard(req: DashboardQuery): R<Dashboard>;
@@ -1168,6 +1351,11 @@ export interface VssApi {
     pickSave(req: FilePickSaveRequest): R<FilePickResult>;
     reveal(req: FileRevealRequest): R<Ack>;
     saveStored(req: FileSaveStoredRequest): R<Ack>;
+  };
+  app: {
+    info(): R<AppInfo>;
+    /** Lane I: opens the fixed, allowlisted feedback URL (version, OS and architecture only). */
+    openFeedback(): R<Ack>;
   };
   /** Subscribe to main-process events. Returns an unsubscribe function. */
   on<E extends VssEventName>(event: E, listener: (payload: VssEventMap[E]) => void): () => void;

@@ -22,6 +22,7 @@ import type {
 } from '@shared/domain/types';
 import type {
   Ack,
+  DiscardPreviewRequest,
   EmailClearanceRequest,
   EmailClearanceResult,
   ExportCommitRequest,
@@ -96,6 +97,8 @@ export interface RequestsService {
   importFile(fileName: string, bytes: Uint8Array): Promise<Result<ImportPreview>>;
   /** Drop all pending import previews (vault lock; F-14). */
   clearPreviews(): void;
+  /** Drop one preview at once (wizard Cancel); unknown ids are fine. */
+  discardPreview(req: DiscardPreviewRequest): Promise<Result<Ack>>;
   importCommit(req: ImportCommitRequest): Promise<Result<RequestSummary>>;
   createManual(req: ManualRequestInput): Promise<Result<RequestSummary>>;
   update(req: RequestUpdateRequest): Promise<Result<RequestSummary>>;
@@ -534,6 +537,10 @@ export function summarize(ctx: Ctx, headers: RequestHeader[]): RequestSummary[] 
       unresolvedLinkCount: s.unresolvedLinkCount,
       answeredCount: s.answeredCount,
       agingDays: h.sentToDcAt && !h.respondedAt ? Math.max(0, daysBetween(h.sentToDcAt.slice(0, 10), today)) : null,
+      finishedAt: h.finishedAt,
+      closedAt: h.closedAt,
+      closeNote: h.closeNote,
+      reopenCount: h.reopenCount,
     };
   });
 }
@@ -674,6 +681,11 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
     },
     importFile,
     clearPreviews: () => previews.clear(),
+    discardPreview: ({ previewId }) =>
+      run((): Ack => {
+        previews.delete(previewId);
+        return { ok: true };
+      }),
 
     importCommit: (req) =>
       run(() => {

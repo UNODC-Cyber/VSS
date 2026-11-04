@@ -23,10 +23,13 @@ import { StoredFileRepo } from './storedFile';
 import { chunked, fromJson, newId, qs, toJson } from './util';
 
 export type RequestHeader = Omit<VettingRequest, 'items'>;
-export type RequestInput = Omit<VettingRequest, 'id' | 'items' | 'sourceFile'> & {
-  sourceFileId?: Ulid | null;
-  id?: Ulid;
-};
+/** Lifecycle fields (lane D, migration 006); until then they are not stored and read as their defaults. */
+export type RequestLifecycleField = 'finishedAt' | 'closedAt' | 'closeNote' | 'reopenCount';
+export type RequestInput = Omit<VettingRequest, 'id' | 'items' | 'sourceFile' | RequestLifecycleField> &
+  Partial<Pick<VettingRequest, RequestLifecycleField>> & {
+    sourceFileId?: Ulid | null;
+    id?: Ulid;
+  };
 export interface RequestPatchFields {
   requestor?: Requestor;
   eventName?: string;
@@ -480,6 +483,10 @@ export class RequestRepo {
       responseKind: r.response_kind as VettingRequest['responseKind'],
       batchId: r.batch_id,
       notes: r.notes ?? '',
+      finishedAt: null,
+      closedAt: null,
+      closeNote: '',
+      reopenCount: 0,
     };
   }
 }

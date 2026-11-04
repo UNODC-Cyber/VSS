@@ -13,6 +13,8 @@ import type {
   PersonNotSameRequest,
   PersonPatch,
   PersonPurgeRequest,
+  PersonSuggestion,
+  PersonSuggestRequest,
   PersonSummary,
   PersonUnmergeRequest,
   Result,
@@ -30,7 +32,7 @@ import { keysOf, personInputFromObserved } from './people-ops';
 import { DbNegativePairs, SqlCandidateSource } from './people-source';
 import { summarize as summarizeRequests } from './requests';
 import { snapshotsFor } from './vetting-status';
-import { displayName, fail, makeCtx, run } from './vetting-common';
+import { displayName, fail, makeCtx, notSupported, run } from './vetting-common';
 import type { Ctx, ServiceDeps } from './vetting-common';
 
 export interface PersonSplitRequest {
@@ -55,6 +57,8 @@ export interface PersonsService {
   markNotSame(req: PersonNotSameRequest): Promise<Result<Ack>>;
   purge(req: PersonPurgeRequest): Promise<Result<Ack>>;
   scanDuplicates(): Promise<Result<DuplicateScanResult>>;
+  /** LANE K SLOT (docs/PLAN-ALPHA.md section 14): picker suggestions; NOT_SUPPORTED until lane K lands. */
+  suggest(req: PersonSuggestRequest): Promise<Result<PersonSuggestion[]>>;
 }
 export interface UnitsService {
   list(req: UnitListQuery): Promise<Result<Page<UnitSummary>>>;
@@ -620,6 +624,8 @@ export function createPersonsService(deps: ServiceDeps): PersonsService {
           return { pairsFound, reviewItemsCreated: created };
         }),
       ),
+
+    suggest: () => notSupported('Person suggestions'),
   };
 }
 

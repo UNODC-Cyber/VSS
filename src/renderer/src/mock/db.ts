@@ -356,6 +356,10 @@ export function seed(db: MockDb): void {
       responseKind: null,
       batchId: null,
       notes: '',
+      finishedAt: null,
+      closedAt: null,
+      closeNote: '',
+      reopenCount: 0,
       ...patch,
     };
   };

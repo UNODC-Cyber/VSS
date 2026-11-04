@@ -9,6 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import type { Ulid, VettingStatus } from '@shared/domain/types';
+import { METHODS } from '@shared/ipc/channels';
 import type { ClipboardField, FileKind, Result } from '@shared/ipc/contract';
 import { err } from '@shared/ipc/result';
 import type { Db } from '../db/open';
@@ -143,7 +144,21 @@ const MUTATING: Record<string, readonly string[]> = {
   responses: ['importCommit', 'setRowMatch', 'recordEmailClearance', 'recordManual'],
   persons: ['merge', 'unmerge', 'split', 'markNotSame', 'purge', 'scanDuplicates', 'update'],
   units: ['merge'],
-  review: ['resolve'],
+  review: ['resolve', 'manualValidate', 'editSubject'],
+};
+
+/**
+ * Contract method -> [service, method] for every method served by a service of ANOTHER name (the rest are served
+ * by the service named like the namespace). One row per method; a lane adds its row here only via a `contract` PR.
+ */
+const ROUTES: Record<string, readonly [keyof DomainServices, string]> = {
+  'requests.close': ['lifecycle', 'close'],
+  'requests.reopen': ['lifecycle', 'reopen'],
+  'email.renderTemplate': ['emailTemplates', 'renderTemplate'],
+  'email.previewTemplate': ['emailTemplates', 'previewTemplate'],
+  'stats.dashboard': ['vetting', 'dashboard'],
+  'stats.expiryWatch': ['vetting', 'expiryWatch'],
+  'stats.exportExpiryCsv': ['vetting', 'exportExpiryCsv'],
 };
 
 /** The lane H factory for `composeApp({ laneH })`. */
@@ -233,42 +248,33 @@ export function createDomainContribution(sc: ServiceContext): LaneHContribution 
       return r;
     };
 
+  // Every contract method of these namespaces is served here (email.* only in part: compose.ts serves draft,
+  // writeEml and mailto itself, and its own handlers win).
   const table: Record<string, readonly string[]> = {
-    requests: [
-      'list',
-      'get',
-      'importPreview',
-      'importCommit',
-      'createManual',
-      'update',
-      'setStatus',
-      'setItemDecision',
-      'linkItem',
-      'exportPreview',
-      'export',
-      'remove',
-    ],
-    responses: ['list', 'get', 'importPreview', 'importCommit', 'setRowMatch', 'recordEmailClearance', 'recordManual'],
-    persons: ['list', 'get', 'update', 'merge', 'unmerge', 'split', 'markNotSame', 'purge', 'scanDuplicates'],
-    units: ['list', 'get', 'update', 'addAlias', 'merge'],
-    review: ['list', 'get', 'resolve', 'counts'],
-    templates: ['list', 'import', 'setActive', 'remove'],
+    requests: METHODS.requests,
+    requestors: METHODS.requestors,
+    responses: METHODS.responses,
+    persons: METHODS.persons,
+    units: METHODS.units,
+    review: METHODS.review,
+    templates: METHODS.templates,
+    stats: METHODS.stats,
+    email: ['renderTemplate', 'previewTemplate'],
   };
   const handlers: Record<string, Record<string, Wrapped>> = {};
   for (const [ns, methods] of Object.entries(table)) {
     handlers[ns] = {};
     for (const m of methods) {
+      const [svcName, svcMethod] = ROUTES[`${ns}.${m}`] ?? [ns, m];
       handlers[ns]![m] = wrap(ns, m, (s) => {
-        const svc = (s as unknown as Record<string, Record<string, Wrapped>>)[ns]!;
-        return svc[m]!.bind(svc) as Wrapped;
+        const svc = (s as unknown as Record<string, Record<string, Wrapped> | undefined>)[svcName];
+        const fn = svc?.[svcMethod];
+        // A lane slot that is not filled yet: the contract stays complete and answers NOT_SUPPORTED.
+        if (!fn) return async () => err('NOT_SUPPORTED', `${ns}.${m} is not implemented`);
+        return fn.bind(svc) as Wrapped;
       });
     }
   }
-  handlers['stats'] = {
-    dashboard: wrap('stats', 'dashboard', (s) => s.vetting.dashboard as Wrapped),
-    expiryWatch: wrap('stats', 'expiryWatch', (s) => s.vetting.expiryWatch as Wrapped),
-    exportExpiryCsv: wrap('stats', 'exportExpiryCsv', (s) => s.vetting.exportExpiryCsv as Wrapped),
-  };
 
   const sources: HostSources = {
     requestStatus: {

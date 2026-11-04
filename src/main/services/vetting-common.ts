@@ -11,6 +11,8 @@ import { isDbError, toVssErrorCode } from '../db/errors';
 import type { Db } from '../db/open';
 import type { Repos } from '../db/repos';
 import type { AuditDetails, AuditLog } from './audit';
+import { withDefaults } from './hooks';
+import type { DomainHooks } from './hooks';
 
 /** File access used by import (read) and export (write). Default: node:fs/promises. */
 export interface FileIo {
@@ -39,6 +41,8 @@ export interface ServiceDeps {
    * 'requests.importCommit'. A throw rolls the whole transaction back.
    */
   faultInjector?: (step: string) => void;
+  /** Cross-lane hooks (services/hooks.ts); missing ones are no-ops. */
+  hooks?: Partial<DomainHooks>;
 }
 
 export class ServiceError extends Error {
@@ -74,6 +78,8 @@ export interface Ctx {
   tx<T>(step: string, fn: () => T): T;
   /** Append exactly one audit event (call inside the same transaction as the change). */
   audit(type: string, subjectType: string, subjectId: Ulid | null, details?: AuditDetails): void;
+  /** Cross-lane hooks; call inside the write transaction. */
+  readonly hooks: DomainHooks;
 }
 
 export function makeCtx(d: ServiceDeps): Ctx {
@@ -88,6 +94,7 @@ export function makeCtx(d: ServiceDeps): Ctx {
     actor: d.actor ?? (() => 'local-user'),
     settings: d.settings ?? (() => d.repos.settings.getAll()),
     verifyPassword: async (pw) => (d.verifyPassword ? d.verifyPassword(pw) : false),
+    hooks: withDefaults(d.hooks),
     tx<T>(step: string, fn: () => T): T {
       return d.db.transaction(() => {
         const r = fn();
@@ -106,6 +113,11 @@ export function makeCtx(d: ServiceDeps): Ctx {
       });
     },
   };
+}
+
+/** Answer of a contract method whose owning lane has not landed yet (docs/PLAN-ALPHA.md). */
+export function notSupported<T>(what: string): Promise<Result<T>> {
+  return Promise.resolve(err('NOT_SUPPORTED', `${what} is not available in this version`));
 }
 
 /** Run `fn` and map every failure onto a Result. Unknown errors become INTERNAL without their message (may hold PII). */

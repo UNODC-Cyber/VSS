@@ -6,7 +6,15 @@ import { nowIso, toJson } from './util';
 type Key = keyof Settings;
 const KEYS = Object.keys(DEFAULT_SETTINGS) as Key[];
 
-/** Typed settings, one row per top-level key; missing keys fall back to DEFAULT_SETTINGS (exportPolicy merged deep). */
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * Typed settings, one row per top-level key. Keys absent from the table fall back to DEFAULT_SETTINGS (so a key
+ * added in a later version needs no migration), and object-valued keys (exportPolicy, emailTemplates,
+ * vettingAuthority, tableColumns) are merged one level deep over their default, so a sub-key added later is filled
+ * in too.
+ */
 export class SettingRepo {
   constructor(private readonly db: Db) {}
 
@@ -18,8 +26,8 @@ export class SettingRepo {
       const raw = stored.get(k);
       if (raw === undefined) continue;
       const v: unknown = JSON.parse(raw);
-      if (k === 'exportPolicy') out.exportPolicy = { ...out.exportPolicy, ...(v as Partial<Settings['exportPolicy']>) };
-      else (out as unknown as Record<string, unknown>)[k] = v;
+      const def: unknown = out[k];
+      (out as unknown as Record<string, unknown>)[k] = isPlainObject(def) && isPlainObject(v) ? { ...def, ...v } : v;
     }
     return out;
   }
