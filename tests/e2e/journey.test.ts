@@ -175,6 +175,25 @@ describe('real app journey (no mock)', () => {
       }),
     );
 
+    // ---- 1b. lane J (R10): two rapid picks yield one native dialog; the second answers "cancelled"
+    await app.evaluate(({ dialog }, p) => {
+      const g = globalThis as unknown as { __vssDialogs: number };
+      g.__vssDialogs = 0;
+      dialog.showOpenDialog = (async () => {
+        g.__vssDialogs++;
+        await new Promise((r) => setTimeout(r, 400));
+        return { canceled: false, filePaths: [p] };
+      }) as typeof dialog.showOpenDialog;
+    }, fx('requests/req-001-basic.xlsx'));
+    const [firstPick, secondPick] = await Promise.all([
+      call(page, 'files', 'pickOpen', { kind: 'request-xlsx' }),
+      call(page, 'files', 'pickOpen', { kind: 'request-xlsx' }),
+    ]);
+    expect(await app.evaluate(() => (globalThis as unknown as { __vssDialogs: number }).__vssDialogs)).toBe(1);
+    const picks = [firstPick, secondPick].map((r) => (r.ok ? r.value.path : 'ERR'));
+    expect(picks.filter((x) => typeof x === 'string' && /^vss-file:[0-9a-f]{32}$/.test(x))).toHaveLength(1);
+    expect(picks.filter((x) => x === null)).toHaveLength(1);
+
     // ---- 2. an earlier email-cleared request makes three people of the file known
     const seed = await v(
       call(page, 'requests', 'createManual', {

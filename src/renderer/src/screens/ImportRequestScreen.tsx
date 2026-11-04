@@ -5,7 +5,7 @@ import type { ExportDecision, ValidationIssue } from '@shared/domain/types';
 import type { ImportPreview, ImportPreviewItem } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
 import { LinkBadge, PageHeader, Sensitive, StatusBadge } from '../components/common';
-import { useAction, vss } from '../lib/api';
+import { useAction, useBusyAction, vss } from '../lib/api';
 import { navigate } from '../lib/router';
 import { useUi } from '../store';
 
@@ -39,9 +39,10 @@ export function ImportRequestScreen() {
     notes: '',
   });
   const [busy, setBusy] = useState(false);
+  const picker = useBusyAction();
 
   const pick = async () => {
-    const f = await act(vss().files.pickOpen({ kind: 'request-xlsx', title: t('import.pickTitle') }));
+    const f = await picker.act(() => vss().files.pickOpen({ kind: 'request-xlsx', title: t('import.pickTitle') }));
     if (!f?.path) return;
     const p = await act(vss().requests.importPreview({ path: f.path }));
     if (!p) return;
@@ -112,7 +113,9 @@ export function ImportRequestScreen() {
         <PageHeader title={t('import.title')} />
         <Text>{t('import.intro')}</Text>
         <Group>
-          <Button onClick={() => void pick()}>{t('import.pick')}</Button>
+          <Button onClick={() => void pick()} loading={picker.busy}>
+            {t('import.pick')}
+          </Button>
         </Group>
       </Stack>
     );
