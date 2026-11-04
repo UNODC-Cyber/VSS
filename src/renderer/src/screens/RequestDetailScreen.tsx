@@ -104,7 +104,7 @@ function CopyField({ value, label, wrap }: { value: string; label: string; wrap?
         span
         {...(wrap ? {} : { truncate: 'end' as const })}
         title={shown}
-        style={{ flex: '1 1 auto', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : {}) }}
+        style={{ flex: '1 1 auto', minWidth: 0, ...(wrap ? { overflowWrap: 'break-word' } : {}) }}
       >
         <Sensitive value={value} />
       </Text>

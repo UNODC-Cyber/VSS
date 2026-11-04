@@ -5,7 +5,7 @@
  */
 export const alpha = {
   alpha: {
-    bannerText: 'Alpha build {{version}}: for testing with synthetic data; no automatic updates; send feedback.',
+    bannerText: 'Alpha build {{version}}: for testing with synthetic data; no automatic updates.',
     bannerDismiss: 'Dismiss the alpha notice',
     feedbackLink: 'Send feedback',
     feedbackOpened: 'Feedback page opened in your browser. Do not paste names, dates of birth or file content.',
