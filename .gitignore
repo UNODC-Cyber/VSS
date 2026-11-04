@@ -17,3 +17,4 @@ vault.json
 *.key
 .DS_Store
 Thumbs.db
+/ui-audit/
