@@ -3,6 +3,7 @@
 Offline, per-user (no admin) Electron desktop app for country offices to track vetting requests and DC responses.
 **PUBLIC REPO RULES: no real personal data, no internal organisation info, no credentials, ever. Synthetic fixtures only.**
 Shared contracts: `src/shared/domain/types.ts` (domain), `src/main/db/migrations/001_init.sql` (schema), `docs/FILE-FORMATS.md` (rules). Change contracts only via the contracts owner.
+Next: Alpha 1 (0.2.0-alpha.1) lanes, file ownership and contract slots are planned in `docs/PLAN-ALPHA.md`.
 
 ## Decisions (maintainer, 2026-11-03)
 - App name **Vetting Support System (VSS)**, repo `UNODC-Cyber/vss`, public, Apache-2.0.
