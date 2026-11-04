@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ALL_CHANNELS, channelName, METHODS, NAMESPACES } from '@shared/ipc/channels';
 import type { Namespace } from '@shared/ipc/channels';
 import { EVENT_NAMES } from '@shared/ipc/contract';
+import { APP_SCHEMA_VERSION } from '../../src/main/db/migrations';
 import { eventSchemas, ipcSchemas, schemasForChannel } from '@shared/ipc/schemas';
 import { createMockApi } from '../../src/renderer/src/mock/mockApi';
 import { MOCK_EXTENSIONS } from '../../src/renderer/src/mock/ext';
@@ -105,7 +106,7 @@ describe('contract completeness', () => {
     const info = await t.call('app', 'info');
     expect(info.ok).toBe(true);
     expect(ipcSchemas.app.info.res.safeParse(info.value).success).toBe(true);
-    expect(info.value).toMatchObject({ version: '0.2.0-alpha.1', channel: 'dev', schemaVersion: 4 });
+    expect(info.value).toMatchObject({ version: '0.2.0-alpha.1', channel: 'dev', schemaVersion: APP_SCHEMA_VERSION });
     await t.call('vault', 'create', { password: PW, displayName: 'Test office' });
     for (const ns of ['requests', 'responses'] as const)
       expect(await t.call(ns, 'discardPreview', { previewId: 'unknown-preview' })).toMatchObject({

@@ -4,7 +4,6 @@
  * (matchResponseRows). On commit only matcher 'auto' rows (single T1, one-to-one) are pre-confirmed; everything else
  * needs an explicit decision or becomes a ReviewItem. Certificate and expiry dates are stored exactly as stated.
  */
-import { dispClassOfSection } from '@shared/domain/response-section';
 import { daysBetween } from '@shared/domain/status';
 import type {
   DcResponse,
@@ -13,6 +12,7 @@ import type {
   ResponseRow,
   RowMatch,
   Ulid,
+  UnitVettingRecord,
   ValidationCode,
   ValidationIssue,
   VettingRequest,
@@ -43,12 +43,12 @@ import type { ResponseHeader } from '../db/repos';
 import { sha256Hex } from '../db/repos/storedFile';
 import { newId } from '../db/repos/util';
 import { foldForSearch, searchIds } from '../db/search';
+import { sectionOf } from '../formats/dc/disposition';
 import { parseFinalResults, parseUsDate } from '../formats/dc/parse';
-import type { DcResponseDraft, ResponseIssue } from '../formats/dc/types';
+import type { DcResponseDraft, FileKindGuess, ResponseIssue } from '../formats/dc/types';
 import { matchResponseRows } from '../matching/matcher';
 import {
   addAliasIfNew,
-  isApprovedSection,
   isIndividualSection,
   isLinkedDecision,
   personInputFromRow,
@@ -107,12 +107,35 @@ interface PlannedResponse {
   blocked: boolean;
   duplicateOf: Ulid | null;
   candidates: RequestCandidate[];
+  fileKindGuess: FileKindGuess;
 }
 
 const NO_MATCH: RowMatch = { candidates: [], decision: 'none', chosen: null, decidedBy: null, decidedAt: null };
 
-/** DC parser issues mapped onto the domain ValidationCode union (which has no response codes); rule+code kept in the message. */
+/** Alpha 1 response codes exist in ValidationCode too and pass through 1:1, with a plain message (no rule code). */
+const PASS_THROUGH: ReadonlySet<string> = new Set<ValidationCode>([
+  'LOOKS_LIKE_REQUEST',
+  'RESULTS_SHEET_NOT_FOUND',
+  'META_LABEL_MISSING',
+  'HEADER_COLUMN_MISSING',
+  'HEADER_COLUMN_EXTRA',
+  'SECTION_IMPLICIT',
+  'SECTION_EMPTY',
+  'DISP_UNRECOGNISED',
+  'DISP_SECTION_CONFLICT',
+  'NAME_MIXED_SCRIPT',
+]);
+
+/** DC parser issues mapped onto the domain ValidationCode union; for the 0.1 codes, rule+code are kept in the message. */
 function mapIssue(i: ResponseIssue): ValidationIssue {
+  if (PASS_THROUGH.has(i.code))
+    return {
+      code: i.code as ValidationCode,
+      severity: i.severity,
+      rowRef: i.rowRef,
+      field: i.field,
+      message: i.message,
+    };
   const code: ValidationCode =
     i.code === 'PKG_NOT_XLSX'
       ? 'PKG_NOT_XLSX'
@@ -278,8 +301,8 @@ function planResponse(ctx: Ctx, fileName: string, bytes: Uint8Array, requestId: 
     certDate: r.certDate,
     expires: r.expires,
     match: NO_MATCH,
-    dispClass: dispClassOfSection(r.section),
-    sectionSource: 'label' as const,
+    dispClass: r.dispClass,
+    sectionSource: r.sectionSource,
   }));
   if (requestId !== null) {
     if (!ctx.repos.requests.exists(requestId)) return fail('NOT_FOUND', 'Request not found');
@@ -332,6 +355,7 @@ function planResponse(ctx: Ctx, fileName: string, bytes: Uint8Array, requestId: 
     blocked: parsed.blocked,
     duplicateOf,
     candidates: parsed.blocked ? [] : rankRequests(ctx, parsed.draft, rows, unknownCommander),
+    fileKindGuess: parsed.fileKindGuess,
   };
 }
 
@@ -352,8 +376,8 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
     previewId,
     fileName: p.fileName,
     sha256: p.sha256,
-    batchId: p.draft.batchId ?? '',
-    fileKindGuess: 'dc-response',
+    batchId: p.draft.batchId,
+    fileKindGuess: p.fileKindGuess,
     post: p.draft.post ?? '',
     resultsAsOf: p.draft.resultsAsOf,
     assistanceLine: p.draft.assistanceLine ?? '',
@@ -401,8 +425,8 @@ function summarize(ctx: Ctx, h: ResponseHeader): ResponseSummary {
     importedAt: h.importedAt,
     requestId: h.requestId,
     rowCount: rows.length,
-    approvedCount: rows.filter((r) => isApprovedSection(r.section)).length,
-    nonApprovedCount: rows.filter((r) => !isApprovedSection(r.section)).length,
+    approvedCount: rows.filter((r) => r.dispClass === 'approved').length,
+    nonApprovedCount: rows.filter((r) => r.dispClass === 'non-approved').length,
     unresolvedCount: rows.filter(
       (r) => isIndividualSection(r.section) && (r.match.decision === 'pending' || r.match.decision === 'none'),
     ).length,
@@ -421,6 +445,74 @@ function unitForRow(ctx: Ctx, row: ResponseRow, request: VettingRequest | null):
     if (u) return u.id;
   }
   return ctx.repos.units.findByName(row.unitName)[0]?.id ?? null;
+}
+
+/** Unit record exactly as stated by a DC unit row whose disposition is known. */
+function unitRecordFromRow(
+  row: ResponseRow,
+  unitId: Ulid,
+  requestId: Ulid,
+  commanderPersonId: Ulid | null,
+  at: string,
+): Omit<UnitVettingRecord, 'id'> {
+  return {
+    unitId,
+    requestId,
+    responseRowId: row.id,
+    commanderPersonId,
+    disposition: row.dispClass === 'approved' ? 'approved' : 'non-approved',
+    certDate: row.certDate.parsed,
+    expiresAt: row.expires.parsed,
+    recordedAt: at,
+  };
+}
+
+export interface DispositionResolved {
+  row: ResponseRow;
+  recordsCreated: number;
+}
+
+/**
+ * Resolve a disposition-unclear row (S-06): a person states the disposition the DC meant. The row's dispClass (and the
+ * approval half of its section) are set, then the vetting record (individual linked to a person) or unit record
+ * (unit row of a request) that import skipped is written exactly from the row's own dates. Runs inside the caller's
+ * transaction; the caller audits (review.resolve 'set-disposition' writes one `review.resolve` event, ids only).
+ */
+export function resolveRowDisposition(
+  ctx: Ctx,
+  rowId: Ulid,
+  disposition: 'approved' | 'non-approved',
+): DispositionResolved {
+  const row = ctx.repos.responses.getRow(rowId) ?? fail('NOT_FOUND', 'Response row not found');
+  if (row.dispClass !== 'unknown') return fail('CONFLICT', 'The disposition of this row is already known');
+  const individual = isIndividualSection(row.section);
+  const section = sectionOf(individual ? 'individual' : 'unit', disposition);
+  ctx.db.prepare('UPDATE response_row SET disp_class = ?, section = ? WHERE id = ?').run(disposition, section, rowId);
+  const out = ctx.repos.responses.getRow(rowId)!;
+  const resp = ctx.repos.responses.getHeader(out.responseId)!;
+  const links = ctx.repos.responses.rowLinks(rowId) ?? { requestItemId: null, personId: null };
+  const item = links.requestItemId ? ctx.repos.requests.getItem(links.requestItemId) : null;
+  const at = ctx.nowIso();
+  let recordsCreated = 0;
+  if (individual) {
+    const personId = links.personId ?? item?.personId ?? null;
+    if (personId && isLinkedDecision(out.match) && ctx.repos.vetting.listByResponseRow(rowId).length === 0) {
+      ctx.repos.vetting.insert(recordFromRow(ctx, out, personId, item?.unitId ?? null, resp.requestId));
+      recordsCreated++;
+    }
+  } else if (resp.requestId) {
+    const request = ctx.repos.requests.get(resp.requestId);
+    const unitId = unitForRow(ctx, out, request);
+    const already = ctx.db.prepare('SELECT 1 AS x FROM unit_vetting_record WHERE response_row_id = ?').get(rowId);
+    if (unitId && request && !already) {
+      const commander = isLinkedDecision(out.match) ? (item?.personId ?? null) : null;
+      ctx.repos.unitVetting.insert(unitRecordFromRow(out, unitId, request.id, commander, at));
+      recordsCreated++;
+    }
+  }
+  if (item) refreshItemPolicy(ctx, item.id);
+  if (resp.requestId) ctx.hooks.onRequestAnswered(resp.requestId);
+  return { row: out, recordsCreated };
 }
 
 function personReferenced(ctx: Ctx, id: Ulid): boolean {
@@ -528,6 +620,8 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
           }
         }
 
+        // META_LABEL_MISSING: the wizard asks for the batch id when the file has none (or overrides it).
+        const batchId = req.batchIdOverride?.trim() || plan.draft.batchId || '';
         const outcome = ctx.tx('responses.importCommit', () => {
           const file = ctx.repos.files.put({ originalName: plan.fileName, content: plan.bytes, storedAt: at });
           const rowInputs = rows.map((r) => {
@@ -539,7 +633,7 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
           ctx.repos.responses.insert(
             {
               id: plan.responseId,
-              batchId: plan.draft.batchId ?? '',
+              batchId,
               post: plan.draft.post ?? '',
               resultsAsOf: plan.draft.resultsAsOf ?? ('' as IsoDate),
               assistanceLine: plan.draft.assistanceLine ?? '',
@@ -554,10 +648,22 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
           const answered = new Set<Ulid>();
           rows.forEach((r, i) => {
             const linkedItem = r.match.chosen && isLinkedDecision(r.match) ? itemById.get(r.match.chosen) : undefined;
+            // S-06: an unclear disposition is a review item of its own and no record is written until a person sets
+            // it (resolveRowDisposition). Linking (who the row is) still follows the normal rules below.
+            const unclear = r.dispClass === 'unknown';
+            if (unclear) {
+              ctx.repos.reviews.insert({
+                kind: 'disposition-unclear',
+                subjectIds: [r.id],
+                candidates: r.match.candidates,
+                createdAt: at,
+              });
+              reviewItemsCreated++;
+            }
             if (isIndividualSection(r.section)) {
               if (linkedItem) {
                 answered.add(linkedItem.id);
-                if (linkedItem.personId) {
+                if (linkedItem.personId && !unclear) {
                   ctx.repos.vetting.insert(
                     recordFromRow(ctx, r, linkedItem.personId, linkedItem.unitId, request?.id ?? null),
                   );
@@ -567,8 +673,10 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
               } else if (newPersonRows.has(r.id)) {
                 const p = ctx.repos.persons.insert({ ...personInputFromRow(r, request?.id ?? null), at });
                 ctx.repos.responses.setRowMatch(r.id, r.match, { requestItemId: null, personId: p.id });
-                ctx.repos.vetting.insert(recordFromRow(ctx, r, p.id, null, request?.id ?? null));
-                recordsCreated++;
+                if (!unclear) {
+                  ctx.repos.vetting.insert(recordFromRow(ctx, r, p.id, null, request?.id ?? null));
+                  recordsCreated++;
+                }
               } else if (r.match.decision === 'pending') {
                 // Items proposed for a pending row are 'answered pending review', not unanswered.
                 for (const c of r.match.candidates) answered.add(c.targetId);
@@ -602,17 +710,12 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
             }
             const unitId = unitForRow(ctx, r, request);
             if (unitId && request) {
-              ctx.repos.unitVetting.insert({
-                unitId,
-                requestId: request.id,
-                responseRowId: r.id,
-                commanderPersonId: linkedItem?.personId ?? null,
-                disposition: isApprovedSection(r.section) ? 'approved' : 'non-approved',
-                certDate: r.certDate.parsed,
-                expiresAt: r.expires.parsed,
-                recordedAt: at,
-              });
-              recordsCreated++;
+              if (!unclear) {
+                ctx.repos.unitVetting.insert(
+                  unitRecordFromRow(r, unitId, request.id, linkedItem?.personId ?? null, at),
+                );
+                recordsCreated++;
+              }
             } else {
               ctx.repos.reviews.insert({
                 kind: 'unmatched-response-row',
@@ -637,7 +740,7 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
               }
             ctx.repos.requests.update(request.id, {
               responseKind: 'dc-file',
-              ...(request.batchId ? {} : { batchId: plan.draft.batchId ?? null }),
+              ...(request.batchId ? {} : { batchId: batchId || null }),
             });
             ctx.repos.requests.setStatus(request.id, 'responded', at);
             const h = ctx.repos.requests.getHeader(request.id)!;
@@ -701,7 +804,8 @@ export function createResponsesService(deps: ServiceDeps): ResponsesService {
               { ...row.match, decision: 'confirmed', chosen, decidedBy: ctx.actor(), decidedAt: at },
               { requestItemId: item?.id ?? null, personId },
             );
-            if (personId && isIndividualSection(row.section)) {
+            // A disposition-unclear row is linked but gets its record only once the disposition is set.
+            if (personId && isIndividualSection(row.section) && row.dispClass !== 'unknown') {
               ctx.repos.vetting.insert(recordFromRow(ctx, out, personId, item?.unitId ?? null, resp.requestId));
               addAliasIfNew(ctx, personId, row.name, `response:${resp.id}`, item?.id ?? rowId);
             }
