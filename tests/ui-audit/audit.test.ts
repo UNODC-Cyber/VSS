@@ -84,11 +84,7 @@ const val = async (p: Promise<R>) => {
   return r.value;
 };
 
-async function launch(
-  dataDir: string,
-  vp: Viewport,
-  seed: boolean,
-): Promise<{ app: ElectronApplication; page: Page }> {
+async function launch(dataDir: string, vp: Viewport, seed: boolean): Promise<{ app: ElectronApplication; page: Page }> {
   const env = { ...process.env, VSS_DATA_DIR: dataDir } as Record<string, string>;
   delete env['ELECTRON_RUN_AS_NODE'];
   delete env['ELECTRON_RENDERER_URL'];
@@ -155,7 +151,14 @@ class Run {
   /** Escape only while a dialog is open (Escape on a wizard page itself would open its discard dialog). */
   async closeDialogs(): Promise<void> {
     for (let i = 0; i < 3; i++) {
-      if (!(await this.page.getByRole('dialog').first().isVisible().catch(() => false))) return;
+      if (
+        !(await this.page
+          .getByRole('dialog')
+          .first()
+          .isVisible()
+          .catch(() => false))
+      )
+        return;
       await this.page.keyboard.press('Escape').catch(() => undefined);
       await this.page.waitForTimeout(250);
     }
@@ -189,7 +192,9 @@ class Run {
       await this.page.waitForTimeout(350);
     } catch (err) {
       e.status = 'failed';
-      e.error = String(err instanceof Error ? err.message : err).split('\n')[0]!.slice(0, 200);
+      e.error = String(err instanceof Error ? err.message : err)
+        .split('\n')[0]!
+        .slice(0, 200);
       index.failures.push(`${this.vp.id} ${this.data} ${file}: ${e.error}`);
     }
     try {
@@ -233,7 +238,9 @@ class Run {
       }
     } catch (err) {
       e.status = 'failed';
-      e.error ??= String(err instanceof Error ? err.message : err).split('\n')[0]!.slice(0, 200);
+      e.error ??= String(err instanceof Error ? err.message : err)
+        .split('\n')[0]!
+        .slice(0, 200);
       index.failures.push(`${this.vp.id} ${this.data} ${file} (capture): ${e.error}`);
     }
     index.entries.push(e);
@@ -249,7 +256,10 @@ class Run {
 }
 
 async function unlockViaUi(run: Run, password: string): Promise<void> {
-  await run.page.getByLabel(/password/i).first().fill(password);
+  await run.page
+    .getByLabel(/password/i)
+    .first()
+    .fill(password);
   await run.page.getByRole('button', { name: /^unlock$/i }).click();
   await run.page.waitForSelector('html[data-vault-state="unlocked"]', { state: 'attached', timeout: 30_000 });
   await run.page.waitForTimeout(600);
@@ -485,7 +495,10 @@ describe('UI audit', () => {
           await setTheme(l.page, th);
           await run.screen('unlock', undefined, { scrolled: false });
         }
-        await l.page.getByLabel(/password/i).first().fill('wrong password wrong password');
+        await l.page
+          .getByLabel(/password/i)
+          .first()
+          .fill('wrong password wrong password');
         await l.page.getByRole('button', { name: /^unlock$/i }).click();
         await l.page.waitForTimeout(1500);
         await run.screen('unlock-wrong-password', undefined, { scrolled: false });
