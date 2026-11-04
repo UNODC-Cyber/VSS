@@ -39,7 +39,7 @@ export function AboutCard() {
   const { t } = useTranslation();
   return (
     <Card withBorder id="card-about">
-      <Title order={4} mb="xs">
+      <Title order={2} size="h4" mb="xs">
         {t('alpha.aboutTitle')}
       </Title>
       <AboutBody />

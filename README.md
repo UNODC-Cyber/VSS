@@ -2,7 +2,8 @@
 
 VSS is an offline, encrypted desktop tracker for vetting requests and the responses to them. It runs per user on Windows
 with no administrator rights, keeps everything in a single encrypted vault on the local disk, and never needs a network
-connection (an optional, user-toggleable update check is the only network feature and can be turned off).
+connection. The network features are an optional, user-toggleable update check (absent from alpha builds) and an
+experimental LAN peer mode (off by default, not available in this build).
 
 Status: **alpha** (0.2.0-alpha.1) for testing with synthetic data only; see "Alpha testing" and [docs/KNOWN-LIMITATIONS.md](docs/KNOWN-LIMITATIONS.md). All fixtures and examples in this repository are synthetic.
 

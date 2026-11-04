@@ -21,14 +21,24 @@ export function UpdatesCard() {
   }
   return (
     <Card withBorder>
-      <Title order={4}>{t('settings.updates')}</Title>
-      <Text size="sm" role="status">
+      <Title order={2} size="h4">
+        {t('settings.updates')}
+      </Title>
+      <Text size="sm" role="status" data-testid="updates-state">
         {t('settings.updateState', {
           version: upd?.currentVersion ?? '-',
           phase: upd ? t(`updphase.${upd.phase}`) : '-',
         })}
-        {upd?.checkedAt ? ` (${fmtDateTime(upd.checkedAt)})` : ''}
+        {upd?.checkedAt
+          ? ` (${t('settings.updateLastChecked', { at: fmtDateTime(upd.checkedAt, { zone: true }) })})`
+          : ''}
       </Text>
+      {/* A failed check is explained in plain words with a next step, never as a bare "error" (R2O-08 / R2S-05). */}
+      {upd && (upd.phase === 'error' || upd.phase === 'verify-failed' || upd.phase === 'disabled') && (
+        <Text size="sm" c="dimmed" mt={4} data-testid="updates-help">
+          {t(`settings.updateHelp.${upd.phase}`)}
+        </Text>
+      )}
       <Group mt="sm">
         <Button
           variant="default"
