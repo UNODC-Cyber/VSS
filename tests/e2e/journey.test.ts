@@ -354,7 +354,7 @@ describe('real app journey (no mock)', () => {
     const dlg = page.getByRole('dialog');
     // Nothing is pre-chosen (UI review O-04): outcome and scope are explicit, then a summary is confirmed.
     expect(await dlg.getByRole('button', { name: 'Review before recording' }).isDisabled()).toBe(true);
-    await dlg.getByRole('radio', { name: 'Approved' }).check();
+    await dlg.getByRole('radio', { name: 'Approved', exact: true }).check();
     await dlg.getByRole('radio', { name: /^Everyone on the request/ }).check();
     await dlg.getByTestId('expiry-assumed').waitFor();
     expect(await dlg.getByLabel('Expires on').inputValue()).toBe(addDays(today(), 30));
