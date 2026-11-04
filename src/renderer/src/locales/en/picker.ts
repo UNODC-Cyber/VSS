@@ -53,6 +53,8 @@ export const picker = {
     validateIntro:
       'You confirm that this row is a valid answer of the vetting authority for the person below. The disposition and dates are taken from the row as shown.',
     validateTarget: 'Validate for',
+    validateRowHeader: 'This response row',
+    validatePersonHeader: 'Person you chose',
     targetCandidate: '{{name}} (candidate)',
     targetOther: 'Another person...',
     targetOtherChosen: '{{name}} (chosen)',
