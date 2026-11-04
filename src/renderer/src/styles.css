@@ -15,3 +15,85 @@
   --mantine-color-gray-light-color: #343a40;
   --mantine-color-gray-outline: #343a40;
 }
+
+/* Local variable font (bundled by main.tsx from @fontsource-variable/inter; no CDN, CSP font-src 'self'). */
+:root {
+  --vss-font: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings:
+    'cv11' 1,
+    'ss03' 1;
+}
+
+/* DataTable v2 (components/DataTable.tsx). Fixed layout: columns cannot overlap, long text is cut, never spilled. */
+.vss-table-wrap {
+  width: 100%;
+}
+.vss-table-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+.vss-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.vss-table-scroll:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+.vss-table .vss-cell {
+  overflow: hidden;
+  vertical-align: middle;
+}
+.vss-table .vss-nowrap {
+  white-space: nowrap;
+}
+.vss-table .vss-truncate {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.vss-truncate-inner {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.vss-truncate-inner:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 1px;
+}
+.vss-table .vss-align-right {
+  text-align: right;
+}
+.vss-table .vss-align-center {
+  text-align: center;
+}
+.vss-table th.vss-sticky,
+.vss-table td.vss-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: var(--mantine-color-body);
+  box-shadow: 1px 0 0 var(--table-border-color, var(--mantine-color-default-border));
+}
+.vss-table thead th {
+  white-space: nowrap;
+}
+.vss-table[data-density='compact'] {
+  font-size: var(--mantine-font-size-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+/* The pinned cell is opaque (so scrolled cells never show through) but still carries the stripe and hover tint. */
+.vss-table tbody tr:nth-of-type(odd) td.vss-sticky {
+  background-image: linear-gradient(var(--table-striped-color), var(--table-striped-color));
+}
+.vss-table tbody tr:hover td.vss-sticky {
+  background-image: linear-gradient(var(--table-hover-color), var(--table-hover-color));
+}
