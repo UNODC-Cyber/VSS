@@ -1,6 +1,7 @@
 import { Alert, Badge, Button, Checkbox, Group, List, Modal, Select, Stack, Text } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { classifyDob } from '@shared/domain/dob';
 import type { VettingRequest } from '@shared/domain/types';
 import type { MatchCandidate } from '@shared/domain/types';
 import type {
@@ -12,6 +13,7 @@ import type {
 } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
 import { DiffGrid } from '../components/Diff';
+import { DobValue } from '../components/DobValue';
 import type { DiffField } from '../components/Diff';
 import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
@@ -201,6 +203,47 @@ export function ambiguousUsDate(raw: string): boolean {
 }
 const isIndividualRow = (r: ResponsePreviewRow) =>
   r.section === 'approved-individual' || r.section === 'nonapproved-individual';
+/** A unit row whose commander the file does not name ("UNKNOWN, ..."). Main sends the flag; older previews do not. */
+export const isUnknownCommanderRow = (r: ResponsePreviewRow): boolean =>
+  !isIndividualRow(r) && (r.unknownCommander ?? /^\s*unknown\s*(,|$)/i.test(r.nameRaw));
+
+function rowNameTooltip(t: (k: string, o?: Record<string, unknown>) => string, r: ResponsePreviewRow): string {
+  if (isIndividualRow(r)) return r.nameRaw;
+  return isUnknownCommanderRow(r)
+    ? `${t('unitRow.label', { unit: r.unitName || '-' })}. ${t('unitRow.commanderUnknown')}`
+    : `${t('unitRow.label', { unit: r.unitName || '-' })}. ${t('unitRow.commander', { name: r.nameRaw })}`;
+}
+
+/**
+ * Name cell of the decide-rows table (UI review R2O-05): a unit row says it is a unit approval and names the unit;
+ * an UNKNOWN commander is explained (the result goes to the unit only, nobody is created or linked).
+ */
+export function RowNameCell({ row }: { row: ResponsePreviewRow }) {
+  const { t } = useTranslation();
+  if (isIndividualRow(row)) return <Sensitive value={row.nameRaw} />;
+  const unknown = isUnknownCommanderRow(row);
+  return (
+    <Stack gap={0} data-testid="unit-row-name">
+      <Group gap={4} wrap="nowrap">
+        <Badge size="xs" variant="light" color="gray">
+          {t('unitRow.badge')}
+        </Badge>
+        <Text span size="sm">
+          {row.unitName || '-'}
+        </Text>
+      </Group>
+      <Text size="xs" style={{ whiteSpace: 'normal' }}>
+        {unknown ? (
+          t('unitRow.commanderUnknown')
+        ) : (
+          <>
+            {t('unitRow.commanderLabel')} <Sensitive value={row.nameRaw} />
+          </>
+        )}
+      </Text>
+    </Stack>
+  );
+}
 
 /** Why a request is (or is not) pre-selected, in words (UI review O-03 / S-16). */
 function MatchReason({
@@ -593,18 +636,33 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
 
         {step === 2 && preview && (
           <Stack>
+            {preview.rows.some((r) => !isIndividualRow(r)) && (
+              <Text size="sm" data-testid="unit-rows-help">
+                {t('unitRow.explain')}
+              </Text>
+            )}
+            {preview.rows.some((r) => classifyDob(r.dob, r.dobRaw).state === 'ambiguous') && (
+              <Text size="sm" data-testid="ambiguous-dob-help">
+                {t('dobView.ambiguousRows')}
+              </Text>
+            )}
+            {preview.rows.some((r) => classifyDob(r.dob, r.dobRaw).state === 'invalid') && (
+              <Text size="sm" data-testid="invalid-dob-help">
+                {t('dobView.invalidRows')}
+              </Text>
+            )}
             <DataTable<ResponsePreviewRow>
               caption={t('responseImport.rowsCaption')}
               tableId="response-rows"
               data={preview.rows}
               rowId={(r) => r.rowId}
               columns={[
-                col<ResponsePreviewRow>('name', t('import.name'), (r) => <Sensitive value={r.nameRaw} />, {
+                col<ResponsePreviewRow>('name', t('import.name'), (r) => <RowNameCell row={r} />, {
                   sticky: 'first',
                   minWidth: 170,
                   grow: true,
                   truncate: true,
-                  tooltip: (r) => r.nameRaw,
+                  tooltip: (r) => rowNameTooltip(t, r),
                 }),
                 col<ResponsePreviewRow>('row', t('import.row'), (r) => r.rowRef, { width: 132, nowrap: true, drop: 1 }),
                 col<ResponsePreviewRow>('disp', t('ui.dispClass.label'), (r) => <DispBadge value={r.dispClass} />, {
@@ -627,16 +685,8 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
                 col<ResponsePreviewRow>(
                   'dob',
                   t('import.dob'),
-                  (r) => (
-                    <Stack gap={0}>
-                      <Sensitive value={r.dob ?? r.dobRaw} />
-                      {ambiguousUsDate(r.dobRaw) && (
-                        <Text size="xs" data-testid="dob-as-written">
-                          {t('matchRequest.dobInFile')} <Sensitive value={r.dobRaw} />
-                        </Text>
-                      )}
-                    </Stack>
-                  ),
+                  // Ambiguous (D/M vs M/D) and impossible dates are labelled, never silently normalised (R2O-04).
+                  (r) => <DobValue parsed={r.dob} raw={r.dobRaw} />,
                   { width: 120, nowrap: true },
                 ),
                 col<ResponsePreviewRow>(

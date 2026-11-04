@@ -40,7 +40,9 @@ describe('request import preview (UI review O-05, O-10)', () => {
     const table = await screen.findByRole('table', { name: 'Rows in the file' });
     expect(within(table).getByText('1996-12-10')).toBeInTheDocument();
     expect(within(table).queryByText('35410')).not.toBeInTheDocument();
-    expect(within(table).getByTestId('dob-unreadable')).toHaveTextContent('not a date');
+    // Not a real date: shown exactly as written with an "Invalid date" badge (UI review R2O-02).
+    expect(within(table).getByText('n/a')).toBeInTheDocument();
+    expect(within(table).getByTestId('dob-invalid')).toHaveTextContent('Invalid date');
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     expect(screen.getByTestId('wizard-next-hint')).toHaveTextContent(/Fill in Requestor name and Event name/);
     expect(screen.getByRole('heading', { name: 'Import a request file' })).toBeInTheDocument();

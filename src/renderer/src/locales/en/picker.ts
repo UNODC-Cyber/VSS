@@ -28,6 +28,10 @@ export const picker = {
     confirm: 'Confirm link to {{name}}',
     back: 'Back to the list',
     keyboard: 'Use the arrow keys to move through the list and Enter to select.',
+    thisRecord: 'The record you are linking',
+    source: 'Source',
+    dobDiffers: 'Date of birth differs',
+    unitDiffers: 'Unit differs',
   },
   reviewList: {
     subject: 'Subject',
@@ -92,6 +96,6 @@ export const picker = {
     setApproved: 'Record as approved',
     setNonApproved: 'Record as not approved',
     dispositionSet: 'Disposition recorded',
-    badDate: 'Use the format YYYY-MM-DD',
+    badDate: 'Enter a real date as YYYY-MM-DD',
   },
 };

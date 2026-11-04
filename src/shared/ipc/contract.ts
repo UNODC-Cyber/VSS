@@ -507,6 +507,8 @@ export interface ResponsePreviewRow {
   /** Alpha 1 (lane C), mirrors ResponseRow. */
   dispClass: DispClass;
   sectionSource: SectionSource;
+  /** A unit row whose commander the file does not name (NAME is "UNKNOWN, ..."): never matched, unit result only. */
+  unknownCommander?: boolean;
 }
 /** A request the response may answer, ranked by assistance line, event date, units and row overlap. */
 export interface ResponseRequestCandidate {
@@ -807,6 +809,8 @@ export interface ReviewItemDetail {
   item: ReviewItem;
   /** Side-by-side subjects for the UI, personal data included (renderer must honour redactionMode). */
   subjects: ReviewSubject[];
+  /** Where the first subject comes from (request or response), for an "Open request" link (UI review O-20). */
+  context?: ReviewItemContext | null;
 }
 export type ReviewResolution =
   | { action: 'link'; targetId: Ulid }

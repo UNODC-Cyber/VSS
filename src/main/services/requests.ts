@@ -4,6 +4,7 @@
  * batch); everything ambiguous becomes pending-review with a ReviewItem; a new person is created only for a row with
  * no candidate at all (inside or outside the batch).
  */
+import { isCalendarIsoDate } from '@shared/domain/dob';
 import { isManualTarget } from '@shared/domain/lifecycle';
 import { addDays, daysBetween } from '@shared/domain/status';
 import type {
@@ -190,6 +191,8 @@ function planImport(
     people: ObservedPerson[];
     parsed: ParsedInvestc | null;
     templateVersion: string | null;
+    /** Row issues found outside the file validator (manual requests). */
+    extraIssues?: ValidationIssue[];
   },
 ): PlannedImport {
   const requestId = newId();
@@ -274,6 +277,7 @@ function planImport(
       ({ code, severity, rowRef, field, message }) => ({ code, severity, rowRef, field, message }),
     );
   }
+  if (input.extraIssues) issues = [...issues, ...input.extraIssues];
   const structuralError = issues.some((i) => i.severity === 'error' && i.rowRef === null);
 
   const policy = ctx.settings().exportPolicy;
@@ -485,7 +489,10 @@ function manualObserved(req: ManualRequestInput): { units: ObservedUnit[]; peopl
         country: it.unitCountry,
       });
     const g = it.givenNames;
-    const dobKnown = it.dob !== null && it.dobPrecision !== 'unknown';
+    const dobGiven = it.dob !== null && it.dobPrecision !== 'unknown';
+    // An impossible date (e.g. 1995-20-07) is kept as written with parsed = null, exactly like an unreadable text
+    // date in a request file: it is flagged (DOB_INVALID) and never used for matching. Never normalised.
+    const dobKnown = dobGiven && isCalendarIsoDate(it.dob);
     return {
       rowRef: `Manual!${i + 1}`,
       unitName: it.unitName,
@@ -501,10 +508,10 @@ function manualObserved(req: ManualRequestInput): { units: ObservedUnit[]; peopl
       fatherName: it.fatherName ?? '',
       motherName: '',
       dob: {
-        kind: dobKnown ? 'text' : 'empty',
-        value: it.dob ?? '',
+        kind: dobGiven ? 'text' : 'empty',
+        value: dobGiven ? (it.dob ?? '') : '',
         parsed: dobKnown ? it.dob : null,
-        ambiguousDayMonth: it.dobPrecision === 'ambiguous-dm',
+        ambiguousDayMonth: dobKnown && it.dobPrecision === 'ambiguous-dm',
       },
       pobCity: it.pobCity ?? '',
       pobState: it.pobState ?? '',
@@ -515,6 +522,23 @@ function manualObserved(req: ManualRequestInput): { units: ObservedUnit[]; peopl
     };
   });
   return { units: [...units.values()], people };
+}
+
+/** R-08 for manual rows: a date of birth that was entered but is not a real date is an error on its row. */
+export function manualIssues(people: readonly ObservedPerson[]): ValidationIssue[] {
+  return people.flatMap((p): ValidationIssue[] =>
+    p.dob.kind !== 'empty' && p.dob.parsed === null
+      ? [
+          {
+            code: 'DOB_INVALID',
+            severity: 'error',
+            rowRef: p.rowRef,
+            field: 'dob',
+            message: `DOB "${p.dob.value}" is not a valid date.`,
+          },
+        ]
+      : [],
+  );
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -681,7 +705,12 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
         return { items: summarize(ctx, r.items), total: r.total, offset: q.offset, limit: q.limit };
       }),
 
-    get: ({ id }) => run(() => ctx.repos.requests.get(id) ?? fail('NOT_FOUND', 'Request not found')),
+    get: ({ id }) =>
+      run(() => {
+        const r = ctx.repos.requests.get(id) ?? fail('NOT_FOUND', 'Request not found');
+        const recordedPersonIds = [...new Set(ctx.repos.vetting.listByRequest(id).map((v) => v.personId))];
+        return { ...r, recordedPersonIds };
+      }),
 
     importPreview: async ({ path }) => {
       let bytes: Uint8Array;
@@ -742,6 +771,7 @@ export function createRequestsService(deps: RequestsDeps): RequestsService {
           people,
           parsed: null,
           templateVersion: null,
+          extraIssues: manualIssues(people),
         });
         const r = ctx.tx('requests.createManual', () => {
           const out = persistPlan(ctx, plan, { ...req });

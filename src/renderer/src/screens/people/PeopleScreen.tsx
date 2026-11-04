@@ -6,6 +6,7 @@ import type { PersonSummary } from '@shared/ipc/contract';
 import type { TFunction } from 'i18next';
 import type { Col } from '../../components/DataTable';
 import { col, DataTable } from '../../components/DataTable';
+import { DobValue } from '../../components/DobValue';
 import { PageHeader, QueryBoundary, Sensitive, SimplePager, StatusBadge } from '../../components/common';
 import { useAction, useQuery, vss } from '../../lib/api';
 import { useUi } from '../../store';
@@ -29,7 +30,10 @@ export const PERSON_COLUMNS = (t: TFunction): Col<PersonSummary>[] => [
     ),
     { sticky: 'first', minWidth: 200, grow: true, truncate: true, tooltip: (p) => p.displayName },
   ),
-  col<PersonSummary>('dob', t('people.dob'), (p) => <Sensitive value={p.dob} />, { width: 112, nowrap: true }),
+  col<PersonSummary>('dob', t('people.dob'), (p) => <DobValue parsed={p.dob} showRaw={false} />, {
+    width: 112,
+    nowrap: true,
+  }),
   col<PersonSummary>('nat', t('people.nationality'), (p) => p.nationality ?? '-', {
     width: 110,
     truncate: true,

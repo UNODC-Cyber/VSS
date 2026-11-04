@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ReviewKind } from '@shared/domain/types';
 import type { ReviewItemSummary } from '@shared/ipc/contract';
 import { col, DataTable } from '../../components/DataTable';
+import { DobValue } from '../../components/DobValue';
 import { PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../../components/common';
 import { useQuery, vss } from '../../lib/api';
 import { fmtDateTime, mask } from '../../lib/format';
@@ -72,10 +73,15 @@ export function ReviewScreen() {
                   ),
                   { sticky: 'first', minWidth: 180, grow: true, truncate: true, tooltip: (r) => nameOf(r) },
                 ),
-                col<ReviewItemSummary>('d', t('reviewList.dob'), (r) => <Sensitive value={r.subjectDob} />, {
-                  width: 112,
-                  nowrap: true,
-                }),
+                col<ReviewItemSummary>(
+                  'd',
+                  t('reviewList.dob'),
+                  (r) => <DobValue parsed={r.subjectDob} showRaw={false} />,
+                  {
+                    width: 112,
+                    nowrap: true,
+                  },
+                ),
                 col<ReviewItemSummary>('u', t('reviewList.unit'), (r) => r.unitName ?? '-', {
                   minWidth: 140,
                   grow: true,

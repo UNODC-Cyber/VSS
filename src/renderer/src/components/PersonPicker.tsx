@@ -6,13 +6,15 @@
  * matches, the alternatives passed in (create new person / not the same person / dismiss) are offered.
  * Nothing is linked here: the caller decides what a confirmed pick means.
  */
-import { Alert, Badge, Button, Group, Loader, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Loader, Modal, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { classifyDob } from '@shared/domain/dob';
 import type { PersonDetail, PersonSuggestion, ReviewSubject, SuggestSubject } from '@shared/ipc/contract';
 import { vss } from '../lib/api';
 import type { DiffField } from './Diff';
+import { DobValue } from './DobValue';
 import { IdentityConfirm } from './IdentityConfirm';
 import { Sensitive, TierBadge } from './common';
 
@@ -160,6 +162,7 @@ export function PersonPicker({
     <Modal opened={opened} onClose={onClose} title={title} size="xl" trapFocus returnFocus>
       {compare || (
         <Stack>
+          {subject && <SubjectSummary subject={subject} />}
           <TextInput
             data-autofocus
             label={t('picker.searchLabel')}
@@ -217,6 +220,7 @@ export function PersonPicker({
                       {s.person.currentUnitName ?? t('picker.noUnit')}
                       {s.person.nationality ? ` · ${s.person.nationality}` : ''}
                     </Text>
+                    {subject && <CandidateDiffs subject={subject} person={s.person} />}
                   </div>
                   {s.tier && <TierBadge tier={s.tier} />}
                   <Badge variant="light" color="blue" size="sm">
@@ -263,6 +267,76 @@ export function PersonPicker({
         </Stack>
       )}
     </Modal>
+  );
+}
+
+const fold = (s: string | null | undefined): string => (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Which of the subject's fields a listed person disagrees with (UI review R2O-03): a stated value on both sides that
+ * differs, or a subject date of birth that is not a real date (it cannot agree with anything).
+ */
+export function candidateDiffs(
+  subject: ReviewSubject,
+  person: PersonSuggestion['person'],
+): { dob: boolean; unit: boolean } {
+  const sDob = classifyDob(subject.dob, subject.dobRaw);
+  const pDob = (person.dob ?? '').trim();
+  const dob = sDob.state === 'invalid' ? true : sDob.state !== 'empty' && pDob !== '' && sDob.text !== pDob;
+  const sUnit = fold(subject.unitName);
+  const pUnit = fold(person.currentUnitName);
+  return { dob, unit: sUnit !== '' && pUnit !== '' && sUnit !== pUnit };
+}
+
+function CandidateDiffs({ subject, person }: { subject: ReviewSubject; person: PersonSuggestion['person'] }) {
+  const { t } = useTranslation();
+  const d = candidateDiffs(subject, person);
+  if (!d.dob && !d.unit) return null;
+  return (
+    <Group gap={4} mt={2} data-testid="picker-diffs">
+      {d.dob && (
+        <Badge size="xs" color="orange" variant="light">
+          {t('picker.dobDiffers')}
+        </Badge>
+      )}
+      {d.unit && (
+        <Badge size="xs" color="orange" variant="light">
+          {t('picker.unitDiffers')}
+        </Badge>
+      )}
+    </Group>
+  );
+}
+
+/** The record being linked, shown above the candidates so every candidate is judged against it (R2O-03). */
+function SubjectSummary({ subject }: { subject: ReviewSubject }) {
+  const { t } = useTranslation();
+  const rows: [string, ReactNode][] = [
+    [t('import.name'), <Sensitive key="n" value={subject.displayName} />],
+    [t('import.dob'), <DobValue key="d" parsed={subject.dob} raw={subject.dobRaw} showRaw={false} />],
+    [t('person.sex'), subject.sex ?? '-'],
+    [t('import.unit'), subject.unitName ?? '-'],
+    [t('items.ids'), subject.identifiers.length ? <Sensitive key="i" value={subject.identifiers.join(', ')} /> : '-'],
+    [t('picker.source'), subject.source || '-'],
+  ];
+  return (
+    <Card withBorder padding="sm" data-testid="picker-subject" aria-label={t('picker.thisRecord')}>
+      <Text fw={600} size="sm" mb={4}>
+        {t('picker.thisRecord')}
+      </Text>
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing={4} verticalSpacing={2}>
+        {rows.map(([k, v]) => (
+          <Group key={k} gap={6} wrap="nowrap" align="flex-start">
+            <Text size="xs" c="dimmed" style={{ minWidth: 96 }}>
+              {k}
+            </Text>
+            <Text size="xs" component="div">
+              {v}
+            </Text>
+          </Group>
+        ))}
+      </SimpleGrid>
+    </Card>
   );
 }
 

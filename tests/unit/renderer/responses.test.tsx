@@ -108,7 +108,7 @@ describe('responses', () => {
     ui(<ImportResponseScreen requestId={req.id} />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
     await user.click(await screen.findByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('1 people on the request have no answer')).toBeInTheDocument();
+    expect(await screen.findByText('1 person on the request has no answer')).toBeInTheDocument();
     expect(screen.getByText(/Zinnia/)).toBeInTheDocument();
   });
 
@@ -179,9 +179,9 @@ describe('responses', () => {
     const summary = screen.getByTestId('import-summary');
     expect(summary).toHaveTextContent('5 rows in the response');
     expect(summary).toHaveTextContent('2 exact matches linked on import');
-    expect(summary).toHaveTextContent('1 rows linked to the person you chose');
-    expect(summary).toHaveTextContent('1 rows not matched');
-    expect(summary).toHaveTextContent('1 rows go to the review queue');
+    expect(summary).toHaveTextContent('1 row linked to the person you chose');
+    expect(summary).toHaveTextContent('1 row not matched');
+    expect(summary).toHaveTextContent('1 row goes to the review queue');
   });
 });
 

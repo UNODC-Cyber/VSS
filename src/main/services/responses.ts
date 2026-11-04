@@ -394,7 +394,7 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
     // Only a confident ranking is offered for pre-selection (UI review O-03); the request the rows were matched
     // against is reported in matchedRequestId, never as a "suggestion".
     suggestedRequestId: isConfidentSuggestion(p.candidates[0]) ? p.candidates[0]!.requestId : null,
-    rows: p.rows.map((r): ResponsePreviewRow => ({
+    rows: p.rows.map((r, i): ResponsePreviewRow => ({
       rowId: r.id,
       rowRef: r.rowRef,
       section: r.section,
@@ -412,6 +412,7 @@ function previewOf(previewId: string, p: PlannedResponse, items: RequestItem[]):
         r.match.decision === 'auto' && r.match.chosen ? (byId.get(r.match.chosen)?.personId ?? null) : null,
       dispClass: r.dispClass,
       sectionSource: r.sectionSource,
+      unknownCommander: p.unknownCommander[i] === true,
     })),
     issues: p.issues,
     errorCount: p.issues.filter((i) => i.severity === 'error').length,

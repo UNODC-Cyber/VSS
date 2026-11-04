@@ -5,6 +5,7 @@ import type { ExportDecision, ValidationIssue } from '@shared/domain/types';
 import type { RequestorRecord } from '@shared/domain/types';
 import type { ImportPreview, ImportPreviewItem } from '@shared/ipc/contract';
 import { col, DataTable } from '../components/DataTable';
+import { DobValue } from '../components/DobValue';
 import { LinkBadge, PageHeader, Sensitive, StatusBadge } from '../components/common';
 import {
   affectedRequests,
@@ -340,24 +341,12 @@ export function ImportRequestScreen() {
                   tooltip: (i) => i.unitName,
                 }),
                 // The parsed date (ISO), as it will be saved; an Excel serial is never shown raw (UI review O-05).
-                col<ImportPreviewItem>(
-                  'dob',
-                  t('import.dob'),
-                  (i) =>
-                    i.dob ? (
-                      <Sensitive value={i.dob} />
-                    ) : i.dobRaw.trim() ? (
-                      <Stack gap={0}>
-                        <Sensitive value={i.dobRaw} />
-                        <Text size="xs" data-testid="dob-unreadable">
-                          {t('importFlow.dobUnreadable')}
-                        </Text>
-                      </Stack>
-                    ) : (
-                      '-'
-                    ),
-                  { width: 120, nowrap: true },
-                ),
+                // A value that is not a real date stays as written with an "Invalid date" badge, and a D/M-or-M/D
+                // text date is marked "Ambiguous" (UI review R2O-02 / R2O-04).
+                col<ImportPreviewItem>('dob', t('import.dob'), (i) => <DobValue parsed={i.dob} raw={i.dobRaw} />, {
+                  width: 120,
+                  nowrap: true,
+                }),
                 col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
                   minWidth: 140,
                   nowrap: true,

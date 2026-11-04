@@ -7,6 +7,7 @@
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { classifyDob } from '@shared/domain/dob';
 import { DiffGrid, fieldConflicts } from './Diff';
 import type { DiffField } from './Diff';
 
@@ -24,9 +25,15 @@ export interface IdentityConfirmProps {
   onBack: () => void;
 }
 
-/** Labels of the fields whose stated values differ between the records. */
+/**
+ * Labels of the fields whose stated values differ between the records. A date of birth that is not a real date on
+ * either side counts too (UI review R2O-02): it cannot be compared, so it must be acknowledged like a conflict.
+ */
 export function conflictLabels(fields: DiffField[]): string[] {
-  return fields.filter(fieldConflicts).map((f) => f.label);
+  return fields.filter((f) => fieldConflicts(f) || hasInvalidDob(f)).map((f) => f.label);
+}
+function hasInvalidDob(f: DiffField): boolean {
+  return f.kind === 'dob' && f.values.some((v) => v.trim() !== '' && classifyDob(v, v).state === 'invalid');
 }
 
 export function IdentityConfirm({

@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import type { ChannelName } from './channels';
 import { parseChannel } from './channels';
+import { isCalendarIsoDate } from '../domain/dob';
 import { EMAIL_TEMPLATE_PURPOSES } from '../domain/types';
 import { isValidEmailAddress } from '../email-address';
 import { ERROR_CODES, EVENT_NAMES } from './contract';
@@ -17,6 +18,8 @@ import type { VssApi, VssEventMap, VssEventName } from './contract';
 
 export const ulid = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'invalid id');
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
+/** Input dates that overwrite a canonical value (person / row edits): must be a real calendar day. */
+export const calendarIsoDate = isoDate.refine((s) => isCalendarIsoDate(s), 'not a real calendar date');
 export const isoDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/, 'expected UTC ISO-8601');
 const str = (max = 1024) => z.string().max(max);
 const path = z.string().min(1).max(4096);
@@ -315,6 +318,7 @@ export const vettingRequestSchema = z.object({
   closedAt: isoDateTime.nullable(),
   closeNote: str(65536),
   reopenCount: z.number().int().min(0),
+  recordedPersonIds: z.array(ulid).optional(),
 });
 export const matchCandidateSchema = z.object({
   targetKind: z.enum(['request-item', 'person']),
@@ -747,6 +751,7 @@ const responsePreviewRow = z.object({
   chosenPersonId: ulid.nullable(),
   dispClass: dispClassSchema,
   sectionSource: sectionSourceSchema,
+  unknownCommander: z.boolean().optional(),
 });
 const responsePreview = z.object({
   previewId: str(128),
@@ -867,7 +872,7 @@ const personPatchReq = z.strictObject({
   id: ulid,
   patch: z.strictObject({
     canonical: personNameSchema.optional(),
-    dob: isoDate.nullable().optional(),
+    dob: calendarIsoDate.nullable().optional(),
     dobPrecision: dobPrecisionSchema.optional(),
     sex: sexSchema.nullable().optional(),
     nationality: str().nullable().optional(),
@@ -952,14 +957,20 @@ const reviewSubjectEx = reviewSubject.extend({
   edited: z.boolean(),
   original: reviewSubject.partial().optional(),
 });
-const reviewItemDetail = z.object({ item: reviewItemSchema, subjects: z.array(reviewSubjectEx) });
+const reviewContextSchema = z.union([
+  z.object({ requestId: ulid, eventName: str() }),
+  z.object({ responseId: ulid, batchId: str(64) }),
+]);
+const reviewItemDetail = z.object({
+  item: reviewItemSchema,
+  subjects: z.array(reviewSubjectEx),
+  context: reviewContextSchema.nullable().optional(),
+});
 const reviewItemSummary = reviewItemSchema.extend({
   subjectName: str(),
   subjectDob: isoDate.nullable(),
   unitName: str().nullable(),
-  context: z
-    .union([z.object({ requestId: ulid, eventName: str() }), z.object({ responseId: ulid, batchId: str(64) })])
-    .nullable(),
+  context: reviewContextSchema.nullable(),
   bestTier: z.enum(['T1', 'T2', 'T3', 'T4']).nullable(),
 });
 export const reviewResolutionSchema = z.discriminatedUnion('action', [
@@ -983,11 +994,11 @@ const reviewManualValidateReq = z.strictObject({
 });
 const responseRowPatch = z.strictObject({
   nameRaw: str(512).optional(),
-  dob: isoDate.nullable().optional(),
+  dob: calendarIsoDate.nullable().optional(),
   pob: z.strictObject({ city: str().nullable(), state: str().nullable(), country: str().nullable() }).optional(),
   unitName: str(512).optional(),
-  certDate: isoDate.nullable().optional(),
-  expires: isoDate.nullable().optional(),
+  certDate: calendarIsoDate.nullable().optional(),
+  expires: calendarIsoDate.nullable().optional(),
   dispClass: dispClassSchema.optional(),
 });
 const reviewEditSubjectReq = z.strictObject({

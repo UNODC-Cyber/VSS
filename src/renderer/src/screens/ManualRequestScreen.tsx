@@ -1,6 +1,7 @@
 import { Button, Card, Checkbox, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isCalendarIsoDate } from '@shared/domain/dob';
 import type { RequestorRecord, Sex, UnitType } from '@shared/domain/types';
 import type { ManualRequestItemInput } from '@shared/ipc/contract';
 import { PageHeader } from '../components/common';
@@ -55,7 +56,7 @@ export function ManualRequestScreen() {
     requestor.name.trim() !== '' &&
     form.event.trim() !== '' &&
     items.length > 0 &&
-    items.every((i) => i.surname.trim() && i.unitName.trim());
+    items.every((i) => i.surname.trim() && i.unitName.trim() && (i.dob === null || isCalendarIsoDate(i.dob)));
 
   const submit = async (choice?: 'update' | 'only-this-request') => {
     const affected = affectedRequests(requestor, saved);
@@ -149,6 +150,7 @@ export function ManualRequestScreen() {
               label={t('manual.dob')}
               type="date"
               value={it.dob ?? ''}
+              error={it.dob !== null && !isCalendarIsoDate(it.dob) ? t('dobView.invalidInput') : undefined}
               onChange={(e) => set(n, { dob: e.currentTarget.value || null })}
             />
             <Select
