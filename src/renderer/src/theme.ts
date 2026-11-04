@@ -6,6 +6,8 @@ import { i18n } from './i18n';
  * (filled orange/yellow/red badges with white text do not). Dialog close buttons get an accessible name.
  */
 export const theme = createTheme({
+  fontFamily: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  headings: { fontFamily: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" },
   primaryShade: { light: 8, dark: 5 },
   autoContrast: true,
   components: {

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VettingStatus } from '@shared/domain/types';
 import type { PersonSummary } from '@shared/ipc/contract';
+import type { TFunction } from 'i18next';
+import type { Col } from '../../components/DataTable';
 import { col, DataTable } from '../../components/DataTable';
 import { PageHeader, QueryBoundary, Sensitive, SimplePager, StatusBadge } from '../../components/common';
 import { useAction, useQuery, vss } from '../../lib/api';
@@ -12,6 +14,46 @@ import { fmtDate } from '../../lib/format';
 const PAGE = 25;
 const STATUSES: VettingStatus[] = ['unknown', 'pending', 'approved', 'expiring', 'expired', 'non-approved'];
 
+/**
+ * Reference case of the table engine (R13, docs/PLAN-ALPHA.md section 9): dates and status never wrap, the unit is
+ * narrow with an ellipsis and a tooltip, the name is pinned and takes the spare width. Exported for the layout test.
+ */
+export const PERSON_COLUMNS = (t: TFunction): Col<PersonSummary>[] => [
+  col<PersonSummary>(
+    'name',
+    t('people.name'),
+    (p) => (
+      <a href={`#/people/${p.id}`}>
+        <Sensitive value={p.displayName} />
+      </a>
+    ),
+    { sticky: 'first', minWidth: 220, grow: true, truncate: true, tooltip: (p) => p.displayName },
+  ),
+  col<PersonSummary>('dob', t('people.dob'), (p) => <Sensitive value={p.dob} />, { width: 112, nowrap: true }),
+  col<PersonSummary>('nat', t('people.nationality'), (p) => p.nationality ?? '-', {
+    width: 120,
+    truncate: true,
+    hideable: true,
+    tooltip: (p) => p.nationality,
+  }),
+  col<PersonSummary>('unit', t('people.unit'), (p) => p.currentUnitName ?? '-', {
+    maxWidth: 200,
+    truncate: true,
+    tooltip: (p) => p.currentUnitName,
+  }),
+  col<PersonSummary>('status', t('items.status'), (p) => <StatusBadge status={p.status} />, {
+    minWidth: 150,
+    nowrap: true,
+  }),
+  col<PersonSummary>('exp', t('items.expiry'), (p) => fmtDate(p.expiresAt), { width: 120, nowrap: true }),
+  col<PersonSummary>(
+    'rev',
+    t('people.review'),
+    (p) => (p.hasOpenReview ? <Badge color="orange">{t('people.openReview')}</Badge> : '-'),
+    { width: 124, nowrap: true, hideable: true },
+  ),
+];
+
 export function PersonTable({ rows, caption }: { rows: PersonSummary[]; caption: string }) {
   const { t } = useTranslation();
   return (
@@ -20,21 +62,9 @@ export function PersonTable({ rows, caption }: { rows: PersonSummary[]; caption:
       data={rows}
       empty={t('people.empty')}
       rowId={(p) => p.id}
-      columns={[
-        col<PersonSummary>('name', t('people.name'), (p) => (
-          <a href={`#/people/${p.id}`}>
-            <Sensitive value={p.displayName} />
-          </a>
-        )),
-        col<PersonSummary>('dob', t('people.dob'), (p) => <Sensitive value={p.dob} />),
-        col<PersonSummary>('nat', t('people.nationality'), (p) => p.nationality ?? '-'),
-        col<PersonSummary>('unit', t('people.unit'), (p) => p.currentUnitName ?? '-'),
-        col<PersonSummary>('status', t('items.status'), (p) => <StatusBadge status={p.status} />),
-        col<PersonSummary>('exp', t('items.expiry'), (p) => fmtDate(p.expiresAt)),
-        col<PersonSummary>('rev', t('people.review'), (p) =>
-          p.hasOpenReview ? <Badge color="orange">{t('people.openReview')}</Badge> : '-',
-        ),
-      ]}
+      tableId="people"
+      emptyHint={t('ui.people.emptyHint')}
+      columns={PERSON_COLUMNS(t)}
     />
   );
 }

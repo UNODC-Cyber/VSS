@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { IsoDate, MatchTier, VettingStatus } from '@shared/domain/types';
 import type { LinkState } from '@shared/domain/types';
-import { useCopy } from '../lib/clipboard';
+import { CopyIconButton } from './ui/CopyIconButton';
 import { mask, STATUS_COLOR } from '../lib/format';
 import { useUi } from '../store';
 
@@ -80,21 +80,8 @@ export function Sensitive({ value }: { value: string | null | undefined }) {
   return <span data-sensitive="true">{redact ? mask(value) : value}</span>;
 }
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
-  const copy = useCopy();
-  const { t } = useTranslation();
-  if (!text) return null;
-  return (
-    <Button
-      size="compact-xs"
-      variant="subtle"
-      aria-label={t('common.copyField', { field: label })}
-      onClick={() => void copy(text, t('common.copied', { field: label }))}
-    >
-      {t('common.copy')}
-    </Button>
-  );
-}
+/** Icon-only copy button (kept under its old name so every call site now renders the icon). */
+export const CopyButton = CopyIconButton;
 
 export function SimplePager({
   total,

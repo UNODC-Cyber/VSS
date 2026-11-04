@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter/wght.css';
 import '@mantine/core/styles.css';
 import './styles.css';
 import { MantineProvider } from '@mantine/core';
