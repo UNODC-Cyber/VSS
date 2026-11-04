@@ -3,11 +3,35 @@ import { mock, ui } from './helpers';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { RequestDetailScreen } from '../../../src/renderer/src/screens/RequestDetailScreen';
+import { RequestDetailScreen, requestActions } from '../../../src/renderer/src/screens/RequestDetailScreen';
 import { ImportRequestScreen } from '../../../src/renderer/src/screens/ImportRequestScreen';
 import { ManualRequestScreen } from '../../../src/renderer/src/screens/ManualRequestScreen';
 import { RequestsScreen } from '../../../src/renderer/src/screens/RequestsScreen';
 import { useUi } from '../../../src/renderer/src/store';
+
+describe('request actions follow the request state (UI review O-16)', () => {
+  it('one emphasised action per open state; a closed request offers no new work', () => {
+    expect(requestActions('validated')).toMatchObject({ export: true, primary: 'export' });
+    expect(requestActions('sent-to-dc')).toMatchObject({ answer: true, primary: 'import' });
+    expect(requestActions('responded').primary).toBeNull();
+    expect(requestActions('closed')).toMatchObject({
+      export: false,
+      markSent: false,
+      answer: false,
+      edit: false,
+      delete: false,
+      primary: null,
+    });
+  });
+
+  it('an empty vault says how to start instead of "no match" (O-22)', async () => {
+    const ctl = mock();
+    ctl.db.requests = [];
+    ui(<RequestsScreen />);
+    expect(await screen.findByText('No requests yet.')).toBeInTheDocument();
+    expect(screen.queryByText('No requests match.')).not.toBeInTheDocument();
+  });
+});
 
 describe('requests list', () => {
   it('lists requests and filters to outstanding only', async () => {
@@ -194,6 +218,18 @@ describe('request detail', () => {
     const dlg = await screen.findByRole('dialog');
     await user.type(within(dlg).getByRole('combobox', { name: /Search/ }), 'Cedar');
     await user.click(await within(dlg).findByRole('option', { name: /Cedar, Solana/ }));
+    // A pick is compared first and confirmed explicitly; nothing is linked on the first click.
+    const confirm = await within(dlg).findByRole('button', { name: 'Confirm link to Cedar, Solana' });
+    expect(screen.getByTestId('unresolved-count')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(dlg).queryByText(/Compare the records field by field|These records disagree/)).toBeInTheDocument(),
+    );
+    if (within(dlg).queryByTestId('identity-conflicts')) {
+      expect(confirm).toBeDisabled();
+      await user.click(within(dlg).getByRole('checkbox', { name: /I compared/ }));
+    }
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
     await waitFor(() => expect(screen.queryByTestId('unresolved-count')).not.toBeInTheDocument());
     expect(ctl.db.reviews.filter((r) => r.kind === 'request-item-link' && r.state === 'open')).toHaveLength(0);
   });
@@ -202,8 +238,23 @@ describe('request detail', () => {
     const { ctl, user, req } = await openDetail('Regional Cyber Workshop');
     await user.click(screen.getByRole('button', { name: 'Responded by email' }));
     const dlg = await screen.findByRole('dialog');
+    // UI review O-04: no outcome and no scope are pre-chosen; nothing can be recorded yet.
+    expect(within(dlg).getByRole('radio', { name: 'Approved' })).not.toBeChecked();
+    expect(within(dlg).getByRole('radio', { name: 'Not approved' })).not.toBeChecked();
+    expect(within(dlg).getByRole('radio', { name: /^Everyone on the request/ })).not.toBeChecked();
+    expect(within(dlg).getByRole('button', { name: 'Review before recording' })).toBeDisabled();
+    expect(within(dlg).queryByRole('button', { name: 'Record outcome' })).not.toBeInTheDocument();
+    await user.click(within(dlg).getByRole('radio', { name: 'Approved' }));
+    expect(within(dlg).getByRole('button', { name: 'Review before recording' })).toBeDisabled();
+    await user.click(within(dlg).getByRole('radio', { name: 'Everyone on the request (4 people)' }));
     expect(within(dlg).getByTestId('expiry-assumed')).toHaveTextContent('Assumed expiry');
     expect(within(dlg).getByText(/Assumed: clearance date plus 30 days/)).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: 'Review before recording' }));
+    // The confirmation summary names everyone it applies to, before anything is saved.
+    const summary = within(dlg).getByTestId('clearance-summary');
+    expect(summary).toHaveTextContent('This records an outcome for 4 people');
+    expect(within(summary).getAllByRole('row')).toHaveLength(5);
+    expect(ctl.db.records.filter((r) => r.requestId === req.id)).toHaveLength(0);
     await user.click(within(dlg).getByRole('button', { name: 'Record outcome' }));
     await waitFor(() => expect(ctl.db.requests.find((r) => r.id === req.id)?.responseKind).toBe('email-clearance'));
     const recs = ctl.db.records.filter((r) => r.requestId === req.id);
@@ -215,10 +266,15 @@ describe('request detail', () => {
     const { ctl, user, req } = await openDetail('Regional Cyber Workshop');
     await user.click(screen.getByRole('button', { name: 'Responded by email' }));
     const dlg = await screen.findByRole('dialog');
+    await user.click(within(dlg).getByRole('radio', { name: 'Approved' }));
     await user.click(within(dlg).getByRole('radio', { name: 'Selected people' }));
+    expect(within(dlg).getByRole('button', { name: 'Review before recording' })).toBeDisabled();
     await user.click(within(dlg).getByRole('checkbox', { name: /Alder, Terra/ }));
     fireDate(within(dlg).getByLabelText('Expires on'), '2030-01-01');
     expect(within(dlg).queryByTestId('expiry-assumed')).not.toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: 'Review before recording' }));
+    expect(within(dlg).getByTestId('clearance-summary')).toHaveTextContent('1 person');
+    expect(within(dlg).getByTestId('clearance-summary')).toHaveTextContent(/3 people on the request are not included/);
     await user.click(within(dlg).getByRole('button', { name: 'Record outcome' }));
     await waitFor(() => expect(ctl.db.records.filter((r) => r.requestId === req.id)).toHaveLength(1));
     const rec = ctl.db.records.find((r) => r.requestId === req.id)!;
