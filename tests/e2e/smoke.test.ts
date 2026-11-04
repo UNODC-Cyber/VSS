@@ -73,6 +73,7 @@ describe('app smoke', () => {
     const keys = await page.evaluate(() => Object.keys(window.vss).sort());
     expect(keys).toEqual(
       [
+        'app',
         'audit',
         'backup',
         'clipboard',
@@ -81,6 +82,7 @@ describe('app smoke', () => {
         'on',
         'peer',
         'persons',
+        'requestors',
         'requests',
         'responses',
         'review',
