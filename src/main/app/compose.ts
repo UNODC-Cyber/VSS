@@ -13,6 +13,7 @@
  *   not planned (MVP): peer.* (experimental, post-MVP) -> NOT_SUPPORTED
  */
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { arch, platform, release as osRelease } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Settings } from '@shared/domain/types';
 import type {
@@ -48,6 +49,7 @@ import type { FilesPort } from '../services/files';
 import { LockController } from '../services/lock';
 import type { LockReason, PowerEvents } from '../services/lock';
 import { SettingsService } from '../services/settings';
+import { feedbackUrl } from './channel';
 import { settingsLastCheckStore } from '../services/updates-wiring';
 import type { UpdateServiceFactory, UpdateServiceLike } from '../services/updates-wiring';
 import { VaultService } from '../services/vault-service';
@@ -68,7 +70,7 @@ export type AppRoute = 'create' | 'unlock' | 'lock';
 export interface AppPorts {
   files: FilesPort;
   clipboard: ClipboardPort;
-  /** shell.openExternal (only ever called with mailto: URLs). */
+  /** shell.openExternal (only ever called with mailto: URLs and the fixed feedback URL from channel.ts). */
   openExternal(url: string): Promise<void>;
   emit<E extends VssEventName>(event: E, payload: VssEventMap[E]): void;
   navigate(route: AppRoute): void;
@@ -670,8 +672,22 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
           platform: process.platform,
           schemaVersion: APP_SCHEMA_VERSION,
         }),
-      // LANE I SLOT: the fixed, allowlisted feedback URL (docs/PLAN-ALPHA.md section 12).
-      openFeedback: async () => err('NOT_SUPPORTED', 'Feedback is not available in this version'),
+      // The fixed feedback URL (docs/PLAN-ALPHA.md section 12): version, OS version and architecture only, built in
+      // main from nothing the renderer or the vault supplies.
+      openFeedback: async () => {
+        try {
+          await ports.openExternal(
+            feedbackUrl({
+              version: opts.appInfo?.version ?? '0.0.0',
+              os: `${platform()}-${osRelease()}`,
+              arch: arch(),
+            }),
+          );
+          return ok({ ok: true as const });
+        } catch {
+          return err('INTERNAL', 'The feedback page could not be opened');
+        }
+      },
       // R16: geometry only, no vault data: answers while locked too.
       resetWindowState: async () => {
         opts.resetWindowState?.();

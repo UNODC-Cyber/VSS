@@ -8,6 +8,7 @@ import { ALL_CHANNELS, channelName, METHODS, NAMESPACES } from '@shared/ipc/chan
 import type { Namespace } from '@shared/ipc/channels';
 import { EVENT_NAMES } from '@shared/ipc/contract';
 import { eventSchemas, ipcSchemas, schemasForChannel } from '@shared/ipc/schemas';
+import { FEEDBACK_BASE } from '../../src/main/app/channel';
 import { APP_SCHEMA_VERSION } from '../../src/main/db/migrations';
 import { createMockApi } from '../../src/renderer/src/mock/mockApi';
 import { MOCK_EXTENSIONS } from '../../src/renderer/src/mock/ext';
@@ -22,8 +23,7 @@ const NO_MAIN_HANDLER: readonly Namespace[] = ['peer'];
 /** Valid requests for the Alpha 1 methods whose lane has not landed (they must answer NOT_SUPPORTED). */
 const LANE_STUBS: [Namespace, string, unknown][] = [
   // landed: lanes B (requestors), D (requests close / reopen), E (email templates), K (persons.suggest,
-  // review.manualValidate, review.editSubject: tests/unit/services/review-manual.test.ts)
-  ['app', 'openFeedback', undefined],
+  // review.manualValidate, review.editSubject: tests/unit/services/review-manual.test.ts, I: app.openFeedback below)
 ];
 
 let t: TestApp | null = null;
@@ -107,6 +107,17 @@ describe('contract completeness', () => {
     const dash = await t.call('stats', 'dashboard', {});
     expect(dash.ok && ipcSchemas.stats.dashboard.res.safeParse(dash.value).success).toBe(true);
     expect(dash.value.requestsByStatus).toMatchObject({ received: 0, finished: 0, closed: 0 });
+  });
+
+  it('app.openFeedback opens exactly the fixed issue-form URL with version, OS and architecture only', async () => {
+    t = await makeApp({ appInfo: { version: '0.2.0-alpha.1', channel: 'alpha' } });
+    expect(await t.call('app', 'openFeedback')).toMatchObject({ ok: true });
+    expect(t.rec.opened).toHaveLength(1);
+    const url = t.rec.opened[0]!;
+    expect(url.startsWith(FEEDBACK_BASE + '[alpha+0.2.0-alpha.1]+')).toBe(true);
+    expect(url.slice(FEEDBACK_BASE.length)).toMatch(/^\[alpha\+0\.2\.0-alpha\.1\]\+[\w.-]+\+[\w.-]+$/);
+    // locked or unlocked, no vault content is involved
+    expect(url).not.toContain('body=');
   });
 
   it('crash recovery emits the code-only event', async () => {
