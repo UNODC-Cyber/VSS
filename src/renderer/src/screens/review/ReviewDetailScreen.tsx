@@ -212,7 +212,7 @@ function ReviewBody({ detail, onChanged }: { detail: ReviewItemDetail; onChanged
           {item.candidates.map((c) => (
             <Group key={c.targetId} gap="xs" wrap="nowrap" align="flex-start" data-testid="match-evidence">
               <TierBadge tier={c.tier} />
-              <Text size="sm" title={c.evidence.join(', ')}>
+              <Text size="sm" title={c.evidence.join(', ')} style={{ flex: '1 1 0', minWidth: 0 }}>
                 {c.evidence.map((e) => t(`evidence.${e}`, { defaultValue: e })).join('; ')}
               </Text>
             </Group>

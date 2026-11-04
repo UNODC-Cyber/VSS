@@ -31,7 +31,8 @@
   --mantine-color-red-text: #ff8787;
   --mantine-color-red-outline: #ff8787;
   --mantine-color-red-light: rgba(250, 82, 82, 0.2);
-  --mantine-color-red-light-color: #ffa8a8;
+  /* #ffc9c9 (not #ffa8a8): stays AA on the yellow "differs" row highlight too (R3S-05 / R3O-13). */
+  --mantine-color-red-light-color: #ffc9c9;
   --mantine-color-orange-light: rgba(253, 126, 20, 0.22);
   --mantine-color-orange-light-color: #ffc078;
   --mantine-color-yellow-light: rgba(250, 176, 5, 0.2);
@@ -74,6 +75,27 @@ a:not([class]):visited {
   font-feature-settings:
     'cv11' 1,
     'ss03' 1;
+}
+
+/*
+ * Badges are labels a decision depends on (Invalid date, Ambiguous, Unit approval, T4): they are never squeezed or
+ * cut with an ellipsis (UI review round 3, R3S-01..04 / R3O-01..02). A badge keeps its natural width in any flex row;
+ * the row around it wraps instead (DobValue, table cells: `.vss-cell .mantine-Group-root` below).
+ */
+.mantine-Badge-root {
+  flex-shrink: 0;
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+}
+.mantine-Badge-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+/* A Group holding a badge inside a table cell wraps when the cell is too narrow, so the badge moves to the next line. */
+.vss-table .vss-cell .mantine-Group-root:has(> .mantine-Badge-root) {
+  flex-wrap: wrap;
+  row-gap: 2px;
 }
 
 /* DataTable v2 (components/DataTable.tsx). Fixed layout: columns cannot overlap, long text is cut, never spilled. */
