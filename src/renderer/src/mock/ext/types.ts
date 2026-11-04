@@ -16,7 +16,7 @@ export interface LaneMethods {
   persons: 'suggest';
   review: 'manualValidate' | 'editSubject';
   email: 'renderTemplate' | 'previewTemplate';
-  app: 'openFeedback';
+  app: 'openFeedback' | 'resetWindowState';
 }
 type LaneMethodsOf<N extends Namespaces> = N extends keyof LaneMethods ? LaneMethods[N] : never;
 

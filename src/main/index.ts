@@ -1,10 +1,11 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, powerMonitor } from 'electron';
+import { app, BrowserWindow, powerMonitor, screen } from 'electron';
 import { composeApp } from './app/compose';
 import type { ComposedApp } from './app/compose';
 import { createElectronPorts } from './app/electron-ports';
 import { createLogger } from './app/logger';
 import { resolveAppPaths } from './app/paths';
+import { createWindowStateKeeper, WINDOW_STATE_FILE } from './app/window-state';
 import { DEBUG_REFUSED_MESSAGE, findDebugSwitch } from './bootstrap/debug-guard';
 import { installSecurity, registerAppScheme } from './bootstrap/security';
 import { createMainWindow } from './bootstrap/window';
@@ -50,6 +51,16 @@ if (!gotLock) {
   let mainWindow: BrowserWindow | null = null;
   let composed: ComposedApp | null = null;
   let quitting = false;
+  // R16: remember the window's size/position (plain file in the session folder, never in the vault).
+  const windowState = createWindowStateKeeper({
+    file: join(paths.sessionDir, WINDOW_STATE_FILE),
+    defaults: { width: 1280, height: 800 },
+    min: { width: 960, height: 600 },
+    displays: () => ({
+      displays: screen.getAllDisplays().map((d) => ({ id: d.id, bounds: d.bounds, workArea: d.workArea })),
+      primaryId: screen.getPrimaryDisplay().id,
+    }),
+  });
 
   app.on('second-instance', () => {
     const win = BrowserWindow.getAllWindows()[0];
@@ -79,19 +90,22 @@ if (!gotLock) {
       updates: createRealUpdateService,
       logger: log,
       appInfo: { version: app.getVersion() },
+      resetWindowState: () => windowState.reset(),
     });
     registerIpc(composed.handlers);
     // OS shutdown / logoff: lock synchronously, nothing else can be relied on.
     powerMonitor.on('shutdown', () => composed?.vault.forceLock());
     const route = await composed.initialRoute();
-    mainWindow = createMainWindow(route);
+    mainWindow = createMainWindow(route, windowState.initial());
+    windowState.attach(mainWindow);
     mainWindow.on('closed', () => {
       mainWindow = null;
     });
     log.info('app.ready', { version: app.getVersion(), state: route });
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createMainWindow('lock');
+        mainWindow = createMainWindow('lock', windowState.initial());
+        windowState.attach(mainWindow);
       }
     });
   });

@@ -1356,6 +1356,8 @@ export interface VssApi {
     info(): R<AppInfo>;
     /** Lane I: opens the fixed, allowlisted feedback URL (version, OS and architecture only). */
     openFeedback(): R<Ack>;
+    /** R16: forget the remembered window size/position and re-centre the window. */
+    resetWindowState(): R<Ack>;
   };
   /** Subscribe to main-process events. Returns an unsubscribe function. */
   on<E extends VssEventName>(event: E, listener: (payload: VssEventMap[E]) => void): () => void;
