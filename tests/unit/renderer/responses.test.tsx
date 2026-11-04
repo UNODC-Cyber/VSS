@@ -36,13 +36,13 @@ describe('responses', () => {
     const req = ctl.db.requests.find((r) => r.eventName === 'Regional Cyber Workshop')!;
     ui(<ImportResponseScreen requestId={req.id} />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     await screen.findByRole('table', { name: 'Rows in the response' });
     expect(screen.getAllByText('T1').length).toBeGreaterThan(0);
     expect(screen.getByText('T2')).toBeInTheDocument();
     expect(screen.getByText('T3')).toBeInTheDocument();
     expect(screen.getAllByText('pre-confirmed').length).toBe(2);
-    const commit = screen.getByRole('button', { name: 'Import response' });
-    expect(commit).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     expect(screen.getByText('2 rows still need a decision.')).toBeInTheDocument();
   });
 
@@ -52,6 +52,7 @@ describe('responses', () => {
     const req = ctl.db.requests.find((r) => r.eventName === 'Regional Cyber Workshop')!;
     ui(<ImportResponseScreen requestId={req.id} />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     await user.click(await screen.findByRole('button', { name: 'Compare row S2' }));
     const dlg = await screen.findByRole('dialog');
     const diff = within(dlg).getByTestId('diff');
@@ -69,6 +70,7 @@ describe('responses', () => {
     const req = ctl.db.requests.find((r) => r.eventName === 'Regional Cyber Workshop')!;
     ui(<ImportResponseScreen requestId={req.id} />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     await screen.findByRole('table', { name: 'Rows in the response' });
     const s2 = screen.getAllByLabelText('Decision for row S2')[0]!;
     await user.click(s2);
@@ -76,6 +78,8 @@ describe('responses', () => {
     const s3 = screen.getAllByLabelText('Decision for row S3')[0]!;
     await user.click(s3);
     await user.click((await screen.findAllByRole('option', { name: 'None of these', hidden: true })).at(-1)!);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Next' }));
     const commit = screen.getByRole('button', { name: 'Import response' });
     await waitFor(() => expect(commit).toBeEnabled());
     await user.click(commit);
@@ -99,6 +103,7 @@ describe('responses', () => {
     });
     ui(<ImportResponseScreen requestId={req.id} />);
     await user.click(screen.getByRole('button', { name: 'Choose file' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
     expect(await screen.findByText('1 people on the request have no answer')).toBeInTheDocument();
     expect(screen.getByText(/Zinnia/)).toBeInTheDocument();
   });

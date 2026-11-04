@@ -144,14 +144,21 @@ describe('mock journey', () => {
   it('import the response and confirm a T2 row', async () => {
     await page.getByRole('button', { name: 'Import response' }).click();
     await page.getByRole('button', { name: 'Choose file' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('table', { name: 'Rows in the response' }).waitFor();
-    expect(await page.getByRole('button', { name: 'Import response' }).isDisabled()).toBe(true);
+    expect(await page.getByRole('button', { name: 'Next' }).isDisabled()).toBe(true);
+    // Back keeps the step and the file: Match request is one step back, Next returns to the rows.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('heading', { name: 'Match request' }).waitFor();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('table', { name: 'Rows in the response' }).waitFor();
     await page.getByRole('button', { name: 'Compare row S2' }).click();
     await page.getByRole('dialog').getByTestId('diff').waitFor();
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await chooseOption('Decision for row S2', /^T2:/);
     await chooseOption('Decision for row S3', 'None of these');
     await expectNoAxeViolations();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Import response' }).click();
     await page.getByRole('heading', { name: 'Journey Event' }).waitFor();
     await page.getByText('Responded').first().waitFor();

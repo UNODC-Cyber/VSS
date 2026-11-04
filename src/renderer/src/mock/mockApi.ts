@@ -1256,6 +1256,8 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         }),
       importPreview: (req) =>
         gate(() => {
+          // Lane F: a request workbook picked in the response importer answers WRONG_FILE_KIND (the friendly state).
+          if (/request[^/]*$/i.test(req.path)) return fail('WRONG_FILE_KIND', 'This is a vetting request workbook.');
           if (!/\/response[^/]*$/.test(req.path)) return fail('FILE_INVALID', 'This is not a response workbook.');
           const p = buildResponsePreview(req.path, req.requestId);
           respPreviews.set(p.previewId, { preview: p, requestId: p.suggestedRequestId });
