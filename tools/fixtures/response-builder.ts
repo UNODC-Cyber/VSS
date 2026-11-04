@@ -29,6 +29,12 @@ export interface ResponseWorkbookSpec {
   line3: string;
   line4: string;
   sections: ResponseSectionSpec[];
+  /**
+   * Layout seen in current DC files: two hidden, styled but empty columns I:J after the eight data columns (written on
+   * every data row), and a dimension that ends at the last written row instead of the trailing blank. Default off, so
+   * the older fixtures stay byte-identical.
+   */
+  hiddenTrailingColumns?: boolean;
 }
 
 const HEADERS = ['DISP', 'NAME', 'DOB', 'POB', 'UNIT TYPE', 'UNIT NAME', 'CERT DATE', 'EXPIRES'];
@@ -44,6 +50,7 @@ export interface BuiltResponse {
 
 export function buildResponseWorkbook(spec: ResponseWorkbookSpec): BuiltResponse {
   const sst = SharedStringsTable.empty();
+  const hidden = spec.hiddenTrailingColumns === true;
   const written = new Set<string>();
   let refs = 0;
   const cell = (ref: string, style: number, text: string | null): string => {
@@ -89,18 +96,25 @@ export function buildResponseWorkbook(spec: ResponseWorkbookSpec): BuiltResponse
     r += 1;
     for (const row of sec.rows) {
       const vals = [row.disp, row.name, row.dob, row.pob, row.unitType, row.unitName, row.cert, row.expires];
-      rows.push(`<row r="${r}">${vals.map((v, i) => cell(`${'ABCDEFGH'[i]}${r}`, i === 0 ? 1 : 4, v)).join('')}</row>`);
+      const tail = hidden ? `${cell(`I${r}`, 2, null)}${cell(`J${r}`, 2, null)}` : '';
+      rows.push(
+        `<row r="${r}">${vals.map((v, i) => cell(`${'ABCDEFGH'[i]}${r}`, i === 0 ? 1 : 4, v)).join('')}${tail}</row>`,
+      );
       r += 1;
     }
     r += 1; // blank row after each section
   }
-  const last = r - 1;
+  const last = hidden ? r - 2 : r - 1;
+  const lastCol = hidden ? 'J' : 'H';
+  const hiddenCols = hidden
+    ? '<col min="9" max="9" hidden="1" width="9" customWidth="1"/><col min="10" max="10" hidden="1" width="9" customWidth="1"/>'
+    : '';
   const sheet =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-    `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:H${last}"/>` +
+    `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${lastCol}${last}"/>` +
     `<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>` +
-    `<cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="2" width="34" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="34" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/><col min="6" max="6" width="48" customWidth="1"/><col min="7" max="8" width="12" customWidth="1"/></cols>` +
+    `<cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="2" width="34" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="34" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/><col min="6" max="6" width="48" customWidth="1"/><col min="7" max="8" width="12" customWidth="1"/>${hiddenCols}</cols>` +
     `<sheetData>${rows.join('')}</sheetData>` +
     `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` +
     `<pageMargins left="0.45" right="0.45" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
