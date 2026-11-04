@@ -54,6 +54,8 @@ export interface WizardProps {
   onNext: () => void;
   nextLabel: string;
   nextDisabled?: boolean;
+  /** Why Next is disabled, shown next to it (a disabled button never stays silent, UI review O-10). */
+  nextHint?: string | null;
   nextLoading?: boolean;
   /** True when cancelling would discard entered work; Cancel and Escape then ask first. */
   dirty: boolean;
@@ -69,6 +71,7 @@ export function Wizard({
   onNext,
   nextLabel,
   nextDisabled = false,
+  nextHint = null,
   nextLoading = false,
   dirty,
   onCancel,
@@ -135,10 +138,20 @@ export function Wizard({
           {t('wizard.back')}
         </Button>
         <Group gap="sm">
+          {nextDisabled && nextHint && (
+            <Text size="sm" id="wizard-next-hint" data-testid="wizard-next-hint">
+              {nextHint}
+            </Text>
+          )}
           <Button variant="subtle" color="gray" onClick={requestCancel}>
             {t('wizard.cancel')}
           </Button>
-          <Button onClick={onNext} disabled={nextDisabled} loading={nextLoading}>
+          <Button
+            onClick={onNext}
+            disabled={nextDisabled}
+            loading={nextLoading}
+            aria-describedby={nextDisabled && nextHint ? 'wizard-next-hint' : undefined}
+          >
             {nextLabel}
           </Button>
         </Group>

@@ -199,7 +199,8 @@ export function ImportRequestScreen() {
 
   return (
     <Stack>
-      <PageHeader title={preview ? t('import.previewTitle', { name: preview.fileName }) : t('import.title')} />
+      <PageHeader title={t('import.title')} />
+      {preview && <Text size="sm">{t('importFlow.fileShown', { name: preview.fileName })}</Text>}
       <Wizard
         steps={steps}
         current={step}
@@ -207,6 +208,15 @@ export function ImportRequestScreen() {
         onNext={onNext}
         nextLabel={confirmLast ? t('import.commit') : t('wizard.next')}
         nextDisabled={nextDisabled}
+        nextHint={
+          step >= 1 && preview
+            ? !formValid
+              ? t('importFlow.needDetails')
+              : reasonMissing
+                ? t('import.reasonNeeded')
+                : null
+            : null
+        }
         nextLoading={busy && confirmLast}
         dirty={preview !== null}
         onCancel={cancel}
@@ -286,10 +296,25 @@ export function ImportRequestScreen() {
                   truncate: true,
                   tooltip: (i) => i.unitName,
                 }),
-                col<ImportPreviewItem>('dob', t('import.dob'), (i) => <Sensitive value={i.dobRaw} />, {
-                  width: 120,
-                  nowrap: true,
-                }),
+                // The parsed date (ISO), as it will be saved; an Excel serial is never shown raw (UI review O-05).
+                col<ImportPreviewItem>(
+                  'dob',
+                  t('import.dob'),
+                  (i) =>
+                    i.dob ? (
+                      <Sensitive value={i.dob} />
+                    ) : i.dobRaw.trim() ? (
+                      <Stack gap={0}>
+                        <Sensitive value={i.dobRaw} />
+                        <Text size="xs" data-testid="dob-unreadable">
+                          {t('importFlow.dobUnreadable')}
+                        </Text>
+                      </Stack>
+                    ) : (
+                      '-'
+                    ),
+                  { width: 120, nowrap: true },
+                ),
                 col<ImportPreviewItem>('link', t('import.link'), (i) => <LinkBadge state={i.linkState} />, {
                   minWidth: 150,
                   nowrap: true,
