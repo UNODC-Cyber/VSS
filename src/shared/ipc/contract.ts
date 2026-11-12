@@ -1152,6 +1152,13 @@ export interface FilePickOpenRequest {
   kind: FileKind;
   title?: string;
 }
+/** Kinds a dropped file may be granted for: the import screens only. */
+export type DropFileKind = 'request-xlsx' | 'response-xlsx';
+export interface FileGrantDropRequest {
+  kind: DropFileKind;
+  /** The path of a file the user dropped on an import screen (from `VssApi.pathForDrop`). Main re-validates it. */
+  path: string;
+}
 export interface FilePickSaveRequest {
   kind: FileKind;
   suggestedName: string;
@@ -1363,6 +1370,8 @@ export interface VssApi {
   files: {
     pickOpen(req: FilePickOpenRequest): R<FilePickResult>;
     pickSave(req: FilePickSaveRequest): R<FilePickResult>;
+    /** Drag and drop: turns a dropped .xlsx into the same opaque open token a dialog would give. */
+    grantDrop(req: FileGrantDropRequest): R<FilePickResult>;
     reveal(req: FileRevealRequest): R<Ack>;
     saveStored(req: FileSaveStoredRequest): R<Ack>;
   };
@@ -1375,4 +1384,6 @@ export interface VssApi {
   };
   /** Subscribe to main-process events. Returns an unsubscribe function. */
   on<E extends VssEventName>(event: E, listener: (payload: VssEventMap[E]) => void): () => void;
+  /** Preload only: the real path of a File the user dropped (Electron webUtils). Not an IPC call; no vault data. */
+  pathForDrop(file: File): string;
 }

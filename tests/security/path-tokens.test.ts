@@ -133,4 +133,31 @@ describe('F-02 dialog-issued path tokens', () => {
     g.clear();
     expect(() => g.resolve(tok2, 'save', ['csv'])).toThrow();
   });
+
+  it('files.grantDrop: only an existing import workbook, only while unlocked, and the token imports the file', async () => {
+    t = await unlocked();
+    const good = fx('demo/demo-request-2_example-river-city-course.xlsx');
+    const g = await t.call('files', 'grantDrop', { kind: 'request-xlsx', path: good });
+    expect(g.ok).toBe(true);
+    const token = g.value.path as string;
+    expect(token).toMatch(/^vss-file:[0-9a-f]{32}$/);
+    expect((await t.call('requests', 'importPreview', { path: token })).ok).toBe(true);
+
+    const startup = join(t.root, 'Startup');
+    mkdirSync(startup);
+    writeFileSync(join(startup, 'run.cmd'), 'echo pwned');
+    for (const [kind, path] of [
+      ['request-xlsx', join(startup, 'run.cmd')], // wrong extension
+      ['request-xlsx', 'relative.xlsx'], // not absolute
+      ['request-xlsx', startup], // a folder
+      ['request-xlsx', join(t.root, 'missing.xlsx')], // not there
+      ['csv', good], // kind outside the drop kinds
+      ['any', good],
+    ] as const) {
+      const r = await t.call('files', 'grantDrop', { kind, path });
+      expect(r.ok, `${kind} ${path}`).toBe(false);
+    }
+    await t.call('vault', 'lock');
+    expect((await t.call('files', 'grantDrop', { kind: 'request-xlsx', path: good })).ok).toBe(false);
+  });
 });

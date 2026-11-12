@@ -14,11 +14,12 @@
  * All grants are dropped when the vault locks.
  */
 import { randomBytes } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { stat, writeFile } from 'node:fs/promises';
 import { extname, isAbsolute, resolve } from 'node:path';
 import type {
   Ack,
   FileKind,
+  FileGrantDropRequest,
   FilePickOpenRequest,
   FilePickResult,
   FilePickSaveRequest,
@@ -192,6 +193,9 @@ export interface FilesDeps {
   onDialogError?(kind: 'open' | 'save'): void;
 }
 
+/** A request or response workbook is a few hundred KB; refuse anything above this when dropped. */
+export const MAX_DROP_BYTES = 25 * 1024 * 1024;
+
 const NONE: FilePickResult = { path: null, displayPath: null };
 
 export class FilesService {
@@ -231,6 +235,27 @@ export class FilesService {
     return withGrant(() =>
       ok({ path: this.d.grants.issue(chosen, req.kind, directory ? 'directory' : 'open'), displayPath: chosen }),
     );
+  }
+
+  /**
+   * Drag and drop. The renderer names the path (from webUtils.getPathForFile), so this is the one place a path comes
+   * from the UI instead of a dialog. It is narrow: import kinds only, an absolute path to an existing regular .xlsx or
+   * .xlsm file of at most MAX_DROP_BYTES, and the grant is the same read-only open token a dialog would issue.
+   */
+  async grantDrop(req: FileGrantDropRequest): Promise<Result<FilePickResult>> {
+    if (req.kind !== 'request-xlsx' && req.kind !== 'response-xlsx') return err('BAD_REQUEST', 'Choose the file again');
+    if (!isAbsolute(req.path)) return err('BAD_REQUEST', 'Choose the file again');
+    if (!extOk(req.path, req.kind)) return err('BAD_REQUEST', 'Drop an Excel workbook (.xlsx)');
+    let size: number;
+    try {
+      const s = await stat(req.path);
+      if (!s.isFile()) return err('BAD_REQUEST', 'Drop a single file, not a folder');
+      size = s.size;
+    } catch {
+      return err('BAD_REQUEST', 'The file could not be found. Choose it again');
+    }
+    if (size > MAX_DROP_BYTES) return err('BAD_REQUEST', 'The file is too large for an import');
+    return withGrant(() => ok({ path: this.d.grants.issue(req.path, req.kind, 'open'), displayPath: req.path }));
   }
 
   async pickSave(req: FilePickSaveRequest): Promise<Result<FilePickResult>> {

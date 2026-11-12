@@ -2,7 +2,7 @@
  * Sandboxed preload. Exposes ONLY `window.vss`, built from the channel allowlist in shared/ipc/channels.ts.
  * No Node APIs, no raw ipcRenderer, no zod (validation happens in main).
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 import { eventChannel, METHODS, NAMESPACES } from '../shared/ipc/channels';
 import { EVENT_NAMES } from '../shared/ipc/contract';
@@ -28,6 +28,14 @@ function buildApi(): VssApi {
     return () => {
       ipcRenderer.removeListener(channel, wrapped);
     };
+  };
+  // Not an IPC call: the real path of a File the user dropped. Main re-validates it in files.grantDrop.
+  api['pathForDrop'] = (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
   };
   return Object.freeze(api) as unknown as VssApi;
 }

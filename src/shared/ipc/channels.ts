@@ -59,7 +59,7 @@ export const METHODS = {
   audit: ['list', 'verify', 'export'],
   peer: ['status', 'setEnabled', 'pair', 'forget', 'syncNow'],
   templates: ['list', 'import', 'setActive', 'remove'],
-  files: ['pickOpen', 'pickSave', 'reveal', 'saveStored'],
+  files: ['pickOpen', 'pickSave', 'grantDrop', 'reveal', 'saveStored'],
   app: ['info', 'openFeedback', 'resetWindowState'],
 } as const;
 
@@ -70,7 +70,7 @@ export type ChannelName = {
 }[Namespace];
 
 /** Compile-time proof that METHODS and VssApi agree in both directions. */
-type ApiNamespaces = Exclude<keyof VssApi, 'on'>;
+type ApiNamespaces = Exclude<keyof VssApi, 'on' | 'pathForDrop'>;
 type _NsMatch = [Namespace] extends [ApiNamespaces] ? ([ApiNamespaces] extends [Namespace] ? true : never) : never;
 type _MethodMatch = {
   [N in Namespace]: [MethodOf<N>] extends [keyof VssApi[N]]

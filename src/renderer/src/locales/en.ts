@@ -313,6 +313,11 @@ const base = {
     rowCopied: 'Row copied',
     tableCopied: 'All rows copied',
   },
+  drop: {
+    hint: 'Or drag the Excel file here.',
+    oneFile: 'Drop one Excel file at a time.',
+    noPath: 'That file could not be read from the drop. Use Choose file instead.',
+  },
   import: {
     title: 'Import a request file',
     intro: 'Pick the request workbook. Nothing is saved until you confirm the preview.',

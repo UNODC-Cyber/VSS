@@ -5,6 +5,7 @@ import { useAction, useQuery, vss } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
 import { useUi } from '../store';
 import { col, DataTable } from './DataTable';
+import { DropZone } from './DropZone';
 
 /**
  * Settings > Templates: the INVESTc export template kept in the vault (VSS ships none). Import / replace with a blank
@@ -19,7 +20,10 @@ export function TemplatesCard() {
 
   const importOne = async () => {
     const f = await act(vss().files.pickOpen({ kind: 'request-xlsx', title: t('templates.pickTitle') }));
-    if (!f?.path) return;
+    if (f) await importFile(f);
+  };
+  const importFile = async (f: { path: string | null }) => {
+    if (!f.path) return;
     const r = await act(vss().templates.import({ path: f.path }));
     if (!r) return;
     toast({
@@ -76,11 +80,13 @@ export function TemplatesCard() {
             </Group>
           </Stack>
         )}
-        <Group>
-          <Button variant="default" onClick={() => void importOne()}>
-            {t('templates.importButton')}
-          </Button>
-        </Group>
+        <DropZone kind="request-xlsx" onFile={(f) => importFile(f)}>
+          <Group>
+            <Button variant="default" onClick={() => void importOne()}>
+              {t('templates.importButton')}
+            </Button>
+          </Group>
+        </DropZone>
         {list && list.history.length > 0 && (
           <DataTable
             caption={t('templates.history')}

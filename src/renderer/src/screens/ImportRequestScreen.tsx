@@ -15,6 +15,7 @@ import {
   toRequestor,
 } from '../components/RequestorField';
 import type { RequestorForm } from '../components/RequestorField';
+import { DropZone } from '../components/DropZone';
 import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
 import { useAction, useBusyAction, vss } from '../lib/api';
@@ -77,7 +78,11 @@ export function ImportRequestScreen() {
 
   const pick = async () => {
     const f = await picker.act(() => vss().files.pickOpen({ kind: 'request-xlsx', title: t('import.pickTitle') }));
-    if (!f?.path) return;
+    if (f) await loadFile(f);
+  };
+
+  const loadFile = async (f: { path: string | null }) => {
+    if (!f.path) return;
     const p = await act(vss().requests.importPreview({ path: f.path }));
     if (!p) return;
     discardHeld();
@@ -225,15 +230,17 @@ export function ImportRequestScreen() {
         {step === 0 && (
           <Stack>
             <Text>{preview ? t('wizard.fileReady', { name: preview.fileName }) : t('import.intro')}</Text>
-            <Group>
-              <Button
-                variant={preview ? 'default' : 'filled'}
-                onClick={() => guarded(() => void pick())}
-                loading={picker.busy}
-              >
-                {preview ? t('import.chooseAnother') : t('import.pick')}
-              </Button>
-            </Group>
+            <DropZone kind="request-xlsx" disabled={picker.busy} onFile={(f) => guarded(() => void loadFile(f))}>
+              <Group>
+                <Button
+                  variant={preview ? 'default' : 'filled'}
+                  onClick={() => guarded(() => void pick())}
+                  loading={picker.busy}
+                >
+                  {preview ? t('import.chooseAnother') : t('import.pick')}
+                </Button>
+              </Group>
+            </DropZone>
           </Stack>
         )}
 

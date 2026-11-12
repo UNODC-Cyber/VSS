@@ -1248,6 +1248,7 @@ const fileKind = z.enum([
   'any',
 ]);
 const filePickOpenReq = z.strictObject({ kind: fileKind, title: str(256).optional() });
+const fileGrantDropReq = z.strictObject({ kind: z.enum(['request-xlsx', 'response-xlsx']), path });
 const filePickSaveReq = z.strictObject({
   kind: fileKind,
   // eslint-disable-next-line no-control-regex
@@ -1277,7 +1278,7 @@ interface Entry<F> {
   req: z.ZodType<ArgOf<F>>;
   res: z.ZodType<ValOf<F>>;
 }
-type ApiNamespaces = Exclude<keyof VssApi, 'on'>;
+type ApiNamespaces = Exclude<keyof VssApi, 'on' | 'pathForDrop'>;
 export type SchemaTable = { [N in ApiNamespaces]: { [M in keyof VssApi[N]]: Entry<VssApi[N][M]> } };
 
 const none = z.undefined();
@@ -1411,6 +1412,7 @@ export const ipcSchemas = {
   files: {
     pickOpen: { req: filePickOpenReq, res: filePickResult },
     pickSave: { req: filePickSaveReq, res: filePickResult },
+    grantDrop: { req: fileGrantDropReq, res: filePickResult },
     reveal: { req: fileRevealReq, res: ack },
     saveStored: { req: fileSaveStoredReq, res: ack },
   },

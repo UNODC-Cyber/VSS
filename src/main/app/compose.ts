@@ -639,6 +639,7 @@ export async function composeApp(opts: ComposeOptions): Promise<ComposedApp> {
     files: {
       pickOpen: (req) => files.pickOpen(req),
       pickSave: (req) => files.pickSave(req),
+      grantDrop: (req) => unlockedGuard(() => files.grantDrop(req)),
       reveal: (req) => unlockedGuard(() => files.reveal(req)),
       saveStored: (req) => guardDb(() => files.saveStored(req)),
     },

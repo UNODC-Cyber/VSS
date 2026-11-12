@@ -15,6 +15,7 @@ import { col, DataTable } from '../components/DataTable';
 import { DiffGrid } from '../components/Diff';
 import { DobValue } from '../components/DobValue';
 import type { DiffField } from '../components/Diff';
+import { DropZone } from '../components/DropZone';
 import { DiscardDialog, Wizard } from '../components/Wizard';
 import type { WizardStep } from '../components/Wizard';
 import { DispBadge, PageHeader, QueryBoundary, Sensitive, SimplePager, TierBadge } from '../components/common';
@@ -443,7 +444,11 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
 
   const pick = async () => {
     const f = await act(vss().files.pickOpen({ kind: 'response-xlsx', title: t('responseImport.pickTitle') }));
-    if (!f?.path) return;
+    if (f) await loadFile(f);
+  };
+
+  const loadFile = async (f: { path: string | null; displayPath?: string | null }) => {
+    if (!f.path) return;
     await open(f.path, baseName(f.displayPath ?? '') || t('wizard.thisFile'), requestId ?? null, true);
   };
 
@@ -508,13 +513,15 @@ export function ImportResponseScreen({ requestId }: { requestId?: string }) {
   };
 
   const pickButton = (
-    <Button
-      variant={preview || problem ? 'default' : 'filled'}
-      onClick={() => guarded(() => void pick())}
-      disabled={busy}
-    >
-      {preview || problem ? t('wizard.chooseAnother') : t('responseImport.pick')}
-    </Button>
+    <DropZone kind="response-xlsx" disabled={busy} onFile={(f) => guarded(() => void loadFile(f))}>
+      <Button
+        variant={preview || problem ? 'default' : 'filled'}
+        onClick={() => guarded(() => void pick())}
+        disabled={busy}
+      >
+        {preview || problem ? t('wizard.chooseAnother') : t('responseImport.pick')}
+      </Button>
+    </DropZone>
   );
 
   return (

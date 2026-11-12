@@ -1954,6 +1954,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
         const p = map[req.kind] ?? null;
         return Promise.resolve(ok({ path: p, displayPath: p }));
       },
+      grantDrop: (req) => Promise.resolve(ok({ path: req.path, displayPath: req.path })),
       pickSave: (req) =>
         Promise.resolve(
           ok({ path: `mock://saved/${req.suggestedName}`, displayPath: `mock://saved/${req.suggestedName}` }),
@@ -1965,6 +1966,7 @@ export function createMockApi(opts: MockOptions = {}): MockControl {
       info: () =>
         Promise.resolve(ok({ version: update.currentVersion, channel: 'dev', platform: 'mock', schemaVersion: 4 })),
     },
+    pathForDrop: (file: File) => `mock://files/${file.name}`,
     on: (event, listener) => {
       let set = listeners.get(event);
       if (!set) {
